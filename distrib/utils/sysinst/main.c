@@ -67,6 +67,15 @@ FILE *script;			/* script file */
 extern int log_flip(void);
 #endif
 
+/* Definion for colors */
+
+enum COLOR { BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
+
+struct {
+	enum COLOR bg;
+	enum COLOR fg;
+} clr_arg;
+
 /* String defaults and stuff for processing the -f file argument. */
 
 struct f_arg {
@@ -119,7 +128,7 @@ static void
 init(void)
 {
 	const struct f_arg *arg;
-
+	
 	sizemult = 1;
 	disktype = "unknown";
 	tmp_ramdisk_size = 0;
@@ -131,6 +140,9 @@ init(void)
 	for (arg = fflagopts; arg->name != NULL; arg++)
 		strlcpy(arg->var, arg->dflt, arg->size);
 	pkg.xfer_type = pkgsrc.xfer_type = "http";
+	
+	clr_arg.bg=BLUE;
+	clr_arg.fg=WHITE;
 }
 
 int
@@ -151,7 +163,7 @@ main(int argc, char **argv)
 	}
 
 	/* argv processing */
-	while ((ch = getopt(argc, argv, "Dr:f:")) != -1)
+	while ((ch = getopt(argc, argv, "Dr:f:C:")) != -1)
 		switch(ch) {
 		case 'D':	/* set to get past certain errors in testing */
 			debug = 1;
@@ -163,6 +175,15 @@ main(int argc, char **argv)
 		case 'f':
 			/* Definition file to read. */
 			process_f_flag(optarg);
+			break;
+		case 'C':
+			/* Define colors */
+			sscanf (optarg, "%u:%u", (unsigned int*)&clr_arg.bg,
+				(unsigned int*)&clr_arg.fg);
+			if (clr_arg.bg > WHITE) 
+				clr_arg.bg = BLUE;
+			if (clr_arg.fg > WHITE) 
+				clr_arg.fg = WHITE;
 			break;
 		case '?':
 		default:
@@ -192,6 +213,12 @@ main(int argc, char **argv)
 		 * XXX This color trick should be done so much better,
 		 * but is it worth it?
 		 */
+		if (clr_arg.fg != WHITE || clr_arg.bg != BLUE) {
+			start_color();
+			init_pair(1, clr_arg.fg, clr_arg.bg);
+			wbkgd(stdscr, COLOR_PAIR(1));
+			wattrset(stdscr, COLOR_PAIR(1));
+		}
 		wbkgd(win, COLOR_PAIR(1));
 		wattrset(win, COLOR_PAIR(1));
 	}
