@@ -35,7 +35,7 @@
 /* MI Message catalog -- German, machine independent */
 
 message usage
-{Aufruf: sysinst [-r Release] [-f Definitionsdatei]
+{Aufruf: sysinst [-r Release] [-f Definitionsdatei]  [-C bg:fg]
 }
 
 /*
@@ -951,8 +951,9 @@ message Install_NetBSD_to_hard_disk {NetBSD auf die Festplatte installieren}
 message Upgrade_NetBSD_on_a_hard_disk {Aktualisierung einer bestehenden NetBSD-Installation}
 message Re_install_sets_or_install_additional_sets {Erneute Installation oder zusätzliche Pakete installieren}
 message Reboot_the_computer {Computer neu starten}
+message Config_menu {Konfiguration Menü}
 message Utility_menu {Extras}
-message exit_utility_menu {Zurück zum Hauptmenü}
+message exit_menu_generic {Zurück}
 message NetBSD_VERSION_Utilities {NetBSD-@@VERSION@@ Extras}
 message Run_bin_sh {Ausführen von /bin/sh}
 message Set_timezone {Setzen der Zeitzone}
@@ -1006,6 +1007,11 @@ message other {andere }
 message Perform_IPv6_autoconfiguration {IPv6 automatisch konfigurieren?}
 message Perform_DHCP_autoconfiguration {Konfiguration per DHCP ermitteln?}
 message Root_shell {Root-Shell}
+message Color_scheme {Farbschema}
+message White_on_black {Weiß auf schwarz}
+message Black_on_white {Schwarz auf weiß}
+message White_on_blue {Weiß auf Blau}
+message Green_on_black {Grün auf schwarz}
 
 .if AOUT2ELF
 message aoutfail

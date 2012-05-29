@@ -1604,3 +1604,23 @@ ext_dir_for_set(const char *set_name) {
 	return set_is_source(set_name) ? ext_dir_src : ext_dir_bin;
 }
 
+void
+do_coloring (unsigned int fg, unsigned int bg) {
+	if (bg > COLOR_WHITE)
+		bg = COLOR_BLUE;
+	if (fg > COLOR_WHITE)
+		fg = COLOR_WHITE;
+	if (fg != bg && has_colors()) {
+		init_pair(1, fg, bg);
+		wbkgd(stdscr, COLOR_PAIR(1));
+		wattrset(stdscr, COLOR_PAIR(1));
+		wbkgd(mainwin, COLOR_PAIR(1));
+		wattrset(mainwin, COLOR_PAIR(1));
+	}
+	/* redraw screen */
+	touchwin(stdscr);
+	touchwin(mainwin);
+	wrefresh(stdscr);
+	wrefresh(mainwin);
+	return;
+}

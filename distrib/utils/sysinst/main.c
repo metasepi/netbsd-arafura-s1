@@ -69,11 +69,9 @@ extern int log_flip(void);
 
 /* Definion for colors */
 
-enum COLOR { BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
-
 struct {
-	enum COLOR bg;
-	enum COLOR fg;
+	unsigned int bg;
+	unsigned int fg;
 } clr_arg;
 
 /* String defaults and stuff for processing the -f file argument. */
@@ -141,14 +139,13 @@ init(void)
 		strlcpy(arg->var, arg->dflt, arg->size);
 	pkg.xfer_type = pkgsrc.xfer_type = "http";
 	
-	clr_arg.bg=BLUE;
-	clr_arg.fg=WHITE;
+	clr_arg.bg=COLOR_BLUE;
+	clr_arg.fg=COLOR_WHITE;
 }
 
 int
 main(int argc, char **argv)
 {
-	WINDOW *win;
 	int ch;
 
 	init();
@@ -178,12 +175,7 @@ main(int argc, char **argv)
 			break;
 		case 'C':
 			/* Define colors */
-			sscanf (optarg, "%u:%u", (unsigned int*)&clr_arg.bg,
-				(unsigned int*)&clr_arg.fg);
-			if (clr_arg.bg > WHITE) 
-				clr_arg.bg = BLUE;
-			if (clr_arg.fg > WHITE) 
-				clr_arg.fg = WHITE;
+			sscanf(optarg, "%u:%u", &clr_arg.bg, &clr_arg.fg);
 			break;
 		case '?':
 		default:
@@ -202,27 +194,17 @@ main(int argc, char **argv)
 	 * Put 'messages' in a window that has a one-character border
 	 * on the real screen.
 	 */
-	win = newwin(getmaxy(stdscr) - 2, getmaxx(stdscr) - 2, 1, 1);
-	if (win == NULL) {
+	mainwin = newwin(getmaxy(stdscr) - 2, getmaxx(stdscr) - 2, 1, 1);
+	if (mainwin == NULL) {
 		(void)fprintf(stderr,
 			 "sysinst: screen too small\n");
 		exit(1);
 	}
 	if (has_colors()) {
-		/*
-		 * XXX This color trick should be done so much better,
-		 * but is it worth it?
-		 */
-		if (clr_arg.fg != WHITE || clr_arg.bg != BLUE) {
-			start_color();
-			init_pair(1, clr_arg.fg, clr_arg.bg);
-			wbkgd(stdscr, COLOR_PAIR(1));
-			wattrset(stdscr, COLOR_PAIR(1));
-		}
-		wbkgd(win, COLOR_PAIR(1));
-		wattrset(win, COLOR_PAIR(1));
+		start_color();
+		do_coloring (clr_arg.fg,clr_arg.bg);
 	}
-	msg_window(win);
+	msg_window(mainwin);
 
 	/* Watch for signals and clean up */
 	(void)atexit(cleanup);

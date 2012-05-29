@@ -476,6 +476,7 @@ const char *ext_dir_for_set(const char *);
 void	replace(const char *, const char *, ...);
 void	get_tz_default(void);
 int	extract_file(distinfo *, int);
+void	do_coloring (unsigned int, unsigned int);
 
 /* from target.c */
 #if defined(DEBUG)  ||	defined(DEBUG_ROOT)
@@ -533,4 +534,6 @@ void	do_configmenu(void);
 /* from checkrc.c */
 int	check_rcvar(const char *);
 int	check_rcdefault(const char *);
+	WINDOW *mainwin;
+
 #endif	/* _DEFS_H_ */
