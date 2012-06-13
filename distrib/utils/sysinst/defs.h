@@ -390,6 +390,7 @@ int	mount_disks(void);
 int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char	*bootxx_name(void);
+int	partitioning(void);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

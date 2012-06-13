@@ -496,18 +496,11 @@ message nonet
 returned to the previous menu.
 }
 
-message netup
-{The following network interfaces are active: %s
-Does one of them connect to the required server?}
-
 message asknetdev
-{I have found the following network interfaces: %s
-\nWhich device shall I use?}
+{I have found some network interfaces. Which device shall I use?}
 
-message badnet
-{You did not choose one of the listed network devices.  Please try again.
-The following network devices are available: %s
-\nWhich device shall I use?}
+message netdevs
+{Available interfaces}
 
 message netinfo
 {To be able to use the network, we need answers to the following:
@@ -575,12 +568,6 @@ IPv6 Nameserver:	%s
 
 message netok_ok
 {Are they OK?}
-
-message netagain
-{Please reenter the information about your network.  Your last answers
-will be your default.
-
-}
 
 message wait_network
 {
@@ -893,7 +880,7 @@ message Re_install_sets_or_install_additional_sets {Re-install sets or install a
 message Reboot_the_computer {Reboot the computer}
 message Config_menu {Config menu}
 message Utility_menu {Utility menu}
-message exit_menu_generic {Back}
+message exit_menu_generic {Exit}
 message NetBSD_VERSION_Utilities {NetBSD-@@VERSION@@ Utilities}
 message Run_bin_sh {Run /bin/sh}
 message Set_timezone {Set timezone}
@@ -1006,7 +993,7 @@ message abandoned {Abandoned}
 message empty {***EMPTY***}
 message timezone {Timezone}
 message change_rootpw {Change root password}
-message enable_binpkg {Enable installation of binary packages}
+message enable_binpkg {Fetch and install pkgin packages management tool}
 message enable_sshd {Enable sshd}
 message enable_ntpd {Enable ntpd}
 message run_ntpdate {Run ntpdate at boot}
@@ -1028,10 +1015,10 @@ The following are the host, directory, user, and password that
 will be used.  If "user" is "ftp", then the password is not needed.
 
 }
+message quit_install {Quit without installing this component}
 message Pkgsrc_dir {pkgsrc directory}
 message get_pkgsrc {Fetch and unpack pkgsrc for building from source}
 message retry_pkgsrc_network {Network configuration failed.  Retry?}
-message quit_pkgsrc {Quit without installing pkgsrc}
 message pkgin_failed
 {Installation of pkgin failed, possibly because no binary packages
 exist.  Please check the package path and try again.}

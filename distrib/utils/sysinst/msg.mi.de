@@ -514,19 +514,11 @@ message nonet
 Zurück zum vorigen Menü.
 }
 
-message netup
-{Die folgenden Netzwerkadapter sind verfügbar: %s 
-Hat einer davon Zugriff auf die benötigten Server?}
-
 message asknetdev
-{NetBSD hat folgende Netzwerkadapter gefunden: %s
-\nWelchen möchten Sie benutzen?}
+{NetBSD hat einige Netzwerkadapter gefunden. Welchen möchten Sie benutzen?}
 
-message badnet
-{Sie haben keinen der angezeigten Netzwerkadapter ausgewählt. Bitte versuchen
-Sie es erneut. 
-NetBSD hat folgende Netzwerkadapter gefunden: %s
-\nWelchen möchten Sie benutzen?}
+message netdevs
+{Verfügbare schnittstellen}
 
 message netinfo
 {Um das Netzwerk nutzen zu können, benötigen wir folgende Angaben:
@@ -600,11 +592,6 @@ message slattach {
 Flags für slattach
 }
 
-message netagain
-{Bitte geben Sie die Informationen über Ihr Netzwerk erneut an. Diese werden
-auch als Vorgabe beibehalten.
-
-}
 
 message wait_network
 {
@@ -1101,7 +1088,7 @@ message get_pkgsrc {pkgsrc zur Installation von Quellpaketen herunterladen und
 installieren}
 message retry_pkgsrc_network {Netzwerkkonfiguration fehlgeschlagen. Noch einmal 
 versuchen?}
-message quit_pkgsrc {Ohne Installation von pkgsrc beenden.}
+message quit_install {Ohne Installation von pkgsrc beenden.} /*TODO*/
 message pkgin_failed 
 {Die Installation von pkgin ist fehlgeschlagen, evtl. weil keine Binärpakete 
 vorhanden sind. Bitte den Pfad der Pakete überprüfen und noch einmal versuchen.}

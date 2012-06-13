@@ -491,18 +491,11 @@ message nonet
 Zostaniesz przeniesiony do glownego menu.
 }
 
-message netup
-{Nastepujace interfejsy sieciowe sa aktywne: %s
-Czy ktorys z nich jest podlaczony do serwera?}
-
 message asknetdev
-{Znalazlem nastepujace interfejsy sieciowe : %s
-\nKtorego urzadzenia mam uzyc?}
+{Znalazlem kilka interfejsy sieciowe. Ktorego urzadzenia mam uzyc?}
 
-message badnet
-{Nie wybrales zadnego z podanych urzadzen sieciowych. Sprobuj jeszcze raz.
-Nastepujace urzadzenie sieciowe sa dostepne: %s
-\nKtorego urzadzenia mam uzyc?}
+message netdevs
+{Dost?pne interfejsy}
 
 message netinfo
 {Aby mozna bylo uzywac sieci, potrzebujemy odpowiedzi na ponizsze pytania:
@@ -573,12 +566,6 @@ message netok_ok
 
 message slattach {
 Podaja parametry dla polecenia 'slattach'
-}
-
-message netagain
-{Wprowadz jeszcze raz informacje o twojej sieci. Twoje ostatnie odpowiedzi
-beda domyslnymi wartosciami.
-
 }
 
 message wait_network
@@ -1025,7 +1012,7 @@ will be used.  If "user" is "ftp", then the password is not needed.
 message Pkgsrc_dir {pkgsrc directory}
 message get_pkgsrc {Fetch and unpack pkgsrc for building from source}
 message retry_pkgsrc_network {Network configuration failed.  Retry?}
-message quit_pkgsrc {Quit without installing pkgsrc}
+message quit_install {Quit without installing pkgsrc} /*TODO*/
 message pkgin_failed 
 {Installation of pkgin failed, possibly because no binary packages  exist.  Please check the package path and try again.}
 message failed {Failed}

@@ -174,11 +174,10 @@ menu utility, title MSG_NetBSD_VERSION_Utilities, exit,
 	option MSG_Configure_network,
 		action {
 			extern int network_up;
-
 			network_up = 0;
 			config_network();
 		};
-	option MSG_Partition_a_disk, sub menu colors;
+	option MSG_Partition_a_disk, action { partitioning(); };
 	option MSG_Logging_functions, action { do_logging(); };
 	option MSG_Color_scheme, sub menu colors;
 	option MSG_Halt_the_system, exit,
@@ -290,10 +289,17 @@ menu ftpsource, y=-4, x=0, w=70, no box, no clear,
 			clean_xfer_dir ? MSG_Yes : MSG_No);},
 		action {process_menu(MENU_yesno, deconst(MSG_delete_xfer_file));
 			clean_xfer_dir = yesno; };
+	option MSG_Configure_network,
+		action {
+			extern int network_up;
+			network_up = 0;
+			config_network();
+		};
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 
 menu nfssource, y=-4, x=0, w=70, no box, no clear,
-	    exitstring MSG_Continue;
+	    exitstring MSG_Get_Distribution;
 	display action { msg_display(MSG_nfssource); };
 	option {src_legend(menu, MSG_Host, nfs_host);},
 		action { src_prompt(MSG_Host, nfs_host, sizeof nfs_host); };
@@ -303,6 +309,13 @@ menu nfssource, y=-4, x=0, w=70, no box, no clear,
 		action { src_prompt(MSG_Set_dir_bin, set_dir_bin, sizeof set_dir_bin); };
 	option {src_legend(menu, MSG_Set_dir_src, set_dir_src);},
 		action { src_prompt(MSG_Set_dir_src, set_dir_src, sizeof set_dir_src); };
+	option MSG_Configure_network,
+		action {
+			extern int network_up;
+			network_up = 0;
+			config_network();
+		};
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 menu fdremount, title MSG_What_do_you_want_to_do;
 	option MSG_Try_again, exit, action { *(int *)arg = SET_CONTINUE; };
@@ -332,6 +345,7 @@ menu floppysource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 			clean_xfer_dir ? MSG_Yes : MSG_No);},
 		action {process_menu(MENU_yesno, deconst(MSG_delete_xfer_file));
 			clean_xfer_dir = yesno; };
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 menu cdromsource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 	display action { msg_display(MSG_cdromsource); };
@@ -341,6 +355,7 @@ menu cdromsource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 		action { src_prompt(MSG_Set_dir_bin, set_dir_bin, sizeof set_dir_bin); };
 	option {src_legend(menu, MSG_Set_dir_src, set_dir_src);},
 		action { src_prompt(MSG_Set_dir_src, set_dir_src, sizeof set_dir_src); };
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 menu localfssource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 	display action { msg_display(MSG_localfssource); };
@@ -354,6 +369,7 @@ menu localfssource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 		action { src_prompt(MSG_Set_dir_bin, set_dir_bin, sizeof set_dir_bin); };
 	option {src_legend(menu, MSG_Set_dir_src, set_dir_src);},
 		action { src_prompt(MSG_Set_dir_src, set_dir_src, sizeof set_dir_src); };
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 menu localdirsource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 	display action { msg_display(MSG_localdir); };
@@ -363,6 +379,7 @@ menu localdirsource, y=-4, x=0, w=70, no box, no clear, exitstring MSG_Continue;
 		action { src_prompt(MSG_Set_dir_bin, set_dir_bin, 60); };
 	option {src_legend(menu, MSG_Set_dir_src, set_dir_src);},
 		action { src_prompt(MSG_Set_dir_src, set_dir_src, 60); };
+	option MSG_exit_menu_generic, exit, action { yesno = SET_RETRY; };
 
 menu namesrv6, title MSG_Select_IPv6_DNS_server;
 	option "google-public-dns-a.google.com", exit, action
@@ -431,6 +448,17 @@ menu binpkg, y=-4, x=0, w=70, no box, no clear,
 			setenv("http_proxy", pkg.proxy, 1);
 		  }
 		};
+	option {src_legend(menu, "Additional packages", (char*)arg); }, /*TODO*/
+		action { src_prompt("Additional packages", (char*)arg,
+			 sizeof(char) * STRSIZE); };
+	option MSG_Configure_network,
+		action {
+			extern int network_up;
+			network_up = 0;
+			config_network();
+			mnt_net_config();
+		};
+	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
 menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 	    exit, exitstring MSG_Install_pkgsrc;
@@ -470,4 +498,10 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 			clean_xfer_dir ? MSG_Yes : MSG_No);},
 		action {process_menu(MENU_yesno, deconst(MSG_delete_xfer_file));
 			clean_xfer_dir = yesno; };
-	option MSG_quit_pkgsrc, exit, action { yesno = 0;};
+	option MSG_Configure_network,
+		action {
+			extern int network_up;
+			network_up = 0;
+			config_network();
+		};
+	option MSG_quit_install, exit, action { yesno = SET_SKIP; };

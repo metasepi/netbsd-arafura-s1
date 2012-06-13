@@ -68,8 +68,6 @@ do_upgrade(void)
 	if (md_pre_update() < 0)
 		return;
 
-	process_menu(MENU_distset, NULL);
-
 	if (mount_disks() != 0)
 		return;
 
@@ -96,6 +94,7 @@ do_upgrade(void)
 	wrefresh(stdscr);
 
 	/* Done with disks. Ready to get and unpack tarballs. */
+	process_menu(MENU_distset, NULL);
 	if (get_and_unpack_sets(1, MSG_disksetupdoneupdate,
 	    MSG_upgrcomplete, MSG_abortupgr) != 0)
 		return;
@@ -182,12 +181,11 @@ do_reinstall_sets(void)
 	if (find_disks(msg_string(MSG_reinstall)) < 0)
 		return;
 
-	process_menu(MENU_distset, NULL);
-
 	if (mount_disks() != 0)
 		return;
 
 	/* Unpack the distribution. */
+	process_menu(MENU_distset, NULL);
 	if (get_and_unpack_sets(0, NULL, MSG_unpackcomplete, MSG_abortunpack) != 0)
 		return;
 

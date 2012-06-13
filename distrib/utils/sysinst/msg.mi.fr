@@ -517,21 +517,13 @@ message nonet
 Retour au menu précédent.
 }
 
-message netup
-{Les interfaces réseau suivantes sont utilisables : %s
-Quelle interface souhaitez-vous utiliser ?
-}
-
 message asknetdev
-{Les interfaces suivantes sont utilisables : %s
+{Les interfaces suivantes sont utilisables.
 Quelle interface doit être utilisée ?
 }
 
-message badnet
-{Vous n'avez pas choisi une interface réseau dans la liste.
-Veuillez essayer à nouveau.
-Les interfaces réseau suivantes sont utilisables : %s
-\nQuel est votre choix ?}
+message netdevs
+{Interfaces disponibles}
 
 message netinfo
 {Veuillez répondre aux points suivants afin de pouvoir utiliser
@@ -603,11 +595,6 @@ message netok_ok
 
 message slattach {
 Entrez les "flags" slattach
-}
-
-message netagain
-{
-Veuillez spécifier de nouveau les paramètres réseau.
 }
 
 message wait_network
@@ -1140,7 +1127,7 @@ message Pkgsrc_dir {Répertoire pkgsrc}
 message get_pkgsrc
 {Obtenir et extraire pkgsrc afin de compiler des paquetages à partir des sources}
 message retry_pkgsrc_network {La configuration du réseau a échoué. Réessayer ?}
-message quit_pkgsrc {Quitter sans installer pkgsrc}
+message quit_install {Quitter sans installer pkgsrc} /*TODO*/
 message pkgin_failed 
 {L'installation de pkgin a échoué, peut-être parce que son paquetage binaire
 n'existe pas.  Vérifiez le chemin et essayez à nouveau.}

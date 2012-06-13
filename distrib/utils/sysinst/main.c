@@ -62,6 +62,7 @@ static void process_f_flag(char *);
 static int exit_cleanly = 0;	/* Did we finish nicely? */
 FILE *logfp;			/* log file */
 FILE *script;			/* script file */
+int part_mode;			/* run partition editor */
 
 #ifdef DEBUG
 extern int log_flip(void);
@@ -141,6 +142,9 @@ init(void)
 	
 	clr_arg.bg=COLOR_BLUE;
 	clr_arg.fg=COLOR_WHITE;
+#ifdef DEBUG
+	clr_arg.bg=COLOR_RED;
+#endif
 }
 
 int
@@ -160,7 +164,7 @@ main(int argc, char **argv)
 	}
 
 	/* argv processing */
-	while ((ch = getopt(argc, argv, "Dr:f:C:")) != -1)
+	while ((ch = getopt(argc, argv, "Dr:f:C:p")) != -1)
 		switch(ch) {
 		case 'D':	/* set to get past certain errors in testing */
 			debug = 1;
@@ -176,6 +180,10 @@ main(int argc, char **argv)
 		case 'C':
 			/* Define colors */
 			sscanf(optarg, "%u:%u", &clr_arg.bg, &clr_arg.fg);
+			break;
+		case 'p':
+			/* Partition tool */
+			part_mode = 1;
 			break;
 		case '?':
 		default:
@@ -223,7 +231,10 @@ main(int argc, char **argv)
 	get_kb_encoding();
 
 	/* Menu processing */
-	process_menu(MENU_netbsd, NULL);
+	if (part_mode)
+		partitioning();
+	else
+		process_menu(MENU_netbsd, NULL);
 
 	exit_cleanly = 1;
 	return 0;
@@ -340,6 +351,12 @@ select_language(void)
 void
 toplevel(void)
 {
+	/*
+	 * Undo any stateful side-effects of previous menu choices.
+	 * XXX must be idempotent, since we get run each time the main
+	 *     menu is displayed.
+	 */
+	unwind_mounts();
 
 	/* Display banner message in (english, francais, deutsch..) */
 	msg_display(MSG_hello);
@@ -347,14 +364,6 @@ toplevel(void)
 	if (md_may_remove_boot_medium())
 		msg_display_add(MSG_md_may_remove_boot_medium);
 	msg_display_add(MSG_thanks);
-
-	/*
-	 * Undo any stateful side-effects of previous menu choices.
-	 * XXX must be idempotent, since we get run each time the main
-	 *     menu is displayed.
-	 */
-	unwind_mounts();
-	/* ... */
 }
 
 

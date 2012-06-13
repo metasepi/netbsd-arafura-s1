@@ -53,63 +53,15 @@ do_install(void)
 
 	get_ramsize();
 
-	if (find_disks(msg_string(MSG_install)) < 0)
-		return;
-	clear();
-	refresh();
-
-	if (check_swap(diskdev, 0) > 0) {
-		msg_display(MSG_swapactive);
-		process_menu(MENU_ok, NULL);
-		if (check_swap(diskdev, 1) < 0) {
-			msg_display(MSG_swapdelfailed);
-			process_menu(MENU_ok, NULL);
-			if (!debug)
-				return;
-		}
-	}
-
-	process_menu(MENU_distset, NULL);
-
-	if (!md_get_info()) {
+	/* Create and mount partitions */
+	if (!partitioning() < 0) {
 		msg_display(MSG_abort);
 		process_menu(MENU_ok, NULL);
 		return;
 	}
-
-	if (md_make_bsd_partitions() == 0) {
-		msg_display(MSG_abort);
-		process_menu(MENU_ok, NULL);
-		return;
-	}
-
-	/* Last chance ... do you really want to do this? */
-	clear();
-	refresh();
-	msg_display(MSG_lastchance, diskdev);
-	process_menu(MENU_noyes, NULL);
-	if (!yesno)
-		return;
-
-	if (md_pre_disklabel() != 0)
-		return;
-
-	if (write_disklabel() != 0)
-		return;
-
-	if (md_post_disklabel() != 0)
-		return;
-
-	if (make_filesystems())
-		return;
-
-	if (make_fstab() != 0)
-		return;
-
-	if (md_post_newfs() != 0)
-		return;
 
 	/* Unpack the distribution. */
+	process_menu(MENU_distset, NULL);
 	if (get_and_unpack_sets(0, MSG_disksetupdone,
 	    MSG_extractcomplete, MSG_abortinst) != 0)
 		return;

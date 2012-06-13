@@ -358,8 +358,10 @@ floppy_fetch(const char *set_name)
 int
 get_via_floppy(void)
 {
-
+	yesno = -1;
 	process_menu(MENU_floppysource, NULL);
+	if (yesno == SET_RETRY)
+		return SET_RETRY;
 
 	fetch_fn = floppy_fetch;
 
@@ -577,7 +579,10 @@ get_via_cdrom(void)
 	}
 
 	/* ask for paths on the CD */
+	yesno = -1;
 	process_menu(MENU_cdromsource, NULL);
+	if (yesno == SET_RETRY)
+		return SET_RETRY;
 
 	if (cd_has_sets())
 		return SET_OK;
@@ -593,9 +598,11 @@ get_via_cdrom(void)
 int
 get_via_localfs(void)
 {
-
 	/* Get device, filesystem, and filepath */
+	yesno = -1;
 	process_menu (MENU_localfssource, NULL);
+	if (yesno == SET_RETRY)
+		return SET_RETRY;
 
 	/* Mount it */
 	if (run_program(0, "/sbin/mount -rt %s /dev/%s /mnt2",
@@ -619,9 +626,11 @@ get_via_localfs(void)
 int
 get_via_localdir(void)
 {
-
 	/* Get filepath */
+	yesno = -1;
 	process_menu(MENU_localdirsource, NULL);
+	if (yesno == SET_RETRY)
+		return SET_RETRY;
 
 	/*
 	 * We have to have an absolute path ('cos pax runs in a
@@ -1613,8 +1622,8 @@ do_coloring (unsigned int fg, unsigned int bg) {
 	if (fg != bg && has_colors()) {
 		init_pair(1, fg, bg);
 		wbkgd(stdscr, COLOR_PAIR(1));
-		wattrset(stdscr, COLOR_PAIR(1));
 		wbkgd(mainwin, COLOR_PAIR(1));
+		wattrset(stdscr, COLOR_PAIR(1));
 		wattrset(mainwin, COLOR_PAIR(1));
 	}
 	/* redraw screen */

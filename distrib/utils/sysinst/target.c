@@ -280,7 +280,10 @@ do_target_chdir(const char *dir, int must_succeed)
 	error = 0;
 	tgt_dir = target_expand(dir);
 
-#ifndef DEBUG
+#ifdef DEBUG
+	printf("target_chdir (%s)\n", tgt_dir);
+	//return (0);
+#endif
 	/* chdir returns -1 on error and sets errno. */
 	if (chdir(tgt_dir) < 0)
 		error = errno;
@@ -303,10 +306,6 @@ do_target_chdir(const char *dir, int must_succeed)
 	}
 	errno = error;
 	return (error);
-#else
-	printf("target_chdir (%s)\n", tgt_dir);
-	return (0);
-#endif
 }
 
 void

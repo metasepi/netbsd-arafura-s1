@@ -364,7 +364,7 @@ find_disks(const char *doingwhat)
 	struct disk_desc *disk;
 	int i;
 	int numdisks;
-	int selected_disk = 0;
+	int selected_disk = -1;
 	int menu_no;
 
 	/* Find disks. */
@@ -382,14 +382,8 @@ find_disks(const char *doingwhat)
 		process_menu(MENU_ok, NULL);
 		/*endwin();*/
 		return -1;
-	}
-
-	if (numdisks == 1) {
-		/* One disk found! */
-		msg_display(MSG_onedisk, disks[0].dd_descr, doingwhat);
-		process_menu(MENU_ok, NULL);
 	} else {
-		/* Multiple disks found! */
+		/* One or more disks found! */
 		for (i = 0; i < numdisks; i++) {
 			dsk_menu[i].opt_name = disks[i].dd_descr;
 			dsk_menu[i].opt_menu = OPT_NOMENU;
@@ -398,7 +392,7 @@ find_disks(const char *doingwhat)
 		}
 		menu_no = new_menu(MSG_Available_disks,
 			dsk_menu, numdisks, -1, 4, 0, 0,
-			MC_SCROLL | MC_NOEXITOPT,
+			MC_SCROLL,
 			NULL, NULL, NULL, NULL, NULL);
 		if (menu_no == -1)
 			return -1;
@@ -406,6 +400,9 @@ find_disks(const char *doingwhat)
 		process_menu(menu_no, &selected_disk);
 		free_menu(menu_no);
 	}
+
+	if (selected_disk == -1)
+	    return -1;
 
 	disk = disks + selected_disk;
 	strlcpy(diskdev, disk->dd_name, sizeof diskdev);
@@ -1112,3 +1109,56 @@ bootxx_name(void)
 	return bootxx;
 }
 #endif
+
+// TODO: write new partition tool there
+int
+partitioning(void)
+{
+	if (find_disks(msg_string(MSG_install)) < 0)
+		return -1;
+	clear();
+	refresh();
+
+	if (check_swap(diskdev, 0) > 0) {
+		msg_display(MSG_swapactive);
+		process_menu(MENU_ok, NULL);
+		if (check_swap(diskdev, 1) < 0) {
+			msg_display(MSG_swapdelfailed);
+			process_menu(MENU_ok, NULL);
+			if (!debug)
+				return -1;
+		}
+	}
+
+	if (md_get_info() == 0)
+		return -1;
+	if (md_make_bsd_partitions() == 0)
+		return -1;
+
+	/* Last chance ... do you really want to do this? */
+	clear();
+	refresh();
+	msg_display(MSG_lastchance, diskdev);
+	process_menu(MENU_noyes, NULL);
+	if (!yesno)
+		return -1;
+
+	if (md_pre_disklabel() != 0)
+		return -1;
+
+	if (write_disklabel() != 0)
+		return -1;
+
+	if (md_post_disklabel() != 0)
+		return -1;
+
+	if (make_filesystems())
+		return -1;
+
+	if (make_fstab() != 0)
+		return -1;
+
+	if (md_post_newfs() != 0)
+		return -1;
+    return 0;
+}
