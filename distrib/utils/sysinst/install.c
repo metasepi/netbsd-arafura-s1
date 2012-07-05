@@ -45,19 +45,62 @@
 void
 do_install(void)
 {
+	int find_disks_ret;
+	partman_go = 0;
 
+#ifndef DEBUG
 	msg_display(MSG_installusure);
 	process_menu(MENU_noyes, NULL);
 	if (!yesno)
 		return;
+#endif
 
 	get_ramsize();
 
 	/* Create and mount partitions */
-	if (!partitioning() < 0) {
-		msg_display(MSG_abort);
-		process_menu(MENU_ok, NULL);
+	find_disks_ret = find_disks(msg_string(MSG_install));
+	if (partman_go == 1) {
+		if (partman() < 0) {
+			msg_display(MSG_abort);
+			process_menu(MENU_ok, NULL);
+			return;
+		}		
+	} else if (find_disks_ret < 0)
 		return;
+	else {
+	/* Classical partitioning wizard */
+		clear();
+		refresh();
+
+		if (check_swap(diskdev, 0) > 0) {
+			msg_display(MSG_swapactive);
+			process_menu(MENU_ok, NULL);
+			if (check_swap(diskdev, 1) < 0) {
+				msg_display(MSG_swapdelfailed);
+				process_menu(MENU_ok, NULL);
+				if (!debug)
+					return;
+			}
+		}
+
+		if (!md_get_info() || md_make_bsd_partitions() == 0) {
+			msg_display(MSG_abort);
+			process_menu(MENU_ok, NULL);
+			return;
+		}
+
+		/* Last chance ... do you really want to do this? */
+		clear();
+		refresh();
+		msg_display(MSG_lastchance, diskdev);
+		process_menu(MENU_noyes, NULL);
+		if (!yesno)
+			return;
+
+		if (md_pre_disklabel() != 0 || write_disklabel() != 0 ||
+			md_post_disklabel() != 0 ||make_filesystems() ||
+			make_fstab() != 0 || md_post_newfs() != 0)
+			return;
 	}
 
 	/* Unpack the distribution. */

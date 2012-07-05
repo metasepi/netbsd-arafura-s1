@@ -94,7 +94,7 @@ configinfo config_list[] = {
 	{MSG_enable_mdnsd, CONFIGOPT_MDNSD, "mdnsd", toggle_rcvar, NULL},
 	{"Enable XDM", CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
 	{NULL,		CONFIGOPT_LAST,	NULL, NULL, NULL}
-}; //TODO XDM
+}; // TODO: XDM
 
 static void
 config_list_init(void)

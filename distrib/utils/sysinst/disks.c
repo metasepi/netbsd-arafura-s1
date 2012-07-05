@@ -62,7 +62,6 @@
 #include "txtwalk.h"
 
 /* Disk descriptions */
-#define MAX_DISKS 15
 struct disk_desc {
 	char	dd_name[SSTRSIZE];
 	char	dd_descr[70];
@@ -318,7 +317,7 @@ get_disks(struct disk_desc *dd)
 	numdisks = 0;
 
 	for (xd = disk_names; *xd != NULL; xd++) {
-		for (i = 0; i < MAX_DISKS; i++) {
+		for (i = 0; i < MAXDISKS; i++) {
 			strlcpy(dd->dd_name, *xd, sizeof dd->dd_name - 2);
 			cp = strchr(dd->dd_name, ':');
 			if (cp != NULL)
@@ -342,7 +341,7 @@ get_disks(struct disk_desc *dd)
 			get_descr(dd);
 			dd++;
 			numdisks++;
-			if (numdisks >= MAX_DISKS)
+			if (numdisks >= MAXDISKS)
 				return numdisks;
 		}
 	}
@@ -359,8 +358,8 @@ set_dsk_select(menudesc *m, void *arg)
 int
 find_disks(const char *doingwhat)
 {
-	struct disk_desc disks[MAX_DISKS];
-	menu_ent dsk_menu[nelem(disks)];
+	struct disk_desc disks[MAXDISKS];
+	menu_ent dsk_menu[nelem(disks) + !partman_go];
 	struct disk_desc *disk;
 	int i;
 	int numdisks;
@@ -390,8 +389,15 @@ find_disks(const char *doingwhat)
 			dsk_menu[i].opt_flags = OPT_EXIT;
 			dsk_menu[i].opt_action = set_dsk_select;
 		}
+		if (partman_go == 0) {
+			dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
+			dsk_menu[i].opt_menu = OPT_NOMENU;
+			dsk_menu[i].opt_flags = OPT_EXIT;
+			dsk_menu[i].opt_action = set_dsk_select;
+		}
+
 		menu_no = new_menu(MSG_Available_disks,
-			dsk_menu, numdisks, -1, 4, 0, 0,
+			dsk_menu, numdisks + !partman_go, -1, 4, 0, 0,
 			MC_SCROLL,
 			NULL, NULL, NULL, NULL, NULL);
 		if (menu_no == -1)
@@ -403,9 +409,14 @@ find_disks(const char *doingwhat)
 
 	if (selected_disk == -1)
 	    return -1;
+	if (selected_disk == numdisks) {
+		partman_go = 1;
+	    return -2;
+	}
 
 	disk = disks + selected_disk;
 	strlcpy(diskdev, disk->dd_name, sizeof diskdev);
+	strlcpy(diskdev_descr, disk->dd_descr, sizeof diskdev_descr);
 
 	/* Use as a default disk if the user has the sets on a local disk */
 	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
@@ -1110,12 +1121,19 @@ bootxx_name(void)
 }
 #endif
 
-// TODO: write new partition tool there
+
+
+
 int
-partitioning(void)
+partman_adddisk(menudesc *m, void *arg)
 {
-	if (find_disks(msg_string(MSG_install)) < 0)
+	*(int *)arg = 1;
+	struct _pm_devs *pm_devs_new, *pm_devs_tmp;
+
+	if (find_disks(msg_string(MSG_install)) < 0) {
+		*(int *)arg = -1;
 		return -1;
+	}
 	clear();
 	refresh();
 
@@ -1125,40 +1143,181 @@ partitioning(void)
 		if (check_swap(diskdev, 1) < 0) {
 			msg_display(MSG_swapdelfailed);
 			process_menu(MENU_ok, NULL);
-			if (!debug)
+			if (!debug) {
+				*(int *)arg = -1;
 				return -1;
+			}
 		}
 	}
+	
+	pm_devs_new = malloc(sizeof (struct _pm_devs));
+	pm_devs_new->next = NULL;
+	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
+	strlcpy(pm_devs_new->desc, diskdev_descr, sizeof pm_devs_new->desc);
+	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL; pm_devs_tmp = pm_devs_tmp->next)
+		if (strcmp(pm_devs_tmp->next->id, diskdev) == 0)
+			return 0;
 
-	if (md_get_info() == 0)
-		return -1;
-	if (md_make_bsd_partitions() == 0)
-		return -1;
+	pm_devs_tmp->next = pm_devs_new;
+	
+	return 0;
+}
 
-	/* Last chance ... do you really want to do this? */
-	clear();
-	refresh();
-	msg_display(MSG_lastchance, diskdev);
-	process_menu(MENU_noyes, NULL);
-	if (!yesno)
-		return -1;
+int
+partman_addvnd(menudesc *m, void *arg)
+{
+	*(int *)arg = 1;
+	return 0;
+}
 
-	if (md_pre_disklabel() != 0)
-		return -1;
+int
+partman_deldev(menudesc *m, void *arg)
+{
+	struct _pm_devs *pm_devs_tmp, *pm_devs_swap;
+	*(int *)arg = 1;
 
-	if (write_disklabel() != 0)
-		return -1;
+	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL; pm_devs_tmp = pm_devs_tmp->next)
+		if (strcmp(pm_devs_tmp->next->id, diskdev) == 0) {
+			if (pm_devs_tmp->next->next == NULL) {
+				free(pm_devs_tmp->next);
+				pm_devs_tmp->next = NULL;
+			} else {
+				pm_devs_swap = pm_devs_tmp->next->next;
+				free(pm_devs_tmp->next);
+				pm_devs_tmp->next = pm_devs_swap;
+			}
+			return 0;
+		}
+	*(int *)arg = -1;
+	return -1;
+}
 
-	if (md_post_disklabel() != 0)
-		return -1;
+int
+partman_prepare_standart(menudesc *m, void *arg)
+{
+	*(int *)arg = 1;
 
-	if (make_filesystems())
+	if (
+			md_pre_disklabel() != 0) {
+		*(int *)arg = -1;
 		return -1;
+	}
 
-	if (make_fstab() != 0)
-		return -1;
+	return 0;
+}
 
-	if (md_post_newfs() != 0)
+int
+partman_ending(menudesc *m, void *arg)
+{
+	*(int *)arg = 0;
+
+	if (md_post_disklabel() != 0 ||
+			make_filesystems() ||
+			make_fstab() != 0 ||
+			md_post_newfs() != 0) {
+		*(int *)arg = -1;
 		return -1;
+	}
     return 0;
+}
+
+static int
+partman_submenu(menudesc *m, void *arg)
+{
+	struct _pm_devs *pm_devs_tmp;
+	menu_ent part_menu_entry[5];
+	int menu_pmentry;
+	int retvalue;
+	int ok;
+
+	*(int *)arg = 1;
+
+	fprintf(logfp,"Partman disk: %s\n",m->opts[m->cursel].opt_name);
+
+	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL; pm_devs_tmp = pm_devs_tmp->next)
+		if (strcmp(pm_devs_tmp->next->desc, m->opts[m->cursel].opt_name) == 0) {
+			strcpy(diskdev, pm_devs_tmp->next->id);
+			ok = 1;
+		}
+	if (ok != 1) {
+		*(int *)arg = -1;
+		return -1;
+	}
+
+	part_menu_entry[0].opt_name = "Prepare Disk";
+	part_menu_entry[0].opt_action = partman_prepare_standart;
+	part_menu_entry[0].opt_menu = OPT_NOMENU;
+	part_menu_entry[0].opt_flags = OPT_EXIT;
+	part_menu_entry[1].opt_name = "Prepare RAID";
+	part_menu_entry[2].opt_name = "Prepare CGD";
+	part_menu_entry[3].opt_name = "Prepare LVM";
+	part_menu_entry[4].opt_name = "Remove";
+	part_menu_entry[4].opt_action = partman_deldev;
+	part_menu_entry[4].opt_menu = OPT_NOMENU;
+	part_menu_entry[4].opt_flags = OPT_EXIT;
+
+	menu_pmentry = new_menu(NULL, part_menu_entry, 5,
+			50, 5, 0, 0, MC_SCROLL | MC_SUBMENU | MC_NOCLEAR, NULL, NULL, NULL, NULL, NULL);
+	if (menu_pmentry == -1) {
+		*(int *)arg = -1;
+		return -1;
+	}
+
+	process_menu(menu_pmentry, &retvalue);
+	free_menu(menu_pmentry);
+
+	return 0;
+}
+
+// TODO: write new partition tool there
+int
+partman(void)
+{
+	menu_ent part_menu[MAXDISKS];
+	int menu_pm;
+	unsigned int i;
+	int retvalue;
+	struct _pm_devs *pm_devs_cur;
+
+	do {
+		retvalue = 0;
+		clear();
+		refresh();
+		for (pm_devs_cur = pm_devs->next, i = 0; pm_devs_cur != NULL; pm_devs_cur = pm_devs_cur->next, i++) {
+			part_menu[i].opt_name = pm_devs_cur->desc;
+			part_menu[i].opt_menu = MENU_pmentry;
+			part_menu[i].opt_flags = OPT_SUB;
+			part_menu[i].opt_action = NULL;
+		}
+		if (0) partman_submenu(NULL, NULL);
+		part_menu[i] = (struct menu_ent) {
+			.opt_name = "Add disk",
+			.opt_action = partman_adddisk,
+			.opt_menu = OPT_NOMENU,
+			.opt_flags = OPT_EXIT
+		};
+		part_menu[++i] = (struct menu_ent) {
+			.opt_name = "Add VND file",
+			.opt_action = partman_addvnd,
+			.opt_menu = OPT_NOMENU,
+			.opt_flags = OPT_EXIT,
+		};
+		part_menu[++i] = (struct menu_ent) {
+			.opt_name = "Continue",
+			.opt_action = partman_ending,
+			.opt_menu = OPT_NOMENU,
+			.opt_flags = OPT_EXIT,
+		};
+
+		menu_pm = new_menu("Disk editor. All disks, partitions, LVM, RAID displayed there.\nAt first add drive, then prepare partitions and go.", part_menu, i+1, 
+			1, 1, 0, 70, MC_SCROLL | MC_NOBOX, NULL, NULL, NULL, NULL, NULL);
+		if (menu_pm == -1)
+			retvalue = -1;
+		else {
+			process_menu(menu_pm, &retvalue);
+			free_menu(menu_pm);
+		}
+	} while (retvalue > 0);
+
+	return (retvalue > 0)?0:-1;
 }

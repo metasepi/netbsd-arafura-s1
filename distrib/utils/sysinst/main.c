@@ -62,7 +62,6 @@ static void process_f_flag(char *);
 static int exit_cleanly = 0;	/* Did we finish nicely? */
 FILE *logfp;			/* log file */
 FILE *script;			/* script file */
-int part_mode;			/* run partition editor */
 
 #ifdef DEBUG
 extern int log_flip(void);
@@ -136,6 +135,9 @@ init(void)
 	mnt2_mounted = 0;
 	fd_type = "msdos";
 
+	pm_devs = malloc (sizeof (struct _pm_devs));
+	pm_devs->next = NULL;
+
 	for (arg = fflagopts; arg->name != NULL; arg++)
 		strlcpy(arg->var, arg->dflt, arg->size);
 	pkg.xfer_type = pkgsrc.xfer_type = "http";
@@ -183,7 +185,7 @@ main(int argc, char **argv)
 			break;
 		case 'p':
 			/* Partition tool */
-			part_mode = 1;
+			partman_go = 1;
 			break;
 		case '?':
 		default:
@@ -231,8 +233,8 @@ main(int argc, char **argv)
 	get_kb_encoding();
 
 	/* Menu processing */
-	if (part_mode)
-		partitioning();
+	if (partman_go)
+		partman();
 	else
 		process_menu(MENU_netbsd, NULL);
 

@@ -177,7 +177,7 @@ menu utility, title MSG_NetBSD_VERSION_Utilities, exit,
 			network_up = 0;
 			config_network();
 		};
-	option MSG_Partition_a_disk, action { partitioning(); };
+	option MSG_Partition_a_disk, action { partman(); };
 	option MSG_Logging_functions, action { do_logging(); };
 	option MSG_Color_scheme, sub menu colors;
 	option MSG_Halt_the_system, exit,
@@ -505,3 +505,10 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 			config_network();
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
+
+menu pmentry, x=50, y=5, no clear, sub menu, exit, default exit;
+	option "Prepare Disk", exit, action { partman_prepare_standart(m, arg); };
+	option "Prapare RAID", exit;
+	option "Prepare LVM", exit;
+	option "Prepare CGD", exit;
+	option "Remove", exit, action { partman_deldev(m, arg); };

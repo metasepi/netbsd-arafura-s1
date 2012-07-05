@@ -227,6 +227,13 @@ struct ptn_info {
 	char		exit_msg[70];
 };
 
+struct _pm_devs {
+    char id[SSTRSIZE];
+    char desc[STRSIZE];
+    int type;
+    struct _pm_devs *next;
+} *pm_devs;
+
 /* variables */
 
 int debug;		/* set by -D option */
@@ -241,6 +248,7 @@ pid_t ttysig_forward;
 int layoutkind;
 int sizemult;
 const char *multname;
+int partman_go;   /* run partition manager */
 
 /* loging variables */
 
@@ -248,7 +256,9 @@ FILE *logfp;
 FILE *script;
 
 /* Actual name of the disk. */
+#define MAXDISKS 32
 char diskdev[SSTRSIZE];
+char diskdev_descr[STRSIZE];
 int no_mbr;				/* set for raid (etc) */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
@@ -390,7 +400,12 @@ int	mount_disks(void);
 int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char	*bootxx_name(void);
-int	partitioning(void);
+int	partman(void);
+int partman_adddisk(menudesc *, void *);
+int partman_addvnd(menudesc *, void *);
+int partman_deldev(menudesc *, void *);
+int partman_prepare_standart(menudesc *, void *);
+int partman_ending(menudesc *, void *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

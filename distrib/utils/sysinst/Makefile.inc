@@ -45,7 +45,7 @@ CPPFLAGS+=	-I. -I${.CURDIR}/../.. -I${.CURDIR} \
 		-DMACH_${MACHINE} -DARCH_${MACHINE_ARCH}
 
 .if (defined(DEBUG))
-CPPFLAGS+=-DDEBUG
+CPPFLAGS+=-DDEBUG -g
 .endif
 
 .if (!defined(SMALLPROG) || defined(SMALLPROG_INET6)) && (${USE_INET6} != "no")
