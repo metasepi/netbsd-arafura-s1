@@ -472,7 +472,6 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 
 		pi.menu_no = new_menu(0, pi.ptn_menus, nelem(pi.ptn_menus),
 			3, -1, 12, 70,
-			MC_NOSHORTCUT |
 			MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
 			NULL, set_ptn_titles, NULL,
 			"help", pi.exit_msg);

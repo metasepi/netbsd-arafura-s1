@@ -157,7 +157,7 @@ int
 md_post_disklabel(void)
 {
 	set_swap(diskdev, bsdlabel);
-        if (strstr(instsys.version, "(INSTALL32_IP3x)"))
+    if (strstr(instsys.version, "(INSTALL32_IP3x)"))
 		return run_program(RUN_DISPLAY,
 		    "%s %s", "/usr/mdec/sgivol -f -w boot /usr/mdec/ip3xboot",
 		    diskdev);

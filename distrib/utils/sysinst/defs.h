@@ -230,7 +230,9 @@ struct ptn_info {
 struct _pm_devs {
     char id[SSTRSIZE];
     char desc[STRSIZE];
-    int type;
+    char id_dk[SSTRSIZE];
+    int bootable;
+    partinfo parts[MAXPARTITIONS];
     struct _pm_devs *next;
 } *pm_devs;
 
@@ -256,10 +258,11 @@ FILE *logfp;
 FILE *script;
 
 /* Actual name of the disk. */
-#define MAXDISKS 32
 char diskdev[SSTRSIZE];
 char diskdev_descr[STRSIZE];
+struct _pm_devs *pm_devs_cur;
 int no_mbr;				/* set for raid (etc) */
+int use_gpt;            /* use GPT, not MBR */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
 
@@ -404,8 +407,8 @@ int	partman(void);
 int partman_adddisk(menudesc *, void *);
 int partman_addvnd(menudesc *, void *);
 int partman_deldev(menudesc *, void *);
-int partman_prepare_standart(menudesc *, void *);
 int partman_ending(menudesc *, void *);
+void partman_menufmt(menudesc *, int, void *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
