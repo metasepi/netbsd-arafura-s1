@@ -54,6 +54,7 @@ static int merge_X(const char *);
 void
 do_upgrade(void)
 {
+	int retcode = 0;
 
 	msg_display(MSG_upgradeusure);
 	process_menu(MENU_noyes, NULL);
@@ -94,7 +95,9 @@ do_upgrade(void)
 	wrefresh(stdscr);
 
 	/* Done with disks. Ready to get and unpack tarballs. */
-	process_menu(MENU_distset, NULL);
+	process_menu(MENU_distset, &retcode);
+	if (retcode == 0)
+		return;
 	if (get_and_unpack_sets(1, MSG_disksetupdoneupdate,
 	    MSG_upgrcomplete, MSG_abortupgr) != 0)
 		return;
@@ -171,6 +174,7 @@ merge_X(const char *xroot)
 void
 do_reinstall_sets(void)
 {
+	int retcode = 0;
 
 	unwind_mounts();
 	msg_display(MSG_reinstallusure);
@@ -185,7 +189,9 @@ do_reinstall_sets(void)
 		return;
 
 	/* Unpack the distribution. */
-	process_menu(MENU_distset, NULL);
+	process_menu(MENU_distset, &retcode);
+	if (retcode == 0)
+		return;
 	if (get_and_unpack_sets(0, NULL, MSG_unpackcomplete, MSG_abortunpack) != 0)
 		return;
 

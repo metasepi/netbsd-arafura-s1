@@ -241,12 +241,12 @@ menu distmedium, title MSG_Select_medium, y=-5;
 	option MSG_Skip_group,exit, action { *(int *)arg = SET_SKIP_GROUP; };
 	option MSG_Abandon,   exit, action { *(int *)arg = SET_ABANDON; };
 
-menu distset, title MSG_Select_your_distribution;
+menu distset, title MSG_Select_your_distribution, exit;
 	display action { msg_display (MSG_distset); };
-	option MSG_Full_installation, exit, action { init_set_status(0);  };
-	option MSG_Full_installation_nox, exit, action { init_set_status(SFLAG_NOX); };
-	option MSG_Minimal_installation, exit, action { init_set_status(SFLAG_MINIMAL); };
-	option MSG_Custom_installation, exit, action { init_set_status(SFLAG_MINIMAL); customise_sets(); };
+	option MSG_Full_installation, exit, action { *(int *)arg = 1; init_set_status(0);  };
+	option MSG_Full_installation_nox, exit, action { *(int *)arg = 1; init_set_status(SFLAG_NOX); };
+	option MSG_Minimal_installation, exit, action { *(int *)arg = 1; init_set_status(SFLAG_MINIMAL); };
+	option MSG_Custom_installation, exit, action { *(int *)arg = 1; init_set_status(SFLAG_MINIMAL); customise_sets(); };
 
 menu ftpsource, y=-4, x=0, w=70, no box, no clear,
 	    exitstring MSG_Get_Distribution;
