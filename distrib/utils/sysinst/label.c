@@ -639,7 +639,7 @@ edit_and_check_label(partinfo *lp, int nparts, int rawpart, int bsdpart)
 
 		/* User thinks the label is OK. */
 		/* check we have a single root fs */
-		if (check_one_root(lp, nparts) == 0)
+		if (check_one_root(lp, nparts) == 0 && partman_go == 0)
 			msg_display(MSG_must_be_one_root);
 		else 
 			/* Check for overlaps */

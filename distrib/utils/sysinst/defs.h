@@ -228,19 +228,6 @@ struct ptn_info {
 	char		exit_msg[70];
 };
 
-struct _pm_devs {
-    char id[SSTRSIZE];
-    char desc[STRSIZE];
-    char id_dk[SSTRSIZE];
-    int bootable;
-    partinfo oldlabel[MAXPARTITIONS];
-    partinfo bsdlabel[MAXPARTITIONS];
-    mbr_info_t mbr;
-    int no_mbr;
-    int use_gpt;
-    struct _pm_devs *next;
-} *pm_devs;
-
 /* variables */
 
 int debug;		/* set by -D option */
@@ -293,6 +280,25 @@ daddr_t tmp_ramdisk_size;
 #define DISKNAME_SIZE 16
 char bsddiskname[DISKNAME_SIZE];
 const char *doessf;
+
+/* Information for extended partition manager */
+struct _pm_devs {
+    char id[SSTRSIZE];
+    char desc[STRSIZE];
+    char id_dk[SSTRSIZE];
+    int bootable;
+    char bsddiskname[DISKNAME_SIZE];
+    partinfo oldlabel[MAXPARTITIONS];
+    partinfo bsdlabel[MAXPARTITIONS];
+    mbr_info_t mbr;
+    int no_mbr;
+    int use_gpt;
+    int sectorsize, dlcyl, dlhead, dlsec, dlcylsize, current_cylsize;
+    daddr_t dlsize;
+    daddr_t ptstart, ptsize;
+    int bootstart, bootsize;
+    struct _pm_devs *next;
+} *pm_devs;
 
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
@@ -411,8 +417,10 @@ int	partman(void);
 int partman_adddisk(menudesc *, void *);
 int partman_addvnd(menudesc *, void *);
 int partman_deldev(menudesc *, void *);
-int partman_save(menudesc *, void *);
+int partman_commit(menudesc *, void *);
 void partman_menufmt(menudesc *, int, void *);
+void partman_restoredev(struct _pm_devs *);
+void partman_savedev(struct _pm_devs *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

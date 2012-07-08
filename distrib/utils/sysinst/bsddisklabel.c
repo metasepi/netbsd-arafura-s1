@@ -347,7 +347,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	struct ptn_size *p;
 	daddr_t size;
 
-	static struct ptn_info pi = { -1, {
+	struct ptn_info pi = { -1, {
 #define PI_ROOT 0
 		{ PART_ROOT,	{ '/', '\0' },
 		  DEFROOTSIZE,	DEFROOTSIZE , 0, 0},
@@ -706,7 +706,7 @@ make_bsd_partitions(void)
 		msg_display(MSG_abort);
 		return 0;
 	}
-	if (check_partitions() == 0)
+	if (partman_go == 0 && check_partitions() == 0)
 		goto edit_check;
 
 	/* Disk name */

@@ -58,7 +58,11 @@ int
 savenewlabel(partinfo *lp, int nparts)
 {
 	FILE *f;
+	char *f_name = malloc(STRSIZE * sizeof(char));
 	int i;
+
+	strlcpy(f_name, "/tmp/disktab.", STRSIZE);
+	strlcat(f_name, bsddiskname, STRSIZE);
 
 	/*
 	  N.B. disklabels only support up to 2TB (32-bit field for sectors).
@@ -67,16 +71,17 @@ savenewlabel(partinfo *lp, int nparts)
 	 */
 
 	/* Create /etc/disktab */
-	f = fopen("/tmp/disktab", "w");
+
+	f = fopen(f_name, "w");
 	if (logfp)
-		(void)fprintf(logfp, "Creating disklabel %s\n", bsddiskname);
+		(void)fprintf(logfp, "Creating disklabel %s in %s\n", bsddiskname,
+						f_name);
 	scripting_fprintf(NULL, "cat <<EOF >>/etc/disktab\n");
 	if (f == NULL) {
 		endwin();
-		(void)fprintf(stderr, "Could not open /etc/disktab");
+		(void)fprintf(stderr, "Could not open %s for writing\n", f_name);
 		if (logfp)
-			(void)fprintf(logfp,
-			    "Failed to open /etc/disktab for appending.\n");
+			(void)fprintf(logfp, "Could not open %s for writing\n", f_name);
 		exit (1);
 	}
 	scripting_fprintf(f, "%s|NetBSD installation generated:\\\n", bsddiskname);
@@ -110,5 +115,6 @@ savenewlabel(partinfo *lp, int nparts)
 	fclose (f);
 	scripting_fprintf(NULL, "EOF\n");
 	fflush(NULL);
+	run_program(0, "sh -c 'cat /tmp/disktab.* >/tmp/disktab'");
 	return(0);
 }

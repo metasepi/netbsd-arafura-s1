@@ -420,7 +420,7 @@ find_disks(const char *doingwhat)
 	strlcpy(diskdev_descr, disk->dd_descr, sizeof diskdev_descr);
 
 	/* Use as a default disk if the user has the sets on a local disk */
-	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
+	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev); // TODO: sss
 
 	sectorsize = disk->dd_secsize;
 	dlcyl = disk->dd_cyl;
@@ -668,7 +668,7 @@ make_fstab(void)
 	static int fstab_prepared = 0;
 
 	/* Create the fstab. */
-	if (!fstab_prepared) {
+	if (fstab_prepared == 0) {
 		make_target_dir("/etc");
 		f = target_fopen("/etc/fstab", "w");
 		scripting_fprintf(NULL, "cat <<EOF >%s/etc/fstab\n", target_prefix());
@@ -1131,6 +1131,61 @@ bootxx_name(void)
 
 
 
+void
+partman_restoredev(struct _pm_devs *pm_devs_in)
+{
+	pm_devs_cur = pm_devs_in;
+	if (logfp)
+		(void)fprintf(logfp,"Partman device: %s\n", diskdev);
+	no_mbr = pm_devs_in->no_mbr;
+	strlcpy(diskdev, pm_devs_in->id, sizeof diskdev);
+	strlcpy(bsddiskname, pm_devs_in->bsddiskname, sizeof bsddiskname);
+	memcpy(oldlabel, pm_devs_in->oldlabel, sizeof oldlabel);
+	memcpy(bsdlabel, pm_devs_in->bsdlabel, sizeof bsdlabel);
+	memcpy(&mbr, &(pm_devs_in->mbr), sizeof mbr);
+	//*oldlabel = *(pm_devs_in->oldlabel);
+	//*bsdlabel = *(pm_devs_in->bsdlabel);
+	//mbr = pm_devs_in->mbr;
+	sectorsize = pm_devs_in->sectorsize;
+	dlcyl = pm_devs_in->dlcyl;
+	dlhead = pm_devs_in->dlhead;
+	dlsec = pm_devs_in->dlsec;
+	dlcylsize = pm_devs_in->dlcylsize;
+	current_cylsize = pm_devs_in->current_cylsize;
+	dlsize = pm_devs_in->dlsize;
+	ptstart = pm_devs_in->ptstart;
+	ptsize = pm_devs_in->ptsize;
+	bootstart = pm_devs_in->bootstart;
+	bootsize = pm_devs_in->bootsize;
+	return;
+}
+
+void
+partman_savedev(struct _pm_devs *pm_devs_in)
+{
+	pm_devs_in->no_mbr = no_mbr;
+	strlcpy(pm_devs_in->bsddiskname, bsddiskname,
+				sizeof pm_devs_in->bsddiskname);
+	memcpy(pm_devs_in->oldlabel, oldlabel, sizeof pm_devs_in->oldlabel);
+	memcpy(pm_devs_in->bsdlabel, bsdlabel, sizeof pm_devs_in->bsdlabel);
+	memcpy(&(pm_devs_in->mbr), &mbr, sizeof pm_devs_in->mbr);
+	//*(pm_devs_in->oldlabel) = *oldlabel;
+	//*(pm_devs_in->bsdlabel) = *bsdlabel;
+	//pm_devs_in->mbr = mbr;
+	pm_devs_in->sectorsize = sectorsize;
+	pm_devs_in->dlcyl = dlcyl;
+	pm_devs_in->dlhead = dlhead;
+	pm_devs_in->dlsec = dlsec;
+	pm_devs_in->dlcylsize = dlcylsize;
+	pm_devs_in->current_cylsize = current_cylsize;
+	pm_devs_in->dlsize = dlsize;
+	pm_devs_in->ptstart = ptstart;
+	pm_devs_in->ptsize = ptsize;
+	pm_devs_in->bootstart = bootstart;
+	pm_devs_in->bootsize = bootsize;
+	return;
+}
+
 
 int
 partman_adddisk(menudesc *m, void *arg)
@@ -1138,10 +1193,9 @@ partman_adddisk(menudesc *m, void *arg)
 	*(int *)arg = m->cursel + 1;
 	struct _pm_devs *pm_devs_new, *pm_devs_tmp;
 
-	if (find_disks(msg_string(MSG_install)) < 0) {
-		*(int *)arg = -1;
+	if (find_disks(msg_string(MSG_install)) < 0)
 		return -1;
-	}
+
 	clear();
 	refresh();
 
@@ -1151,10 +1205,7 @@ partman_adddisk(menudesc *m, void *arg)
 		if (check_swap(diskdev, 1) < 0) {
 			msg_display(MSG_swapdelfailed);
 			process_menu(MENU_ok, NULL);
-			if (!debug) {
-				*(int *)arg = -1;
-				return -1;
-			}
+			return -1;
 		}
 	}
 
@@ -1165,9 +1216,11 @@ partman_adddisk(menudesc *m, void *arg)
 	
 	pm_devs_new = malloc(sizeof (struct _pm_devs));
 	pm_devs_new->next = NULL;
-	pm_devs_new->bootable = 0;
+	partman_savedev(pm_devs_new);
 	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
 	strlcpy(pm_devs_new->desc, diskdev_descr, sizeof pm_devs_new->desc);
+	pm_devs_new->bootable = 0;
+	pm_devs_new->no_mbr = 1;
 	pm_devs_tmp->next = pm_devs_new;
 	
 	return 0;
@@ -1184,7 +1237,7 @@ int
 partman_deldev(menudesc *m, void *arg)
 {
 	struct _pm_devs *pm_devs_tmp, *pm_devs_swap;
-	*(int *)arg = -1;
+	*(int *)arg = m->cursel + 1;
 
 	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
 			pm_devs_tmp = pm_devs_tmp->next)
@@ -1197,29 +1250,31 @@ partman_deldev(menudesc *m, void *arg)
 				free(pm_devs_tmp->next);
 				pm_devs_tmp->next = pm_devs_swap;
 			}
-			*(int *)arg = m->cursel + 1;
 			return 0;
 		}
 	return -1;
 }
 
 int
-partman_save(menudesc *m, void *arg)
+partman_commit(menudesc *m, void *arg)
 {
 	struct _pm_devs *pm_devs_i;
 	*(int *)arg = m->cursel + 1;
 
 	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) {
-		strlcpy(diskdev, pm_devs_i->id, sizeof diskdev);
-		if (md_post_disklabel() != 0 ||
-				make_filesystems() ||
-				make_fstab() != 0) {
-			*(int *)arg = -1;
+			pm_devs_i = pm_devs_i->next) { // TODO: / must be first
+		partman_restoredev(pm_devs_i);
+		if (
+				md_pre_disklabel() != 0  || /* Write partition table */
+				write_disklabel() != 0   || /* Write slices table (disklabel) */
+				md_post_disklabel() != 0 || /* Enable swap and check badblock */
+				make_filesystems()       || /* Create filesystems by newfs */
+				make_fstab() != 0           /* Generate /etc/fstab */
+			) { /* If something fails... */
 			return -1;
 		}
+		/* Write bootsector if needed */
 		if (pm_devs_i->bootable && md_post_newfs() != 0) {
-			*(int *)arg = -1;
 			return -1;
 		}
 	}
@@ -1233,33 +1288,21 @@ partman_submenu(menudesc *m, void *arg)
 	int retvalue;
 	int ok = 0;
 	int i;
-
 	*(int *)arg = m->cursel + 1;
 
 	/* write selected disk to diskdev variable */
 	for (pm_devs_i = pm_devs->next, i = 0; !ok && pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next, i++)
 		if (i == m->cursel) {
-			strlcpy(diskdev, pm_devs_i->id, sizeof diskdev);
-			memcpy(oldlabel, pm_devs_i->oldlabel, sizeof oldlabel);
-			memcpy(bsdlabel, pm_devs_i->bsdlabel, sizeof bsdlabel);
-			memcpy(&mbr, &(pm_devs_i->mbr), sizeof mbr);
-			pm_devs_cur = pm_devs_i;
+			partman_restoredev(pm_devs_i);
 			ok = 1;
 			break;
 		}
-	if (!ok) {
-		*(int *)arg = -1;
+	if (!ok)
 		return -1;
-	}
-	if (logfp)
-		(void)fprintf(logfp,"Partman disk: %d\n", retvalue);
-	process_menu(MENU_pmentry, &retvalue);
-	
-	memcpy(pm_devs_cur->oldlabel, oldlabel, sizeof pm_devs_cur->oldlabel);
-	memcpy(pm_devs_cur->bsdlabel, bsdlabel, sizeof pm_devs_cur->bsdlabel);
-	memcpy(&(pm_devs_cur->mbr), &mbr, sizeof pm_devs_cur->mbr);
 
+	process_menu(MENU_pmentry, &retvalue);
+	partman_savedev(pm_devs_cur);
 	return 0;
 }
 
@@ -1268,17 +1311,33 @@ partman_menufmt(menudesc *m, int ptn, void *arg)
 {
 	struct _pm_devs *pm_devs_i;
 	int i;
+	unsigned int maxpart;
+	char *dev_mounts = malloc(STRSIZE * sizeof(char));
+	dev_mounts[0] = '\0';
+
 	for (pm_devs_i = pm_devs->next, i = 0;
 			i != ptn && pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next, i++);
 	if (i != ptn || pm_devs_i == NULL) 
 		return;
-	wprintw(m->mw,"%-50s %4s", pm_devs_i->desc,
+
+	maxpart = ((unsigned int)getmaxpartitions() > nelem(pm_devs_i->bsdlabel))?
+				nelem(pm_devs_i->bsdlabel) : (unsigned int)getmaxpartitions();
+	for (i = 0; (unsigned int)i < maxpart; i++) {
+		if (pm_devs_i->bsdlabel[i].pi_mount != 0 &&
+				pm_devs_i->bsdlabel[i].pi_fstype != FS_UNUSED) {
+			strcat(dev_mounts, pm_devs_i->bsdlabel[i].pi_mount);
+			strcat(dev_mounts, " ");
+		}
+	}
+
+	wprintw(m->mw,"%-25s %-20s %4s", pm_devs_i->desc, dev_mounts,
 			(pm_devs_i->bootable)?"BOOT":"" );
 	return;
 }
 
 // TODO: switch to langfiles
+// TODO: resolve case with 2 same bsddisknames
 int
 partman(void)
 {
@@ -1319,7 +1378,7 @@ partman(void)
 		};
 		part_menu[++i] = (struct menu_ent) {
 			.opt_name = "Commit changes",
-			.opt_action = partman_save,
+			.opt_action = partman_commit,
 		};
 
 		for (ii = 0; ii <= i; ii++) {
@@ -1342,9 +1401,10 @@ partman(void)
 			(void)fprintf(logfp, "partman retvalue is %d\n", retvalue);
 	} while (retvalue > 0);
 	
+	// TODO: check_partitions()
 	/* Check that fstab on target device is readable - if so then we can go */
 	if (retvalue == 0) {
-		FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"),"r");
+		FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
 		if (file_tmp == NULL)
 			retvalue = -1;
 		else

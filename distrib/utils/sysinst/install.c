@@ -46,6 +46,7 @@ void
 do_install(void)
 {
 	int find_disks_ret;
+	int retcode = 0;
 	partman_go = 0;
 
 #ifndef DEBUG
@@ -104,7 +105,9 @@ do_install(void)
 	}
 
 	/* Unpack the distribution. */
-	process_menu(MENU_distset, NULL);
+	process_menu(MENU_distset, &retcode);
+	if (retcode == 0)
+		return;
 	if (get_and_unpack_sets(0, MSG_disksetupdone,
 	    MSG_extractcomplete, MSG_abortinst) != 0)
 		return;
