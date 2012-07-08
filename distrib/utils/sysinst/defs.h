@@ -51,6 +51,7 @@ deconst(const void *p)
 
 #include "msg_defs.h"
 #include "menu_defs.h"
+#include "mbr.h"
 
 #define min(a,b)	((a) < (b) ? (a) : (b))
 #define max(a,b)	((a) > (b) ? (a) : (b))
@@ -232,7 +233,11 @@ struct _pm_devs {
     char desc[STRSIZE];
     char id_dk[SSTRSIZE];
     int bootable;
-    partinfo parts[MAXPARTITIONS];
+    partinfo oldlabel[MAXPARTITIONS];
+    partinfo bsdlabel[MAXPARTITIONS];
+    mbr_info_t mbr;
+    int no_mbr;
+    int use_gpt;
     struct _pm_devs *next;
 } *pm_devs;
 
@@ -252,7 +257,7 @@ int sizemult;
 const char *multname;
 int partman_go;   /* run partition manager */
 
-/* loging variables */
+/* logging variables */
 
 FILE *logfp;
 FILE *script;
@@ -262,7 +267,6 @@ char diskdev[SSTRSIZE];
 char diskdev_descr[STRSIZE];
 struct _pm_devs *pm_devs_cur;
 int no_mbr;				/* set for raid (etc) */
-int use_gpt;            /* use GPT, not MBR */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
 
@@ -407,7 +411,7 @@ int	partman(void);
 int partman_adddisk(menudesc *, void *);
 int partman_addvnd(menudesc *, void *);
 int partman_deldev(menudesc *, void *);
-int partman_ending(menudesc *, void *);
+int partman_save(menudesc *, void *);
 void partman_menufmt(menudesc *, int, void *);
 
 /* from disks_lfs.c */

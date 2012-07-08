@@ -506,14 +506,11 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
-menu pmentry, x=50, y=5, no clear, sub menu, exit, default exit, title diskdev;
+menu pmentry, x=50, y=5, sub menu, exit, default exit, title diskdev;
 	option "Prepare",			exit, action { md_get_info(); };
 	option "Prepare GPT",		exit, action { md_get_info(); };
 	option "Commit prepare",	exit, action { md_pre_disklabel(); };
 	option "Disk label",		exit, action { md_make_bsd_partitions(); };
 	option "Commit label",		exit, action { write_disklabel(); md_post_disklabel(); };
-	option "make_filesystems()",exit, action { make_filesystems(); };
-	option "make_fstab()",		exit, action { make_fstab(); };
-	option "md_post_newfs()",   exit, action { md_post_newfs(); };
 	option "Toggle bootable",   exit, action { pm_devs_cur->bootable = !pm_devs_cur->bootable; };
 	option "Remove",			exit, action { partman_deldev(m, arg); };

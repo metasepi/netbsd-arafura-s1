@@ -337,6 +337,7 @@ set_ptn_size(menudesc *m, void *arg)
 	return 0;
 }
 
+/* Menu to change sizes of /, /usr, /home and etc. partitions */
 void
 get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 {

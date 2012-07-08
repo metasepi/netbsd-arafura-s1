@@ -665,29 +665,35 @@ make_fstab(void)
 	FILE *f;
 	int i, swap_dev = -1;
 	const char *dump_dev;
+	static int fstab_prepared = 0;
 
 	/* Create the fstab. */
-	make_target_dir("/etc");
-	f = target_fopen("/etc/fstab", "w");
+	if (!fstab_prepared) {
+		make_target_dir("/etc");
+		f = target_fopen("/etc/fstab", "w");
+		scripting_fprintf(NULL, "cat <<EOF >%s/etc/fstab\n", target_prefix());
+	} else {
+		f = target_fopen("/etc/fstab", "a");
+		scripting_fprintf(NULL, "cat <<EOF >>%s/etc/fstab\n", target_prefix());
+	}
 	if (logfp)
 		(void)fprintf(logfp,
-		    "Creating %s/etc/fstab.\n", target_prefix());
-	scripting_fprintf(NULL, "cat <<EOF >%s/etc/fstab\n", target_prefix());
-
+		    "Making %s/etc/fstab (%s).\n", target_prefix(), diskdev);
+	
 	if (f == NULL) {
-#ifndef DEBUG
 		msg_display(MSG_createfstab);
 		if (logfp)
 			(void)fprintf(logfp, "Failed to make /etc/fstab!\n");
 		process_menu(MENU_ok, NULL);
+#ifndef DEBUG
 		return 1;
 #else
 		f = stdout;
 #endif
 	}
-
-	scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
-		"fstab/ for more examples.\n", target_prefix());
+	if (!fstab_prepared)
+		scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
+			"fstab/ for more examples.\n", target_prefix());
 	for (i = 0; i < getmaxpartitions(); i++) {
 		const char *s = "";
 		const char *mp = bsdlabel[i].pi_mount;
@@ -760,36 +766,37 @@ make_fstab(void)
 		   bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
 		   dump_freq, fsck_pass);
 	}
-
-	if (tmp_ramdisk_size != 0) {
+	if (!fstab_prepared) {
+		if (tmp_ramdisk_size != 0) {
 #ifdef HAVE_TMPFS
-		scripting_fprintf(f, "tmpfs\t\t/tmp\ttmpfs\trw,-m=1777,-s=%"
-		    PRIi64 "\n",
-		    tmp_ramdisk_size * 512);
+			scripting_fprintf(f, "tmpfs\t\t/tmp\ttmpfs\trw,-m=1777,-s=%"
+			    PRIi64 "\n",
+			    tmp_ramdisk_size * 512);
 #else
-		if (swap_dev != -1)
-			scripting_fprintf(f, "/dev/%s%c\t\t/tmp\tmfs\trw,-s=%"
-			    PRIi64 "\n",
-			    diskdev, 'a' + swap_dev, tmp_ramdisk_size);
-		else
-			scripting_fprintf(f, "swap\t\t/tmp\tmfs\trw,-s=%"
-			    PRIi64 "\n",
-			    tmp_ramdisk_size);
+			if (swap_dev != -1)
+				scripting_fprintf(f, "/dev/%s%c\t\t/tmp\tmfs\trw,-s=%"
+				    PRIi64 "\n",
+				    diskdev, 'a' + swap_dev, tmp_ramdisk_size);
+			else
+				scripting_fprintf(f, "swap\t\t/tmp\tmfs\trw,-s=%"
+				    PRIi64 "\n",
+				    tmp_ramdisk_size);
 #endif
+		}
+
+		/* Add /kern, /proc and /dev/pts to fstab and make mountpoint. */
+		scripting_fprintf(f, "kernfs\t\t/kern\tkernfs\trw\n");
+		scripting_fprintf(f, "ptyfs\t\t/dev/pts\tptyfs\trw\n");
+		scripting_fprintf(f, "procfs\t\t/proc\tprocfs\trw\n");
+		scripting_fprintf(f, "/dev/" CD_NAME "\t\t/cdrom\tcd9660\tro,noauto\n");
+		make_target_dir("/kern");
+		make_target_dir("/proc");
+		make_target_dir("/dev/pts");
+		make_target_dir("/cdrom");
 	}
-
-	/* Add /kern, /proc and /dev/pts to fstab and make mountpoint. */
-	scripting_fprintf(f, "kernfs\t\t/kern\tkernfs\trw\n");
-	scripting_fprintf(f, "ptyfs\t\t/dev/pts\tptyfs\trw\n");
-	scripting_fprintf(f, "procfs\t\t/proc\tprocfs\trw\n");
-	scripting_fprintf(f, "/dev/" CD_NAME "\t\t/cdrom\tcd9660\tro,noauto\n");
-	make_target_dir("/kern");
-	make_target_dir("/proc");
-	make_target_dir("/dev/pts");
-	make_target_dir("/cdrom");
-
 	scripting_fprintf(NULL, "EOF\n");
 
+	fstab_prepared = 1;
 #ifndef DEBUG
 	fclose(f);
 	fflush(NULL);
@@ -1150,16 +1157,17 @@ partman_adddisk(menudesc *m, void *arg)
 			}
 		}
 	}
-	
-	pm_devs_new = malloc(sizeof (struct _pm_devs));
-	pm_devs_new->next = NULL;
-	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
-	strlcpy(pm_devs_new->desc, diskdev_descr, sizeof pm_devs_new->desc);
+
 	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
 			pm_devs_tmp = pm_devs_tmp->next)
 		if (strcmp(pm_devs_tmp->next->id, diskdev) == 0)
 			return 0;
-
+	
+	pm_devs_new = malloc(sizeof (struct _pm_devs));
+	pm_devs_new->next = NULL;
+	pm_devs_new->bootable = 0;
+	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
+	strlcpy(pm_devs_new->desc, diskdev_descr, sizeof pm_devs_new->desc);
 	pm_devs_tmp->next = pm_devs_new;
 	
 	return 0;
@@ -1196,22 +1204,21 @@ partman_deldev(menudesc *m, void *arg)
 }
 
 int
-partman_ending(menudesc *m, void *arg)
+partman_save(menudesc *m, void *arg)
 {
 	struct _pm_devs *pm_devs_i;
+	*(int *)arg = m->cursel + 1;
 
-	if (md_post_disklabel() != 0 ||
-			make_filesystems() ||
-			make_fstab() != 0) {
-		*(int *)arg = -1;
-		return -1;
-	}
 	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next) {
-		if (!pm_devs_i->bootable)
-			continue;
 		strlcpy(diskdev, pm_devs_i->id, sizeof diskdev);
-		if (md_post_newfs() != 0) {
+		if (md_post_disklabel() != 0 ||
+				make_filesystems() ||
+				make_fstab() != 0) {
+			*(int *)arg = -1;
+			return -1;
+		}
+		if (pm_devs_i->bootable && md_post_newfs() != 0) {
 			*(int *)arg = -1;
 			return -1;
 		}
@@ -1234,8 +1241,12 @@ partman_submenu(menudesc *m, void *arg)
 			pm_devs_i = pm_devs_i->next, i++)
 		if (i == m->cursel) {
 			strlcpy(diskdev, pm_devs_i->id, sizeof diskdev);
+			memcpy(oldlabel, pm_devs_i->oldlabel, sizeof oldlabel);
+			memcpy(bsdlabel, pm_devs_i->bsdlabel, sizeof bsdlabel);
+			memcpy(&mbr, &(pm_devs_i->mbr), sizeof mbr);
 			pm_devs_cur = pm_devs_i;
 			ok = 1;
+			break;
 		}
 	if (!ok) {
 		*(int *)arg = -1;
@@ -1244,6 +1255,10 @@ partman_submenu(menudesc *m, void *arg)
 	if (logfp)
 		(void)fprintf(logfp,"Partman disk: %d\n", retvalue);
 	process_menu(MENU_pmentry, &retvalue);
+	
+	memcpy(pm_devs_cur->oldlabel, oldlabel, sizeof pm_devs_cur->oldlabel);
+	memcpy(pm_devs_cur->bsdlabel, bsdlabel, sizeof pm_devs_cur->bsdlabel);
+	memcpy(&(pm_devs_cur->mbr), &mbr, sizeof pm_devs_cur->mbr);
 
 	return 0;
 }
@@ -1303,8 +1318,8 @@ partman(void)
 			.opt_action = partman_addvnd,
 		};
 		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Save and continue",
-			.opt_action = partman_ending,
+			.opt_name = "Commit changes",
+			.opt_action = partman_save,
 		};
 
 		for (ii = 0; ii <= i; ii++) {
@@ -1322,9 +1337,20 @@ partman(void)
 			process_menu(menu_pm, &retvalue);
 			free_menu(menu_pm);
 		}
+
 		if (logfp)
 			(void)fprintf(logfp, "partman retvalue is %d\n", retvalue);
 	} while (retvalue > 0);
+	
+	/* Check that fstab on target device is readable - if so then we can go */
+	if (retvalue == 0) {
+		FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"),"r");
+		if (file_tmp == NULL)
+			retvalue = -1;
+		else
+			fclose(file_tmp);
+	}
 
-	return (retvalue > 0)?0:-1;
+	/* retvalue <0 - error, retvalue ==0 - user quits, retvalue >0 - all ok */
+	return (retvalue >= 0)?0:-1;
 }
