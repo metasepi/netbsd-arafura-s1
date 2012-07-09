@@ -300,8 +300,10 @@ typedef struct pm_devs_t {
     int bootstart, bootsize;
     struct pm_devs_t *next;
 } pm_devs_t;
-pm_devs_t *pm_devs;
-pm_devs_t *pm_devs_cur;
+pm_devs_t *pm_devs; /* Pointer to head of list with all devices */
+pm_devs_t *pm_found; /* Pointer to selected in find_disks device
+                        (when extended partition manager isn't used) */
+pm_devs_t *pm; /* Pointer to currend device with which we work */
 #define AAAAA 100
 
 struct {

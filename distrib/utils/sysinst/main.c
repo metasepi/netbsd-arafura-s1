@@ -137,6 +137,8 @@ init(void)
 
 	pm_devs = malloc (sizeof (pm_devs_t));
 	pm_devs->next = NULL;
+	pm_found = malloc (sizeof (pm_devs_t));
+	pm_found->next = NULL;
 
 	for (arg = fflagopts; arg->name != NULL; arg++)
 		strlcpy(arg->var, arg->dflt, arg->size);

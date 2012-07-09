@@ -416,6 +416,7 @@ find_disks(const char *doingwhat)
 	}
 
 	disk = disks + selected_disk;
+	pm = pm_found;
 	strlcpy(diskdev, disk->dd_name, sizeof diskdev);
 	strlcpy(diskdev_descr, disk->dd_descr, sizeof diskdev_descr);
 
@@ -1133,7 +1134,7 @@ bootxx_name(void)
 void
 partman_restoredev(pm_devs_t *pm_devs_in)
 {
-	pm_devs_cur = pm_devs_in;
+	pm = pm_devs_in;
 	if (logfp)
 		(void)fprintf(logfp,"Partman device: %s\n", diskdev);
 	no_mbr = pm_devs_in->no_mbr;
@@ -1286,7 +1287,7 @@ partman_deldev(menudesc *m, void *arg)
 
 	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
 			pm_devs_tmp = pm_devs_tmp->next)
-		if (pm_devs_tmp->next == pm_devs_cur) {
+		if (pm_devs_tmp->next == pm) {
 			if (pm_devs_tmp->next->next == NULL) {
 				free(pm_devs_tmp->next);
 				pm_devs_tmp->next = NULL;
@@ -1346,7 +1347,7 @@ partman_submenu(menudesc *m, void *arg)
 		return -1;
 
 	process_menu(MENU_pmentry, &retvalue);
-	partman_savedev(pm_devs_cur);
+	partman_savedev(pm);
 	return 0;
 }
 

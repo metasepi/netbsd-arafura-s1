@@ -512,5 +512,5 @@ menu pmentry, x=50, y=5, sub menu, exit, default exit, title diskdev;
 	option "Commit prepare",	exit, action { md_pre_disklabel(); };
 	option "Disk label",		exit, action { md_make_bsd_partitions(); };
 	option "Commit label",		exit, action { write_disklabel(); md_post_disklabel(); };
-	option "Toggle bootable",   exit, action { pm_devs_cur->bootable = !pm_devs_cur->bootable; };
+	option "Toggle bootable",   exit, action { pm->bootable = !pm->bootable; };
 	option "Remove",			exit, action { partman_deldev(m, arg); };
