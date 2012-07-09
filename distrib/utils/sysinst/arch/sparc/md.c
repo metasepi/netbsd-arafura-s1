@@ -38,7 +38,7 @@
 /* This file is in close sync with pmax, vax, and x68k md.c */
 
 #include <sys/types.h>
-#include <sys/pm->disklabel.h>
+#include <sys/disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <sys/exec.h>

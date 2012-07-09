@@ -34,7 +34,7 @@
  */
 
 #include <sys/types.h>
-#include <sys/pm->disklabel.h>
+#include <sys/disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <stdio.h>

@@ -32,7 +32,7 @@
  *
  */
 
-#include <sys/pm->disklabel.h>
+#include <sys/disklabel.h>
 #include <sys/bootblock.h>
 
 /* md.h -- Machine specific definitions for the mac68k */

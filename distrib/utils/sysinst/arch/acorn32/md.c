@@ -40,8 +40,8 @@
 #include <fcntl.h>
 #include <util.h>
 #include <sys/types.h>
-#include <sys/pm->disklabel.h>
-#include <sys/pm->disklabel_acorn.h>
+#include <sys/disklabel.h>
+#include <sys/disklabel_acorn.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 

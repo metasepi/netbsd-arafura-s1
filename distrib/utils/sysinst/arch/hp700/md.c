@@ -36,7 +36,7 @@
 /* This file is in close sync with pmax, vax, and x68k, sparc md.c */
 
 #include <sys/types.h>
-#include <sys/pm->disklabel.h>
+#include <sys/disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <stdio.h>

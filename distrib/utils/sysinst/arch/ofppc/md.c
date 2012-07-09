@@ -36,7 +36,7 @@
 
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#include <sys/pm->disklabel_rdb.h>
+#include <sys/disklabel_rdb.h>
 #include <stdio.h>
 #include <util.h>
 #include <machine/cpu.h>
