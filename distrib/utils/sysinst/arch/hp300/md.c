@@ -78,10 +78,10 @@ md_get_info(void)
 	}
 	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		if (logfp)
-			(void)fprintf(logfp, "Can't read pm->disklabel on %s.\n",
+			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
 				dev_name);
 		endwin();
-		fprintf(stderr, "Can't read pm->disklabel on %s.\n", dev_name);
+		fprintf(stderr, "Can't read disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
@@ -96,7 +96,7 @@ md_get_info(void)
 	pm->dlhead = pm->disklabel.d_ntracks;
 	pm->dlsec = pm->disklabel.d_nsectors;
 	pm->sectorsize = pm->disklabel.d_secsize;
-	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlcylsize = pm->disklabel.d_secpercyl;
 	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
 
 	if (read(fd, buf, 1024) < 0) {
@@ -115,7 +115,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -162,7 +162,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -171,10 +171,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 	if (get_ramsize() < 6)
 		set_swap(pm->diskdev, pm->bsdlabel);
@@ -232,16 +232,16 @@ md_update(void)
 }
 
 /*
- * Used in bsdpm->disklabel.c as BOOT_SIZE
+ * Used in bsddisklabel.c as BOOT_SIZE
  */
 int
 hp300_boot_size(void)
 {
 	int i;
 
-	i = pm->pm->dlcylsize;
-	if (i >= 1024) /* XXX: bsdpm->disklabel.c has a hack. */
-		i = pm->pm->dlcylsize * pm->sectorsize * 2;
+	i = pm->dlcylsize;
+	if (i >= 1024) /* XXX: bsddisklabel.c has a hack. */
+		i = pm->dlcylsize * pm->sectorsize * 2;
 
 	return i;
 }

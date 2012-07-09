@@ -496,13 +496,13 @@ fmt_fspart(menudesc *m, int ptn, void *arg)
 
 /*
  * Label a disk using an MD-specific string DISKLABEL_CMD for
- * to invoke pm->disklabel.
+ * to invoke disklabel.
  * if MD code does not define DISKLABEL_CMD, this is a no-op.
  *
- * i386 port uses "/sbin/pm->disklabel -w -r", just like i386
+ * i386 port uses "/sbin/disklabel -w -r", just like i386
  * miniroot scripts, though this may leave a bogus incore label.
  *
- * Sun ports should use DISKLABEL_CMD "/sbin/pm->disklabel -w"
+ * Sun ports should use DISKLABEL_CMD "/sbin/disklabel -w"
  * to get incore to ondisk inode translation for the Sun proms.
  */
 int
@@ -510,7 +510,7 @@ write_disklabel (void)
 {
 
 #ifdef DISKLABEL_CMD
-	/* pm->disklabel the disk */
+	/* disklabel the disk */
 	return run_program(RUN_DISPLAY, "%s -f /tmp/disktab %s '%s'",
 	    DISKLABEL_CMD, pm->diskdev, pm->bsddiskname);
 #else
@@ -943,7 +943,7 @@ mount_root(void)
 
 	md_pre_mount();
 
-	/* Mount /dev/<pm->diskdev>a on target's "".
+	/* Mount /dev/<diskdev>a on target's "".
 	 * If we pass "" as mount-on, Prefixing will DTRT.
 	 * for now, use no options.
 	 * XXX consider -o remount in case target root is

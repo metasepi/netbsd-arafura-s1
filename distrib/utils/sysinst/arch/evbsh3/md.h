@@ -51,9 +51,9 @@
 
 /*
  * Machine-specific command to write a new label to a disk.
- * If not defined, we assume the port does not support pm->disklabels and
- * the hand-edited pm->disklabel will NOT be written by MI code.
- * ews4800mips stores pm->disklabel and EWS-UX compatible PDINFO+VTOC.
+ * If not defined, we assume the port does not support disklabels and
+ * the hand-edited disklabel will NOT be written by MI code.
+ * ews4800mips stores disklabel and EWS-UX compatible PDINFO+VTOC.
  * Don't use -r option.
  */
 #define	DISKLABEL_CMD	"disklabel -w -r"

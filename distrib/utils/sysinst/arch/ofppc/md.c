@@ -58,7 +58,7 @@ static int bootpart_prep = PART_BOOT_PREP;
 static int bootinfo_mbr = 1;
 static int rdb_found = 0;
 
-/* pm->bootstart/pm->bootsize are for the fat */
+/* bootstart/bootsize are for the fat */
 int binfostart, binfosize, bprepstart, bprepsize;
 
 void
@@ -84,7 +84,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -154,7 +154,7 @@ rdb_edit_check:
 	process_menu(MENU_layout, NULL);
 
 	/* Set so we use the 'real' geometry for rounding, input in MB */
-	pm->current_cylsize = pm->pm->dlcylsize;
+	pm->current_cylsize = pm->dlcylsize;
 	set_sizemultname_meg();
 
 	/* Build standard partitions */
@@ -296,13 +296,13 @@ md_check_partitions(void)
 	if (ffat >=1 && fprep >= 2)
 		return 3;
 
-	msg_display(MSG_nobootpartpm->disklabel);
+	msg_display(MSG_nobootpartdisklabel);
 	process_menu(MENU_ok, NULL);
 	return 0;
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -323,10 +323,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 	char bootdev[100];
 
@@ -432,7 +432,7 @@ md_pre_update(void)
 			if (part->mbrp_type == MBR_PTYPE_RESERVED_x21 &&
 			    part->mbrp_size < (MIN_FAT12_BOOT/512)) {
 				msg_display(MSG_boottoosmall);
-				msg_display_add(MSG_nobootpartpm->disklabel, 0);
+				msg_display_add(MSG_nobootpartdisklabel, 0);
 				process_menu(MENU_yesno, NULL);
 				if (!yesno)
 					return 0;
@@ -600,12 +600,12 @@ md_mbr_use_wholedisk(mbr_info_t *mbri)
 	return 1;
 }
 
-const char *md_pm->disklabel_cmd(void)
+const char *md_disklabel_cmd(void)
 {
 
-	/* we cannot rewrite an RDB pm->disklabel */
+	/* we cannot rewrite an RDB disklabel */
 	if (rdb_found)
-		return "sync No pm->disklabel";
+		return "sync No disklabel";
 
 	return "disklabel -w -r";
 }

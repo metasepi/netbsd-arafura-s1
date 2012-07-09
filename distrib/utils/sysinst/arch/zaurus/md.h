@@ -64,11 +64,11 @@
 
 /*
  * Machine-specific command to write a new label to a disk.
- * For example, zaurus uses "/sbin/pm->disklabel -w -r", just like zaurus
+ * For example, zaurus uses "/sbin/disklabel -w -r", just like zaurus
  * miniroot scripts, though this may leave a bogus incore label.
- * Sun ports should probably use  DISKLABEL_CMD "/sbin/pm->disklabel -w"
+ * Sun ports should probably use  DISKLABEL_CMD "/sbin/disklabel -w"
  * to get incore to ondisk inode translation for the Sun proms.
- * If not defined, we assume the port does not support pm->disklabels and
- * hand-edited pm->disklabel will NOT be written by MI code.
+ * If not defined, we assume the port does not support disklabels and
+ * hand-edited disklabel will NOT be written by MI code.
  */
 #define DISKLABEL_CMD "disklabel -w -r"

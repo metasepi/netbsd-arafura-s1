@@ -58,7 +58,7 @@ typedef struct {
 
 /*
  * Define Apple Partition Map types typically seen on 68k Macs
- *    This should match the definitions in include/machine/pm->disklabel.h
+ *    This should match the definitions in include/machine/disklabel.h
  *    and must conform to the matching rules in arch/mac68k/mac68k/disksubr.c
  */
 extern MAP_TYPE map_types[];
@@ -161,17 +161,17 @@ extern struct apple_part_map_entry new_map[];
 
 /*
  * Machine-specific command to write a new label to a disk.
- * For example, i386 uses "/sbin/pm->disklabel -w -r", just like i386
+ * For example, i386 uses "/sbin/disklabel -w -r", just like i386
  * miniroot scripts, though this may leave a bogus incore label.
- * Sun ports should probably use DISKLABEL_CMD "/sbin/pm->disklabel -w"
+ * Sun ports should probably use DISKLABEL_CMD "/sbin/disklabel -w"
  * to get incore to ondisk inode translation for the Sun proms.
- * If not defined, we assume the port does not support pm->disklabels and
- * hand-edited pm->disklabel will NOT be written by MI code.
+ * If not defined, we assume the port does not support disklabels and
+ * hand-edited disklabel will NOT be written by MI code.
  *
- * The mac68k port doesn't support real pm->disklabels so we don't define the
+ * The mac68k port doesn't support real disklabels so we don't define the
  * command string. The Apple Disk Partition Map gets written in the
  * md_pre_disklabel() routine, which also forces the incore copy to be
- * updated. If native pm->disklabels are supported or if pm->disklabel() is
+ * updated. If native disklabels are supported or if disklabel() is
  * fixed to work for writing labels, this command should be defined
  * to a value that will force the writing of the label. In that case,
  * the code in md_pre_disklabel() which forces the incore update can be

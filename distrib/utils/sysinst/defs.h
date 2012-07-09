@@ -211,7 +211,7 @@ typedef struct _partinfo {
 #define PIF_RESET	0x1000		/* internal - restore previous values */
     const char *mnt_opts;
     const char *fsname;
-} partinfo;	/* Single partition from a pm->disklabel */
+} partinfo;	/* Single partition from a disklabel */
 
 struct ptn_info {
 	int		menu_no;
@@ -258,7 +258,7 @@ int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
 unsigned int root_limit;    /* BIOS (etc) read limit */
 
-/* Information for the NetBSD pm->disklabel */
+/* Information for the NetBSD disklabel */
 enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
 	    PART_I, PART_J, PART_K, PART_L, PART_M, PART_N, PART_O, PART_P};
 #define partition_name(x)	('a' + (x))

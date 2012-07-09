@@ -1,4 +1,4 @@
-/*	$NetBSD: bsdpm->disklabel.c,v 1.56 2011/05/30 14:20:48 joerg Exp $	*/
+/*	$NetBSD: bsddisklabel.c,v 1.56 2011/05/30 14:20:48 joerg Exp $	*/
 
 /*
  * Copyright 1997 Piermont Information Systems Inc.
@@ -32,7 +32,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* bsdpm->disklabel.c -- generate standard BSD pm->disklabel */
+/* bsddisklabel.c -- generate standard BSD disklabel */
 /* Included by appropriate arch/XXXX/md.c */
 
 #include <sys/param.h>
@@ -526,7 +526,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 make_bsd_partitions(void)
@@ -591,7 +591,7 @@ make_bsd_partitions(void)
 	i = BOOT_SIZE;
 	if (i >= 1024) {
 		/* Treat big numbers as a byte count */
-		i = (i + pm->dlcylsize * pm->sectorsize - 1) / (pm->pm->dlcylsize * pm->sectorsize);
+		i = (i + pm->dlcylsize * pm->sectorsize - 1) / (pm->dlcylsize * pm->sectorsize);
 		i *= pm->dlcylsize;
 	}
 	pm->bsdlabel[PART_BOOT].pi_fstype = FS_BOOT;

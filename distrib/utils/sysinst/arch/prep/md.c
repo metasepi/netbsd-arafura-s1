@@ -66,7 +66,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -98,7 +98,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -115,10 +115,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 	return 0;
 }

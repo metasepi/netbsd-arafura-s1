@@ -54,7 +54,7 @@ typedef struct parttab {
 	struct dos_partition dosparts[NDOSPART];
 } parttab;
 
-parttab md_pm->disklabel;
+parttab md_disklabel;
 int md_freepart;
 int md_nfreepart;
 #endif /* notyet */
@@ -95,10 +95,10 @@ md_get_info(void)
 	}
 	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		if (logfp)
-			(void)fprintf(logfp, "Can't read pm->disklabel on %s.\n",
+			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
 				dev_name);
 		endwin();
-		fprintf(stderr, "Can't read pm->disklabel on %s.\n", dev_name);
+		fprintf(stderr, "Can't read disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
@@ -113,7 +113,7 @@ md_get_info(void)
 	pm->dlhead = pm->disklabel.d_ntracks;
 	pm->dlsec = pm->disklabel.d_nsectors;
 	pm->sectorsize = pm->disklabel.d_secsize;
-	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlcylsize = pm->disklabel.d_secpercyl;
 	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
 
 	if (read(fd, buf, 1024) < 0) {
@@ -126,7 +126,7 @@ md_get_info(void)
 		md_need_newdisk = 1;
 #ifdef notyet
 	else
-		if (read(fd, md_pm->disklabel, sizeof(md_pm->disklabel)) < 0) {
+		if (read(fd, md_disklabel, sizeof(md_disklabel)) < 0) {
 			endwin();
 			fprintf(stderr, "Can't read %s\n", dev_name);
 			close(fd);
@@ -144,7 +144,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -196,9 +196,9 @@ md_check_partitions(void)
 
 	/* check existing BSD partitions. */
 	for (i = 0; i < NDOSPART; i++) {
-		if (md_pm->disklabel.dosparts[i].dp_size == 0)
+		if (md_disklabel.dosparts[i].dp_size == 0)
 			break;
-		if (memcmp(md_pm->disklabel.dosparts[i].dp_typename, "Human68k", 8)) {
+		if (memcmp(md_disklabel.dosparts[i].dp_typename, "Human68k", 8)) {
 			msg_display(MSG_existing);
 			process_menu(MENU_noyes);
 			preserve = yesno;
@@ -215,15 +215,15 @@ md_check_partitions(void)
 			continue;
 		}
 		if (!preserve &&
-		    memcmp(md_pm->disklabel.dosparts[i].dp_typename,
+		    memcmp(md_disklabel.dosparts[i].dp_typename,
 			    "Human68k", 8)) {
 			/* discard it. */
 			i++;
 			continue;
 		}
 		pm->bsdlabel[j].pi_fstype = (i == 1) ? FS_SWAP : FS_BSDFFS;
-		pm->bsdlabel[j].pi_offset = md_pm->disklabel.dosparts[i].dp_start*2;
-		pm->bsdlabel[j].pi_size = md_pm->disklabel.dosparts[i].dp_size*2;
+		pm->bsdlabel[j].pi_offset = md_disklabel.dosparts[i].dp_start*2;
+		pm->bsdlabel[j].pi_size = md_disklabel.dosparts[i].dp_size*2;
 		i++;
 		j++;
 	}
@@ -246,7 +246,7 @@ md_check_partitions(void)
 #endif /* notyet */
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -257,10 +257,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 	if (get_ramsize() < 6)
 		set_swap(pm->diskdev, pm->bsdlabel);

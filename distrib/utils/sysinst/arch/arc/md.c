@@ -70,7 +70,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -105,7 +105,7 @@ md_make_bsd_partitions(void)
 	process_menu(MENU_layout, NULL);
 
 	/* Set so we use the 'real' geometry for rounding, input in MB */
-	pm->current_cylsize = pm->pm->dlcylsize;
+	pm->current_cylsize = pm->dlcylsize;
 	set_sizemultname_meg();
 
 	/* Build standard partitions */
@@ -219,13 +219,13 @@ md_check_partitions(void)
 			return 1;
 		}
 
-	msg_display(MSG_nobootpartpm->disklabel);
+	msg_display(MSG_nobootpartdisklabel);
 	process_menu(MENU_ok, NULL);
 	return 0;
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -242,10 +242,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 	if (get_ramsize() <= 32)
 		set_swap(pm->diskdev, pm->bsdlabel);

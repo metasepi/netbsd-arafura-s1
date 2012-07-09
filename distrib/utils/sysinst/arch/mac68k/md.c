@@ -152,11 +152,11 @@ md_get_info(void)
 		exit(1);
 	}
 	/*
-	 * Try to get the default pm->disklabel info for the device
+	 * Try to get the default disklabel info for the device
 	 */
 	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		endwin();
-		fprintf (stderr, "Can't read pm->disklabel on %s\n", dev_name);
+		fprintf (stderr, "Can't read disklabel on %s\n", dev_name);
 		close(fd);
 		exit(1);
 	}
@@ -233,7 +233,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD pm->disklabel editor.
+ * md back-end code for menu-driven BSD disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -362,7 +362,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -426,13 +426,13 @@ md_pre_disklabel(void)
      * Well, if we get here the dirty deed has been done.
      *
      * Now we need to force the incore disk table to get updated. This
-     * should be done by pm->disklabel -- which is normally called right after
+     * should be done by disklabel -- which is normally called right after
      * we return -- but may be commented out for the mac68k port. We'll
      * instead update the incore table by forcing a dummy write here. This
-     * relies on a change in the mac68k-specific writepm->disklabel() routine.
-     * If that change doesn't exist nothing bad happens here. If pm->disklabel
+     * relies on a change in the mac68k-specific write_disklabel() routine.
+     * If that change doesn't exist nothing bad happens here. If disklabel
      * properly updates the ondisk and incore labels everything still
-     * works. Only if we fail here and if pm->disklabel fails are we in
+     * works. Only if we fail here and if disklabel fails are we in
      * in a state where we've updated the disk but not the incore and
      * a reboot is necessary.
      *
@@ -440,8 +440,8 @@ md_pre_disklabel(void)
      * we did anything to it. Then we invoke the "write label" ioctl to
      * rewrite it to disk. As a result, the ondisk partition map is
      * re-read and the incore label is reconstructed from it. If
-     * pm->disklabel() is then called to update again, either that fails
-     * because the mac68k port doesn't support native pm->disklabels, or it
+     * disklabel() is then called to update again, either that fails
+     * because the mac68k port doesn't support native disklabels, or it
      * succeeds and writes out a new ondisk copy.
      */
     ioctl(fd, DIOCGDINFO, &lp);    /* Get the current disk label */
@@ -452,10 +452,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
     struct pm->disklabel updated_label;
     int fd, i, no_match;

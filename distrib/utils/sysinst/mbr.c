@@ -249,7 +249,7 @@ disp_cur_geom(void)
 
 /*
  * If we change the mbr partitioning, the we must remove any references
- * in the netbsd pm->disklabel to the part we changed.
+ * in the netbsd disklabel to the part we changed.
  */
 static void
 remove_old_partitions(uint start, int64_t size)

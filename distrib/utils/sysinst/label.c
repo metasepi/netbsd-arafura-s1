@@ -599,7 +599,7 @@ set_label_texts(menudesc *menu, void *arg)
 }
 
 /*
- * Check a pm->disklabel.
+ * Check a disklabel.
  * If there are overlapping active partitions,
  * Ask the user if they want to edit the partition or give up.
  */

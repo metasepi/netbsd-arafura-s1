@@ -83,19 +83,19 @@ Things to do ....  in no specific order.
         -- A little more clean-up of the run_prog suite so things work
            nicely for all ports.
 
-	-- fix "pm->disklabel -r -w" vs. "disklabel -w": I still don't grok why
+	-- fix "disklabel -r -w" vs. "disklabel -w": I still don't grok why
            the  -r, and the manpage says it will lose totally on sparcs.
            Phil, was there some reason to bypass the incore label on i386?
            Can we just do "disklabel -w" everywhere?
 
-	-- Michael bumped the in-memory pm->disklabel struct up to 16 entries.
+	-- Michael bumped the in-memory disklabel struct up to 16 entries.
  	   Also add a runtime check in case that grows in future 
 	   (e.g., slices).  Maybe bump to 32 entries just in case.
 
 	-- Fix sanity-check message code. It currently gets over-written
 	   immediately by the following message.
 
-	-- check for pm->disklabel edits changing active root partition.
+	-- check for disklabel edits changing active root partition.
 	   reject.
 
 	-- remove any possibly-stale ld.so.cache files from the target

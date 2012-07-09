@@ -38,7 +38,7 @@
 /*
  * mbr.h -- definitions for reading, writing and editing DOS MBRs.
  * Use by including from md.h on ports  which use MBRs (i386, powerpc, arc)
- * naming convention:  dlxxxx => NetBSD pm->disklabel, bxxxx => bios
+ * naming convention:  dlxxxx => NetBSD disklabel, bxxxx => bios
  */
 
 /* constants and defines */

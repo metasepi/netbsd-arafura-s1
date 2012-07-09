@@ -66,7 +66,7 @@
 
 /*
  * Machine-specific command to write a new label to a disk.
- * If not defined, we assume the port does not support pm->disklabels and
- * the hand-edited pm->disklabel will NOT be written by MI code.
+ * If not defined, we assume the port does not support disklabels and
+ * the hand-edited disklabel will NOT be written by MI code.
  */
 #define	DISKLABEL_CMD	"disklabel -w -r"

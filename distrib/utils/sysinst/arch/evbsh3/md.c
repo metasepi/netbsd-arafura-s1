@@ -65,7 +65,7 @@ md_get_info(void)
 	}
 	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		endwin();
-		fprintf (stderr, "Can't read pm->disklabel on %s.\n", dev_name);
+		fprintf (stderr, "Can't read disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
@@ -75,7 +75,7 @@ md_get_info(void)
 	pm->dlhead = pm->disklabel.d_ntracks;
 	pm->dlsec = pm->disklabel.d_nsectors;
 	pm->sectorsize = pm->disklabel.d_secsize;
-	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlcylsize = pm->disklabel.d_secpercyl;
 
 	/*
 	 * Compute whole disk size. Take max of (pm->dlcyl*pm->dlhead*pm->dlsec)
@@ -91,7 +91,7 @@ md_get_info(void)
 }
 
 /*
- * hook called before writing new pm->disklabel.
+ * hook called before writing new disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -101,10 +101,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing pm->disklabel to new target disk.
+ * hook called after writing disklabel to new target disk.
  */
 int
-md_post_pm->disklabel(void)
+md_post_disklabel(void)
 {
 
 	return 0;

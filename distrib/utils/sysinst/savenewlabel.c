@@ -65,16 +65,16 @@ savenewlabel(partinfo *lp, int nparts)
 	strlcat(f_name, pm->bsddiskname, STRSIZE);
 
 	/*
-	  N.B. pm->disklabels only support up to 2TB (32-bit field for sectors).
+	  N.B. disklabels only support up to 2TB (32-bit field for sectors).
 	  This function explicitly narrows from daddr_t (64-bit unsigned) to
-	  uint32_t when writing the pm->disklabel.
+	  uint32_t when writing the disklabel.
 	 */
 
 	/* Create /etc/disktab */
 
 	f = fopen(f_name, "w");
 	if (logfp)
-		(void)fprintf(logfp, "Creating pm->disklabel %s in %s\n", pm->bsddiskname,
+		(void)fprintf(logfp, "Creating disklabel %s in %s\n", pm->bsddiskname,
 						f_name);
 	scripting_fprintf(NULL, "cat <<EOF >>/etc/disktab\n");
 	if (f == NULL) {
