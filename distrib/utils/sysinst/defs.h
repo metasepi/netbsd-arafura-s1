@@ -245,30 +245,18 @@ int layoutkind;
 int sizemult;
 const char *multname;
 int partman_go;   /* run partition manager */
+int fstab_prepared; /* Should we create new /etc/fstab or append old? */
 
 /* logging variables */
 
 FILE *logfp;
 FILE *script;
 
-/* Actual name of the disk. */
-//char diskdev[SSTRSIZE];
-//char diskdev_descr[STRSIZE];
+
 //int no_mbr;				/* set for raid (etc) */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
-
-/* Area of disk we can allocate, start and size in disk sectors. */
-//daddr_t ptstart, ptsize;
-/* If we have an MBR boot partition, start and size in sectors */
-//int bootstart, bootsize;
-
-/* Actual values for current disk - set by find_disks() or md_get_info() */
-//int sectorsize;
-//int dlcyl, dlhead, dlsec, dlcylsize;
-//daddr_t dlsize;
-//int current_cylsize;
-unsigned int root_limit;		/* BIOS (etc) read limit */
+unsigned int root_limit;    /* BIOS (etc) read limit */
 
 /* Information for the NetBSD pm->disklabel */
 enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
@@ -284,6 +272,7 @@ const char *doessf;
 
 /* Information for extended partition manager */
 typedef struct pm_devs_t {
+    /* Actual name of the disk. */
     char diskdev[SSTRSIZE];
     char diskdev_descr[STRSIZE];
     char id_dk[SSTRSIZE];
@@ -294,9 +283,13 @@ typedef struct pm_devs_t {
     mbr_info_t mbr;
     int no_mbr;
     int use_gpt;
+    /* Actual values for current disk - set by find_disks() or md_get_info() */
     int sectorsize, dlcyl, dlhead, dlsec, dlcylsize, current_cylsize;
     daddr_t dlsize;
     daddr_t ptstart, ptsize;
+    /* Area of disk we can allocate, start and size in disk sectors. */
+    //daddr_t ptstart, ptsize;
+    /* If we have an MBR boot partition, start and size in sectors */
     int bootstart, bootsize;
     struct pm_devs_t *next;
 } pm_devs_t;
@@ -305,11 +298,11 @@ pm_devs_t *pm_found; /* Pointer to selected in find_disks device
                         (when extended partition manager isn't used) */
 pm_devs_t *pm; /* Pointer to currend device with which we work */
 
-#define AAAAA 100
+#define MNTS_MAX 100
 struct {
     const char *diskdev, *mnt_opts, *fsname;
     char *pi_mount;
-} mnts[AAAAA];
+} mnts[MNTS_MAX];
 
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
@@ -431,8 +424,7 @@ int partman_deldev(menudesc *, void *);
 int partman_commit(menudesc *, void *);
 int partman_mountall(void);
 void partman_menufmt(menudesc *, int, void *);
-void partman_restoredev(pm_devs_t *);
-void partman_savedev(pm_devs_t *);
+void partman_select(pm_devs_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

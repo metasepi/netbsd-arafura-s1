@@ -665,7 +665,6 @@ make_fstab(void)
 	FILE *f;
 	int i, swap_dev = -1;
 	const char *dump_dev;
-	static int fstab_prepared = 0;
 
 	/* Create the fstab. */
 	if (fstab_prepared == 0) {
@@ -1157,7 +1156,7 @@ partman_mountall(void)
 	int num_devs = 0;
 	int i, error;
 
-	int mnts_order[AAAAA];
+	int mnts_order[MNTS_MAX]; // TODO: rewrite
 	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next) {
 		fprintf(logfp,"::%s\n",pm_devs_i->diskdev); fflush(logfp);

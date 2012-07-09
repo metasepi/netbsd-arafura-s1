@@ -1,4 +1,4 @@
-/*  $NetBSD: mbr.c,v 1.91 2012/05/26 05:09:59 tsutsui Exp $ */
+/*	$NetBSD: mbr.c,v 1.91 2012/05/26 05:09:59 tsutsui Exp $ */
 
 /*
  * Copyright 1997 Piermont Information Systems Inc.

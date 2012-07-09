@@ -48,6 +48,7 @@ do_install(void)
 	int find_disks_ret;
 	int retcode = 0;
 	partman_go = 0;
+	fstab_prepared = 0;
 
 #ifndef DEBUG
 	msg_display(MSG_installusure);

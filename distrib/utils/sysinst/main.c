@@ -360,6 +360,7 @@ toplevel(void)
 	 * XXX must be idempotent, since we get run each time the main
 	 *     menu is displayed.
 	 */
+	chdir(getenv("HOME")? getenv("HOME") : "/");
 	unwind_mounts();
 
 	/* Display banner message in (english, francais, deutsch..) */
