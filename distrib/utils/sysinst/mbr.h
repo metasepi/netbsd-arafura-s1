@@ -76,7 +76,7 @@ struct mbr_info_t {
 /* incore fdisk (mbr, bios) geometry */
 int bcyl, bhead, bsec;
 
-mbr_info_t mbr;
+mbr_info_t mbr; // TODO: xxx
 
 #ifdef BOOTSEL
 struct mbr_bootsel *mbs;

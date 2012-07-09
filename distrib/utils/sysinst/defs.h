@@ -253,7 +253,6 @@ FILE *logfp;
 FILE *script;
 
 
-//int no_mbr;				/* set for raid (etc) */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
 unsigned int root_limit;    /* BIOS (etc) read limit */
@@ -262,8 +261,6 @@ unsigned int root_limit;    /* BIOS (etc) read limit */
 enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
 	    PART_I, PART_J, PART_K, PART_L, PART_M, PART_N, PART_O, PART_P};
 #define partition_name(x)	('a' + (x))
-//partinfo oldlabel[MAXPARTITIONS];	/* What we found on the disk */
-//partinfo bsdlabel[MAXPARTITIONS];	/* What we want it to look like */
 daddr_t tmp_ramdisk_size;
 
 #define DISKNAME_SIZE 16
@@ -278,17 +275,16 @@ typedef struct pm_devs_t {
     char id_dk[SSTRSIZE];
     int bootable;
     char bsddiskname[DISKNAME_SIZE];
-    partinfo oldlabel[MAXPARTITIONS];
-    partinfo bsdlabel[MAXPARTITIONS];
+    partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
+    partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
     mbr_info_t mbr;
-    int no_mbr;
+    int no_mbr; /* set for raid (etc) */
     int use_gpt;
     /* Actual values for current disk - set by find_disks() or md_get_info() */
     int sectorsize, dlcyl, dlhead, dlsec, dlcylsize, current_cylsize;
     daddr_t dlsize;
-    daddr_t ptstart, ptsize;
     /* Area of disk we can allocate, start and size in disk sectors. */
-    //daddr_t ptstart, ptsize;
+    daddr_t ptstart, ptsize;
     /* If we have an MBR boot partition, start and size in sectors */
     int bootstart, bootsize;
     struct pm_devs_t *next;

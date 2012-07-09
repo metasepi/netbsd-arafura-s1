@@ -417,6 +417,7 @@ find_disks(const char *doingwhat)
 
 	disk = disks + selected_disk;
 	pm = pm_found;
+	pm->bootable = 0;
 	strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
 	strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
 
@@ -1192,7 +1193,7 @@ int
 partman_adddisk(menudesc *m, void *arg)
 {
 	*(int *)arg = m->cursel + 1;
-	pm_devs_t *pm_devs_new, *pm_devs_tmp;
+	pm_devs_t *pm_devs_tmp;
 
 	if (find_disks(msg_string(MSG_install)) < 0)
 		return -1;
@@ -1214,16 +1215,11 @@ partman_adddisk(menudesc *m, void *arg)
 			pm_devs_tmp = pm_devs_tmp->next)
 		if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
 			return 0;
-	
-	pm_devs_new = malloc(sizeof (pm_devs_t));
-	pm_devs_new->next = NULL;
-	strlcpy(pm_devs_new->diskdev, pm->diskdev, sizeof pm_devs_new->diskdev);
-	strlcpy(pm_devs_new->diskdev_descr, pm->diskdev_descr,
-				sizeof pm_devs_new->diskdev_descr);
-	pm_devs_new->bootable = 0;
-	pm_devs_new->no_mbr = 1;
-	pm_devs_tmp->next = pm_devs_new;
-	
+	pm_devs_tmp->next = pm_found;
+
+	pm_found = malloc(sizeof (pm_devs_t));
+	pm_found->next = NULL;
+
 	return 0;
 }
 
