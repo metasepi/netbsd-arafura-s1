@@ -63,7 +63,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -81,7 +81,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -90,10 +90,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	return 0;
 }
@@ -107,9 +107,9 @@ int
 md_post_newfs(void)
 {
 	/* boot blocks ... */
-	msg_display(MSG_dobootblks, diskdev);
+	msg_display(MSG_dobootblks, pm->diskdev);
 	return run_program(RUN_DISPLAY,
-	    "/usr/mdec/installboot -v /usr/mdec/xxboot /dev/r%sa", diskdev);
+	    "/usr/mdec/installboot -v /usr/mdec/xxboot /dev/r%sa", pm->diskdev);
 }
 
 int

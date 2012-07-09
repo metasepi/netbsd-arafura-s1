@@ -37,7 +37,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/disklabel.h>
+#include <sys/pm->disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <util.h>
@@ -64,9 +64,9 @@ md_get_info(void)
 	char buf[1024];
 	int fd;
 	char dev_name[100];
-	struct disklabel disklabel;
+	struct pm->disklabel pm->disklabel;
 
-	snprintf(dev_name, sizeof(dev_name), "/dev/r%sc", diskdev);
+	snprintf(dev_name, sizeof(dev_name), "/dev/r%sc", pm->diskdev);
 
 	fd = open(dev_name, O_RDONLY, 0);
 	if (fd < 0) {
@@ -76,28 +76,28 @@ md_get_info(void)
 		fprintf(stderr, "Can't open %s\n", dev_name);
 		exit(1);
 	}
-	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		if (logfp)
-			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
+			(void)fprintf(logfp, "Can't read pm->disklabel on %s.\n",
 				dev_name);
 		endwin();
-		fprintf(stderr, "Can't read disklabel on %s.\n", dev_name);
+		fprintf(stderr, "Can't read pm->disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
-	if (disklabel.d_secsize != 512) {
+	if (pm->disklabel.d_secsize != 512) {
 		endwin();
 		fprintf(stderr, "Non-512byte/sector disk is not supported.\n");
 		close(fd);
 		exit(1);
 	}
 
-	dlcyl = disklabel.d_ncylinders;
-	dlhead = disklabel.d_ntracks;
-	dlsec = disklabel.d_nsectors;
-	sectorsize = disklabel.d_secsize;
-	dlcylsize = disklabel.d_secpercyl;
-	dlsize = dlcyl*dlhead*dlsec;
+	pm->dlcyl = pm->disklabel.d_ncylinders;
+	pm->dlhead = pm->disklabel.d_ntracks;
+	pm->dlsec = pm->disklabel.d_nsectors;
+	pm->sectorsize = pm->disklabel.d_secsize;
+	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
 
 	if (read(fd, buf, 1024) < 0) {
 		endwin();
@@ -107,7 +107,7 @@ md_get_info(void)
 	}
 
 	/* We will preserve the first cylinder as PART_BOOT for bootloader. */
-	ptstart = 0;
+	pm->ptstart = 0;
 
 	close(fd);
 
@@ -115,7 +115,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -139,22 +139,22 @@ md_check_partitions(void)
 	for (part = PART_A; part < MAXPARTITIONS; part++) {
 		if (part == PART_RAW || part == PART_BOOT)
 			continue;
-		if (last >= PART_A && bsdlabel[part].pi_size > 0) {
+		if (last >= PART_A && pm->bsdlabel[part].pi_size > 0) {
 			msg_display(MSG_emptypart, part+'a');
 			process_menu(MENU_ok, NULL);
 			return 0;
 		}
-		if (bsdlabel[part].pi_size == 0) {
+		if (pm->bsdlabel[part].pi_size == 0) {
 			if (last < PART_A)
 				last = part;
 		} else {
-			if (start >= bsdlabel[part].pi_offset) {
+			if (start >= pm->bsdlabel[part].pi_offset) {
 				msg_display(MSG_ordering, part+'a');
 				process_menu(MENU_yesno, NULL);
 				if (yesno)
 					return 0;
 			}
-			start = bsdlabel[part].pi_offset;
+			start = pm->bsdlabel[part].pi_offset;
 		}
 	}
 
@@ -162,7 +162,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -171,13 +171,13 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	if (get_ramsize() < 6)
-		set_swap(diskdev, bsdlabel);
+		set_swap(pm->diskdev, pm->bsdlabel);
 
 	return 0;
 }
@@ -193,9 +193,9 @@ int
 md_post_newfs(void)
 {
 	/* boot blocks ... */
-	msg_display(MSG_dobootblks, diskdev);
+	msg_display(MSG_dobootblks, pm->diskdev);
 	if (run_program(RUN_DISPLAY | RUN_NO_CLEAR,
-	    "/usr/sbin/installboot /dev/r%sc /usr/mdec/uboot.lif", diskdev))
+	    "/usr/sbin/installboot /dev/r%sc /usr/mdec/uboot.lif", pm->diskdev))
 		process_menu(MENU_ok,
 		    deconst("Warning: disk is probably not bootable"));
 	return 0;
@@ -219,7 +219,7 @@ int
 md_pre_update(void)
 {
 	if (get_ramsize() < 6)
-		set_swap(diskdev, NULL);
+		set_swap(pm->diskdev, NULL);
 	return 1;
 }
 
@@ -232,16 +232,16 @@ md_update(void)
 }
 
 /*
- * Used in bsddisklabel.c as BOOT_SIZE
+ * Used in bsdpm->disklabel.c as BOOT_SIZE
  */
 int
 hp300_boot_size(void)
 {
 	int i;
 
-	i = dlcylsize;
-	if (i >= 1024) /* XXX: bsddisklabel.c has a hack. */
-		i = dlcylsize * sectorsize * 2;
+	i = pm->pm->dlcylsize;
+	if (i >= 1024) /* XXX: bsdpm->disklabel.c has a hack. */
+		i = pm->pm->dlcylsize * pm->sectorsize * 2;
 
 	return i;
 }

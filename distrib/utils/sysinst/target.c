@@ -146,20 +146,20 @@ backtowin(void)
 /*
  * Is the root partition we're running from the same as the root 
  * which the user has selected to install/upgrade?
- * Uses global variable "diskdev" to find the selected device for
+ * Uses global variable "pm->diskdev" to find the selected device for
  * install/upgrade.
  */
 int
 target_already_root(void)
 {
 
-	if (strcmp(diskdev, "") == 0)
+	if (strcmp(pm->diskdev, "") == 0)
 		/* No root partition was ever selected.
 		 * Assume that the currently mounted one should be used
 		 */
 		return 1;
 
-	return is_active_rootpart(diskdev, rootpart);
+	return is_active_rootpart(pm->diskdev, rootpart);
 }
 
 

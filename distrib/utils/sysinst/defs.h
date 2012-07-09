@@ -211,7 +211,7 @@ typedef struct _partinfo {
 #define PIF_RESET	0x1000		/* internal - restore previous values */
     const char *mnt_opts;
     const char *fsname;
-} partinfo;	/* Single partition from a disklabel */
+} partinfo;	/* Single partition from a pm->disklabel */
 
 struct ptn_info {
 	int		menu_no;
@@ -252,40 +252,40 @@ FILE *logfp;
 FILE *script;
 
 /* Actual name of the disk. */
-char diskdev[SSTRSIZE];
-char diskdev_descr[STRSIZE];
-int no_mbr;				/* set for raid (etc) */
+//char diskdev[SSTRSIZE];
+//char diskdev_descr[STRSIZE];
+//int no_mbr;				/* set for raid (etc) */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
 
 /* Area of disk we can allocate, start and size in disk sectors. */
-daddr_t ptstart, ptsize;
+//daddr_t ptstart, ptsize;
 /* If we have an MBR boot partition, start and size in sectors */
-int bootstart, bootsize;
+//int bootstart, bootsize;
 
 /* Actual values for current disk - set by find_disks() or md_get_info() */
-int sectorsize;
-int dlcyl, dlhead, dlsec, dlcylsize;
-daddr_t dlsize;
-int current_cylsize;
+//int sectorsize;
+//int dlcyl, dlhead, dlsec, dlcylsize;
+//daddr_t dlsize;
+//int current_cylsize;
 unsigned int root_limit;		/* BIOS (etc) read limit */
 
-/* Information for the NetBSD disklabel */
+/* Information for the NetBSD pm->disklabel */
 enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
 	    PART_I, PART_J, PART_K, PART_L, PART_M, PART_N, PART_O, PART_P};
 #define partition_name(x)	('a' + (x))
-partinfo oldlabel[MAXPARTITIONS];	/* What we found on the disk */
-partinfo bsdlabel[MAXPARTITIONS];	/* What we want it to look like */
+//partinfo oldlabel[MAXPARTITIONS];	/* What we found on the disk */
+//partinfo bsdlabel[MAXPARTITIONS];	/* What we want it to look like */
 daddr_t tmp_ramdisk_size;
 
 #define DISKNAME_SIZE 16
-char bsddiskname[DISKNAME_SIZE];
+char bsddiskname[DISKNAME_SIZE]; // TODO: xxx
 const char *doessf;
 
 /* Information for extended partition manager */
 typedef struct pm_devs_t {
-    char id[SSTRSIZE];
-    char desc[STRSIZE];
+    char diskdev[SSTRSIZE];
+    char diskdev_descr[STRSIZE];
     char id_dk[SSTRSIZE];
     int bootable;
     char bsddiskname[DISKNAME_SIZE];
@@ -304,8 +304,8 @@ pm_devs_t *pm_devs; /* Pointer to head of list with all devices */
 pm_devs_t *pm_found; /* Pointer to selected in find_disks device
                         (when extended partition manager isn't used) */
 pm_devs_t *pm; /* Pointer to currend device with which we work */
-#define AAAAA 100
 
+#define AAAAA 100
 struct {
     const char *diskdev, *mnt_opts, *fsname;
     char *pi_mount;

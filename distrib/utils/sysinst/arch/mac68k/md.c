@@ -134,13 +134,13 @@ md_init_set_status(int flags)
 int
 md_get_info(void)
 {
-	struct disklabel disklabel;
+	struct pm->disklabel pm->disklabel;
 	int fd, i;
 	char dev_name[100];
 	struct apple_part_map_entry block;
 
 	snprintf(dev_name, sizeof(dev_name), "/dev/r%s%c",
-		diskdev, 'a' + getrawpartition());
+		pm->diskdev, 'a' + getrawpartition());
 
 	/*
 	 * Open the disk as a raw device
@@ -152,11 +152,11 @@ md_get_info(void)
 		exit(1);
 	}
 	/*
-	 * Try to get the default disklabel info for the device
+	 * Try to get the default pm->disklabel info for the device
 	 */
-	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		endwin();
-		fprintf (stderr, "Can't read disklabel on %s\n", dev_name);
+		fprintf (stderr, "Can't read pm->disklabel on %s\n", dev_name);
 		close(fd);
 		exit(1);
 	}
@@ -164,30 +164,30 @@ md_get_info(void)
 	 * Get the disk parameters from the disk driver.  It should have
 	 *  obained them by querying the disk itself.
 	 */
-	blk_size = disklabel.d_secsize;
-	dlcyl = disklabel.d_ncylinders;
-	dlhead = disklabel.d_ntracks;
-	dlsec = disklabel.d_nsectors;
+	blk_size = pm->disklabel.d_secsize;
+	pm->dlcyl = pm->disklabel.d_ncylinders;
+	pm->dlhead = pm->disklabel.d_ntracks;
+	pm->dlsec = pm->disklabel.d_nsectors;
 	/*
 	 * Just in case, initialize the structures we'll need if we
 	 *  need to completely initialize the disk.
 	 */
-	dlsize = disklabel.d_secperunit;
+	pm->dlsize = pm->disklabel.d_secperunit;
 	for (i=0;i<NEW_MAP_SIZE;i++) {
 	   if (i > 0)
 		new_map[i].pmPyPartStart = new_map[i-1].pmPyPartStart +
 			new_map[i-1].pmPartBlkCnt;
 	   new_map[i].pmDataCnt = new_map[i].pmPartBlkCnt;
 	   if (new_map[i].pmPartBlkCnt == 0) {
-		new_map[i].pmPartBlkCnt = dlsize;
-		new_map[i].pmDataCnt = dlsize;
+		new_map[i].pmPartBlkCnt = pm->dlsize;
+		new_map[i].pmDataCnt = pm->dlsize;
 		break;
 	   }
-	   dlsize -= new_map[i].pmPartBlkCnt;
+	   pm->dlsize -= new_map[i].pmPartBlkCnt;
 	}
-	dlsize = disklabel.d_secperunit;
+	pm->dlsize = pm->disklabel.d_secperunit;
 #if 0
-	msg_display(MSG_dldebug, blk_size, dlcyl, dlhead, dlsec, dlsize);
+	msg_display(MSG_dldebug, blk_size, pm->dlcyl, pm->dlhead, pm->dlsec, pm->dlsize);
 	process_menu(MENU_ok, NULL);
 #endif
 	map.size = 0;
@@ -223,7 +223,7 @@ md_get_info(void)
 	/*
 	 * Setup the disktype so /etc/disktab gets proper info
 	 */
-	if (strncmp(diskdev, "sd", 2) == 0) {
+	if (strncmp(pm->diskdev, "sd", 2) == 0) {
 		disktype = "SCSI";
 		doessf = "sf:";
 	} else
@@ -233,7 +233,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -261,16 +261,16 @@ md_make_bsd_partitions(void)
 	}
 
 	/* Build standard partitions */
-	memset(&bsdlabel, 0, sizeof bsdlabel);
+	memset(&pm->bsdlabel, 0, sizeof pm->bsdlabel);
 
 	/*
 	 * The mac68k port has a predefined partition for "c" which
 	 *  is the size of the disk, everything else is unused.
 	 */
-	bsdlabel[RAW_PART].pi_size = dlsize;
+	pm->bsdlabel[RAW_PART].pi_size = pm->dlsize;
 	/*
 	 * Now, scan through the Disk Partition Map and transfer the
-	 *  information into the incore disklabel.
+	 *  information into the incore pm->disklabel.
 	 */
 	for (i=0;i<map.usable_cnt;i++) {
 	    j = map.mblk[i];
@@ -279,37 +279,37 @@ md_make_bsd_partitions(void)
 		pl = bzb->flags.part - 'a';
 		switch (whichType(&map.blk[j])) {
 		    case HFS_PART:
-			bsdlabel[pl].pi_fstype = FS_HFS;
-			strcpy (bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
+			pm->bsdlabel[pl].pi_fstype = FS_HFS;
+			strcpy (pm->bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
 			break;
 		    case ROOT_PART:
 		    case UFS_PART:
-			bsdlabel[pl].pi_fstype = FS_BSDFFS;
-			strcpy (bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
-			bsdlabel[pl].pi_flags |= PIF_NEWFS | PIF_MOUNT;
+			pm->bsdlabel[pl].pi_fstype = FS_BSDFFS;
+			strcpy (pm->bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
+			pm->bsdlabel[pl].pi_flags |= PIF_NEWFS | PIF_MOUNT;
 			break;
 		    case SWAP_PART:
-			bsdlabel[pl].pi_fstype = FS_SWAP;
+			pm->bsdlabel[pl].pi_fstype = FS_SWAP;
 			break;
 		    case SCRATCH_PART:
-			bsdlabel[pl].pi_fstype = FS_OTHER;
-			strcpy (bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
+			pm->bsdlabel[pl].pi_fstype = FS_OTHER;
+			strcpy (pm->bsdlabel[pl].pi_mount, (char *)bzb->mount_point);
 		    default:
 			break;
 		}
-	        if (bsdlabel[pl].pi_fstype != FS_UNUSED) {
-		    bsdlabel[pl].pi_size = map.blk[j].pmPartBlkCnt;
-		    bsdlabel[pl].pi_offset = map.blk[j].pmPyPartStart;
-		    if (bsdlabel[pl].pi_fstype != FS_SWAP) {
-		        bsdlabel[pl].pi_frag = 8;
-		        bsdlabel[pl].pi_fsize = 1024;
+	        if (pm->bsdlabel[pl].pi_fstype != FS_UNUSED) {
+		    pm->bsdlabel[pl].pi_size = map.blk[j].pmPartBlkCnt;
+		    pm->bsdlabel[pl].pi_offset = map.blk[j].pmPyPartStart;
+		    if (pm->bsdlabel[pl].pi_fstype != FS_SWAP) {
+		        pm->bsdlabel[pl].pi_frag = 8;
+		        pm->bsdlabel[pl].pi_fsize = 1024;
 		    }
 		}
 	    }
 	}
 
 	/* Disk name  - don't bother asking, just use the physical name*/
-	strcpy (bsddiskname, diskdev);
+	strcpy (pm->bsddiskname, pm->diskdev);
 
 #ifdef DEBUG
 	f = fopen ("/tmp/disktab", "w");
@@ -321,26 +321,26 @@ md_make_bsd_partitions(void)
 		(void) fprintf (stderr, "Could not open /etc/disktab");
 		exit (1);
 	}
-	(void)fprintf (f, "%s|NetBSD installation generated:\\\n", bsddiskname);
+	(void)fprintf (f, "%s|NetBSD installation generated:\\\n", pm->bsddiskname);
 	(void)fprintf (f, "\t:dt=%s:ty=winchester:\\\n", disktype);
-	(void)fprintf (f, "\t:nc#%d:nt#%d:ns#%d:\\\n", dlcyl, dlhead, dlsec);
-	(void)fprintf (f, "\t:sc#%d:su#%" PRIu32 ":\\\n", dlhead*dlsec, (uint32_t)dlsize);
+	(void)fprintf (f, "\t:nc#%d:nt#%d:ns#%d:\\\n", pm->dlcyl, pm->dlhead, pm->dlsec);
+	(void)fprintf (f, "\t:sc#%d:su#%" PRIu32 ":\\\n", pm->dlhead*pm->dlsec, (uint32_t)pm->dlsize);
 	(void)fprintf (f, "\t:se#%d:%s\\\n", blk_size, doessf);
 	for (i=0; i<8; i++) {
-		if (bsdlabel[i].pi_fstype == FS_HFS)
+		if (pm->bsdlabel[i].pi_fstype == FS_HFS)
 		    (void)fprintf (f, "\t:p%c#%d:o%c#%d:t%c=macos:",
-			       'a'+i, bsdlabel[i].pi_size,
-			       'a'+i, bsdlabel[i].pi_offset,
+			       'a'+i, pm->bsdlabel[i].pi_size,
+			       'a'+i, pm->bsdlabel[i].pi_offset,
 			       'a'+i);
 		else
 		    (void)fprintf (f, "\t:p%c#%d:o%c#%d:t%c=%s:",
-			       'a'+i, bsdlabel[i].pi_size,
-			       'a'+i, bsdlabel[i].pi_offset,
-			       'a'+i, getfslabelname(bsdlabel[i].pi_fstype));
-		if (bsdlabel[i].pi_fstype == FS_BSDFFS)
+			       'a'+i, pm->bsdlabel[i].pi_size,
+			       'a'+i, pm->bsdlabel[i].pi_offset,
+			       'a'+i, getfslabelname(pm->bsdlabel[i].pi_fstype));
+		if (pm->bsdlabel[i].pi_fstype == FS_BSDFFS)
 			(void)fprintf (f, "b%c#%d:f%c#%d",
-			   'a'+i, bsdlabel[i].pi_fsize * bsdlabel[i].pi_frag,
-			   'a'+i, bsdlabel[i].pi_fsize);
+			   'a'+i, pm->bsdlabel[i].pi_fsize * pm->bsdlabel[i].pi_frag,
+			   'a'+i, pm->bsdlabel[i].pi_fsize);
 		if (i < 7)
 			(void)fprintf (f, "\\\n");
 		else
@@ -362,14 +362,14 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
 {
     int fd;
     char dev_name[100];
-    struct disklabel lp;
+    struct pm->disklabel lp;
     Block0 new_block0 = {APPLE_DRVR_MAP_MAGIC, 512,
 	 		 0, 0, 0, 0, 0, 0, 0, 0, {0}};
 
@@ -379,7 +379,7 @@ md_pre_disklabel(void)
      */
     printf ("%s", msg_string (MSG_dodiskmap));
 
-    snprintf (dev_name, sizeof(dev_name), "/dev/r%sc", diskdev);
+    snprintf (dev_name, sizeof(dev_name), "/dev/r%sc", pm->diskdev);
     /*
      * Open the disk as a raw device
      */
@@ -400,7 +400,7 @@ md_pre_disklabel(void)
 	    close (fd);
 	    exit (1);
 	}
-	new_block0.sbBlkCount = dlsize;		/* Set disk size */
+	new_block0.sbBlkCount = pm->dlsize;		/* Set disk size */
 	if (write (fd, &new_block0, blk_size) != blk_size) {
 	    endwin();
 	    fprintf (stderr, "I/O error writing Block0\n");
@@ -426,13 +426,13 @@ md_pre_disklabel(void)
      * Well, if we get here the dirty deed has been done.
      *
      * Now we need to force the incore disk table to get updated. This
-     * should be done by disklabel -- which is normally called right after
+     * should be done by pm->disklabel -- which is normally called right after
      * we return -- but may be commented out for the mac68k port. We'll
      * instead update the incore table by forcing a dummy write here. This
-     * relies on a change in the mac68k-specific writedisklabel() routine.
-     * If that change doesn't exist nothing bad happens here. If disklabel
+     * relies on a change in the mac68k-specific writepm->disklabel() routine.
+     * If that change doesn't exist nothing bad happens here. If pm->disklabel
      * properly updates the ondisk and incore labels everything still
-     * works. Only if we fail here and if disklabel fails are we in
+     * works. Only if we fail here and if pm->disklabel fails are we in
      * in a state where we've updated the disk but not the incore and
      * a reboot is necessary.
      *
@@ -440,8 +440,8 @@ md_pre_disklabel(void)
      * we did anything to it. Then we invoke the "write label" ioctl to
      * rewrite it to disk. As a result, the ondisk partition map is
      * re-read and the incore label is reconstructed from it. If
-     * disklabel() is then called to update again, either that fails
-     * because the mac68k port doesn't support native disklabels, or it
+     * pm->disklabel() is then called to update again, either that fails
+     * because the mac68k port doesn't support native pm->disklabels, or it
      * succeeds and writes out a new ondisk copy.
      */
     ioctl(fd, DIOCGDINFO, &lp);    /* Get the current disk label */
@@ -452,12 +452,12 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
-    struct disklabel updated_label;
+    struct pm->disklabel updated_label;
     int fd, i, no_match;
     char dev_name[100], buf[80];
     const char *fst[] = {"free", "swap", " v6 ", " v7 ", "sysv", "v71k",
@@ -465,7 +465,7 @@ md_post_disklabel(void)
 			"9660", "boot", "ados", "hfs ", "fcor", "ex2f",
 			"ntfs", "raid", "ccd "};
 
-    snprintf(dev_name, sizeof(dev_name), "/dev/r%sc", diskdev);
+    snprintf(dev_name, sizeof(dev_name), "/dev/r%sc", pm->diskdev);
     /*
      * Open the disk as a raw device
      */
@@ -484,12 +484,12 @@ md_post_disklabel(void)
     for (i=0;i<MAXPARTITIONS;i++) {
         if (i > updated_label.d_npartitions)
            break;
-        if (bsdlabel[i].pi_size != updated_label.d_partitions[i].p_size)
+        if (pm->bsdlabel[i].pi_size != updated_label.d_partitions[i].p_size)
            no_match = 1;
-        if (bsdlabel[i].pi_size) {
-           if (bsdlabel[i].pi_offset != updated_label.d_partitions[i].p_offset)
+        if (pm->bsdlabel[i].pi_size) {
+           if (pm->bsdlabel[i].pi_offset != updated_label.d_partitions[i].p_offset)
                no_match = 1;
-           if (bsdlabel[i].pi_fstype != updated_label.d_partitions[i].p_fstype)
+           if (pm->bsdlabel[i].pi_fstype != updated_label.d_partitions[i].p_fstype)
                no_match = 1;
         }
         if (no_match)
@@ -505,8 +505,8 @@ md_post_disklabel(void)
            " in-core: offset      size type on-disk: offset      size type");
        for (i=0;i<MAXPARTITIONS;i++) {
            sprintf(buf, " %c:%13.8x%10.8x%5s%16.8x%10.8x%5s", i+'a',
-              bsdlabel[i].pi_offset, bsdlabel[i].pi_size,
-              fst[bsdlabel[i].pi_fstype],
+              pm->bsdlabel[i].pi_offset, pm->bsdlabel[i].pi_size,
+              fst[pm->bsdlabel[i].pi_fstype],
               updated_label.d_partitions[i].p_offset,
               updated_label.d_partitions[i].p_size,
               fst[updated_label.d_partitions[i].p_fstype]);
@@ -759,7 +759,7 @@ getName(part, len_name, name)
 		/*
 		 * OK, this is stupid but it's damn nice to know!
 		 */
-		snprintf (dev_name, sizeof(dev_name), "/dev/r%sc", diskdev);
+		snprintf (dev_name, sizeof(dev_name), "/dev/r%sc", pm->diskdev);
 		/*
 		 * Open the disk as a raw device
 		 */
@@ -1048,7 +1048,7 @@ disp_selected_part(sel)
 	    getUse(&map.blk[j], sizeof(use), use);
 	    getName(&map.blk[j], sizeof(name), name);
 	    bzb = (EBZB *)&map.blk[j].pmBootArgs[0];
-	    msg_table_add(MSG_part_row, diskdev,
+	    msg_table_add(MSG_part_row, pm->diskdev,
 		bzb->flags.part, map.blk[j].pmPyPartStart,
                  map.blk[j].pmPartBlkCnt, fstyp, use, name);
 	    if (i == sel) msg_standend();
@@ -1070,9 +1070,9 @@ check_for_errors()
 
     for (i=0;i<map.usable_cnt;i++) {
 	j = map.mblk[i];
-	if (map.blk[j].pmPyPartStart > dlsize)
+	if (map.blk[j].pmPyPartStart > pm->dlsize)
 		errs++;
-	if ((map.blk[j].pmPyPartStart + map.blk[j].pmPartBlkCnt) > dlsize + 1)
+	if ((map.blk[j].pmPyPartStart + map.blk[j].pmPartBlkCnt) > pm->dlsize + 1)
 		errs++;
     }
     return(errs);
@@ -1106,16 +1106,16 @@ report_errors()
     }
     for (i=0;i<map.usable_cnt;i++) {
 	j = map.mblk[i];
-	if (map.blk[j].pmPyPartStart > dlsize) {
+	if (map.blk[j].pmPyPartStart > pm->dlsize) {
 	    bzb = (EBZB *)&map.blk[j].pmBootArgs[0];
 	    msg_display_add(MSG_disksetup_part_beginning,
-		diskdev, bzb->flags.part);
+		pm->diskdev, bzb->flags.part);
 	    errs++;
 	}
-	if ((map.blk[j].pmPyPartStart + map.blk[j].pmPartBlkCnt) > dlsize) {
+	if ((map.blk[j].pmPyPartStart + map.blk[j].pmPartBlkCnt) > pm->dlsize) {
 	    bzb = (EBZB *)&map.blk[j].pmBootArgs[0];
 	    msg_display_add(MSG_disksetup_part_size,
-		diskdev, bzb->flags.part);
+		pm->diskdev, bzb->flags.part);
 	    errs++;
 	}
     }
@@ -1130,7 +1130,7 @@ edit_diskmap(void)
     int i;
 
 	/* Ask full/part */
-	msg_display (MSG_fullpart, diskdev);
+	msg_display (MSG_fullpart, pm->diskdev);
 	process_menu (MENU_fullpart, NULL);
 
 	map.selected = 0;

@@ -62,19 +62,19 @@ savenewlabel(partinfo *lp, int nparts)
 	int i;
 
 	strlcpy(f_name, "/tmp/disktab.", STRSIZE);
-	strlcat(f_name, bsddiskname, STRSIZE);
+	strlcat(f_name, pm->bsddiskname, STRSIZE);
 
 	/*
-	  N.B. disklabels only support up to 2TB (32-bit field for sectors).
+	  N.B. pm->disklabels only support up to 2TB (32-bit field for sectors).
 	  This function explicitly narrows from daddr_t (64-bit unsigned) to
-	  uint32_t when writing the disklabel.
+	  uint32_t when writing the pm->disklabel.
 	 */
 
 	/* Create /etc/disktab */
 
 	f = fopen(f_name, "w");
 	if (logfp)
-		(void)fprintf(logfp, "Creating disklabel %s in %s\n", bsddiskname,
+		(void)fprintf(logfp, "Creating pm->disklabel %s in %s\n", pm->bsddiskname,
 						f_name);
 	scripting_fprintf(NULL, "cat <<EOF >>/etc/disktab\n");
 	if (f == NULL) {
@@ -84,28 +84,28 @@ savenewlabel(partinfo *lp, int nparts)
 			(void)fprintf(logfp, "Could not open %s for writing\n", f_name);
 		exit (1);
 	}
-	scripting_fprintf(f, "%s|NetBSD installation generated:\\\n", bsddiskname);
+	scripting_fprintf(f, "%s|NetBSD installation generated:\\\n", pm->bsddiskname);
 	scripting_fprintf(f, "\t:dt=%s:ty=winchester:\\\n", disktype);
-	scripting_fprintf(f, "\t:nc#%d:nt#%d:ns#%d:\\\n", dlcyl, dlhead, dlsec);
-	scripting_fprintf(f, "\t:sc#%d:su#%" PRIu32 ":\\\n", dlhead*dlsec,
-	    (uint32_t)dlsize);
-	scripting_fprintf(f, "\t:se#%d:%s\\\n", sectorsize, doessf);
-	if ((size_t)nparts > __arraycount(bsdlabel)) {
-		nparts = __arraycount(bsdlabel);
+	scripting_fprintf(f, "\t:nc#%d:nt#%d:ns#%d:\\\n", pm->dlcyl, pm->dlhead, pm->dlsec);
+	scripting_fprintf(f, "\t:sc#%d:su#%" PRIu32 ":\\\n", pm->dlhead*pm->dlsec,
+	    (uint32_t)pm->dlsize);
+	scripting_fprintf(f, "\t:se#%d:%s\\\n", pm->sectorsize, doessf);
+	if ((size_t)nparts > __arraycount(pm->bsdlabel)) {
+		nparts = __arraycount(pm->bsdlabel);
 		if (logfp)
 			(void)fprintf(logfp, "nparts limited to %d.\n", nparts);
 	}
 	for (i = 0; i < nparts; i++) {
 		scripting_fprintf(f, "\t:p%c#%" PRIu32 ":o%c#%" PRIu32
-		    ":t%c=%s:", 'a'+i, (uint32_t)bsdlabel[i].pi_size,
-		    'a'+i, (uint32_t)bsdlabel[i].pi_offset, 'a'+i,
-		    getfslabelname(bsdlabel[i].pi_fstype));
-		if (PI_ISBSDFS(&bsdlabel[i]))
+		    ":t%c=%s:", 'a'+i, (uint32_t)pm->bsdlabel[i].pi_size,
+		    'a'+i, (uint32_t)pm->bsdlabel[i].pi_offset, 'a'+i,
+		    getfslabelname(pm->bsdlabel[i].pi_fstype));
+		if (PI_ISBSDFS(&pm->bsdlabel[i]))
 			scripting_fprintf (f, "b%c#%" PRIu32 ":f%c#%" PRIu32
 			    ":", 'a'+i,
-			    (uint32_t)(bsdlabel[i].pi_fsize *
-			    bsdlabel[i].pi_frag),
-			    'a'+i, (uint32_t)bsdlabel[i].pi_fsize);
+			    (uint32_t)(pm->bsdlabel[i].pi_fsize *
+			    pm->bsdlabel[i].pi_frag),
+			    'a'+i, (uint32_t)pm->bsdlabel[i].pi_fsize);
 	
 		if (i < nparts - 1)
 			scripting_fprintf(f, "\\\n");

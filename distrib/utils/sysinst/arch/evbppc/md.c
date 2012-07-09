@@ -62,7 +62,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -80,7 +80,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -88,7 +88,7 @@ md_pre_disklabel(void)
 	printf ("%s", msg_string (MSG_dofdisk));
 
 	/* write edited MBR onto disk. */
-	if (write_mbr(diskdev, &mbr, 1) != 0) {
+	if (write_mbr(pm->diskdev, &mbr, 1) != 0) {
 		msg_display(MSG_wmbrfail);
 		process_menu(MENU_ok, NULL);
 		return 1;
@@ -97,16 +97,16 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	/* Sector forwarding / badblocks ... */
 	if (*doessf) {
 		printf ("%s", msg_string (MSG_dobad144));
 		return run_program(RUN_DISPLAY, "/usr/sbin/bad144 %s 0",
-		    diskdev);
+		    pm->diskdev);
 	}
 	return 0;
 }

@@ -211,17 +211,17 @@ menu layout, sub menu, y=-1, title  MSG_Choose_your_installation;
 
 menu sizechoice, sub menu, y=0, title MSG_Choose_your_size_specifier;
 	display action {
-		if (sizemult == current_cylsize)
+		if (sizemult == pm->current_cylsize)
 			menu->cursel = 1;
 		else if (sizemult == 1)
 			menu->cursel = 2;
 		};
 	option MSG_Megabytes, exit, action 
-		{ sizemult = MEG / sectorsize;
+		{ sizemult = MEG / pm->sectorsize;
 		  multname = msg_string(MSG_megname);
 		};
 	option MSG_Cylinders, exit, action 
-		{ sizemult = current_cylsize; 
+		{ sizemult = pm->current_cylsize; 
 		  multname = msg_string(MSG_cylname);
 		};
 	option MSG_Sectors, exit, action 
@@ -506,7 +506,7 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
-menu pmentry, x=50, y=5, sub menu, exit, default exit, title diskdev;
+menu pmentry, x=50, y=5, sub menu, exit, default exit;
 	option "Prepare",			exit, action { md_get_info(); };
 	option "Prepare GPT",		exit, action { md_get_info(); };
 	option "Commit prepare",	exit, action { md_pre_disklabel(); };

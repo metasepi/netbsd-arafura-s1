@@ -40,7 +40,7 @@
 #include <fcntl.h>
 #include <util.h>
 #include <sys/types.h>
-#include <sys/disklabel.h>
+#include <sys/pm->disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 
@@ -63,25 +63,25 @@ md_init_set_status(int flags)
 int
 md_get_info(void)
 {
-	struct disklabel disklabel;
+	struct pm->disklabel pm->disklabel;
 	int fd;
 	char dev_name[100];
 
-	if (no_mbr)
+	if (pm->no_mbr)
 		return 1;
 
-	if (read_mbr(diskdev, &mbr) < 0)
+	if (read_mbr(pm->diskdev, &mbr) < 0)
 		memset(&mbr.mbr, 0, sizeof(mbr.mbr)-2);
 
 	if (edit_mbr(&mbr) == 0)
 		return 0;
 
-	if (strncmp(diskdev, "wd", 2) == 0)
+	if (strncmp(pm->diskdev, "wd", 2) == 0)
 		disktype = "ST506";
 	else
 		disktype = "SCSI";
 
-	snprintf(dev_name, 100, "/dev/r%sc", diskdev);
+	snprintf(dev_name, 100, "/dev/r%sc", pm->diskdev);
 
 	fd = open(dev_name, O_RDONLY, 0);
 	if (fd < 0) {
@@ -89,35 +89,35 @@ md_get_info(void)
 		fprintf(stderr, "Can't open %s\n", dev_name);
 		exit(1);
 	}
-	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		endwin();
-		fprintf(stderr, "Can't read disklabel on %s.\n", dev_name);
+		fprintf(stderr, "Can't read pm->disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
 	close(fd);
 
-	dlcyl = disklabel.d_ncylinders;
-	dlhead = disklabel.d_ntracks;
-	dlsec = disklabel.d_nsectors;
-	sectorsize = disklabel.d_secsize;
-	dlcylsize = disklabel.d_secpercyl;
+	pm->dlcyl = pm->disklabel.d_ncylinders;
+	pm->dlhead = pm->disklabel.d_ntracks;
+	pm->dlsec = pm->disklabel.d_nsectors;
+	pm->sectorsize = pm->disklabel.d_secsize;
+	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
 
 	/*
-	 * Compute whole disk size. Take max of (dlcyl*dlhead*dlsec)
+	 * Compute whole disk size. Take max of (pm->dlcyl*pm->dlhead*pm->dlsec)
 	 * and secperunit,  just in case the disk is already labelled.
 	 * (If our new label's RAW_PART size ends up smaller than the
 	 * in-core RAW_PART size  value, updating the label will fail.)
 	 */
-	dlsize = dlcyl*dlhead*dlsec;
-	if (disklabel.d_secperunit > dlsize)
-		dlsize = disklabel.d_secperunit;
+	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
+	if (pm->disklabel.d_secperunit > pm->dlsize)
+		pm->dlsize = pm->disklabel.d_secperunit;
 
 	return 1;
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -135,18 +135,18 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
 {
-	if (no_mbr)
+	if (pm->no_mbr)
 		return 0;
 
 	msg_display(MSG_dofdisk);
 
 	/* write edited MBR onto disk. */
-	if (write_mbr(diskdev, &mbr, 1) != 0) {
+	if (write_mbr(pm->diskdev, &mbr, 1) != 0) {
 		msg_display(MSG_wmbrfail);
 		process_menu(MENU_ok, NULL);
 		return 1;
@@ -155,10 +155,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	return 0;
 }

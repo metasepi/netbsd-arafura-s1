@@ -37,7 +37,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/disklabel.h>
+#include <sys/pm->disklabel.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <util.h>
@@ -54,7 +54,7 @@ typedef struct parttab {
 	struct dos_partition dosparts[NDOSPART];
 } parttab;
 
-parttab md_disklabel;
+parttab md_pm->disklabel;
 int md_freepart;
 int md_nfreepart;
 #endif /* notyet */
@@ -81,9 +81,9 @@ md_get_info(void)
 	char buf[1024];
 	int fd;
 	char dev_name[100];
-	struct disklabel disklabel;
+	struct pm->disklabel pm->disklabel;
 
-	snprintf(dev_name, 100, "/dev/r%sc", diskdev);
+	snprintf(dev_name, 100, "/dev/r%sc", pm->diskdev);
 
 	fd = open(dev_name, O_RDONLY, 0);
 	if (fd < 0) {
@@ -93,28 +93,28 @@ md_get_info(void)
 		fprintf(stderr, "Can't open %s\n", dev_name);
 		exit(1);
 	}
-	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
 		if (logfp)
-			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
+			(void)fprintf(logfp, "Can't read pm->disklabel on %s.\n",
 				dev_name);
 		endwin();
-		fprintf(stderr, "Can't read disklabel on %s.\n", dev_name);
+		fprintf(stderr, "Can't read pm->disklabel on %s.\n", dev_name);
 		close(fd);
 		exit(1);
 	}
-	if (disklabel.d_secsize != 512) {
+	if (pm->disklabel.d_secsize != 512) {
 		endwin();
 		fprintf(stderr, "Non-512byte/sector disk is not supported.\n");
 		close(fd);
 		exit(1);
 	}
 
-	dlcyl = disklabel.d_ncylinders;
-	dlhead = disklabel.d_ntracks;
-	dlsec = disklabel.d_nsectors;
-	sectorsize = disklabel.d_secsize;
-	dlcylsize = disklabel.d_secpercyl;
-	dlsize = dlcyl*dlhead*dlsec;
+	pm->dlcyl = pm->disklabel.d_ncylinders;
+	pm->dlhead = pm->disklabel.d_ntracks;
+	pm->dlsec = pm->disklabel.d_nsectors;
+	pm->sectorsize = pm->disklabel.d_secsize;
+	pm->pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
 
 	if (read(fd, buf, 1024) < 0) {
 		endwin();
@@ -126,7 +126,7 @@ md_get_info(void)
 		md_need_newdisk = 1;
 #ifdef notyet
 	else
-		if (read(fd, md_disklabel, sizeof(md_disklabel)) < 0) {
+		if (read(fd, md_pm->disklabel, sizeof(md_pm->disklabel)) < 0) {
 			endwin();
 			fprintf(stderr, "Can't read %s\n", dev_name);
 			close(fd);
@@ -134,7 +134,7 @@ md_get_info(void)
 		}
 #endif
 	/* preserve first 64 sectors for system. */
-	ptstart = 64;
+	pm->ptstart = 64;
 
 	/* preserve existing partitions? */
 
@@ -144,7 +144,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -165,22 +165,22 @@ md_check_partitions(void)
 	for (part = PART_A; part < 8; part++) {
 		if (part == PART_C)
 			continue;
-		if (last >= PART_A && bsdlabel[part].pi_size > 0) {
+		if (last >= PART_A && pm->bsdlabel[part].pi_size > 0) {
 			msg_display(MSG_emptypart, part+'a');
 			process_menu(MENU_ok, NULL);
 			return 0;
 		}
-		if (bsdlabel[part].pi_size == 0) {
+		if (pm->bsdlabel[part].pi_size == 0) {
 			if (last < PART_A)
 				last = part;
 		} else {
-			if (start >= bsdlabel[part].pi_offset) {
+			if (start >= pm->bsdlabel[part].pi_offset) {
 				msg_display(MSG_ordering, part+'a');
 				process_menu(MENU_yesno, NULL);
 				if (yesno)
 					return 0;
 			}
-			start = bsdlabel[part].pi_offset;
+			start = pm->bsdlabel[part].pi_offset;
 		}
 	}
 
@@ -196,47 +196,47 @@ md_check_partitions(void)
 
 	/* check existing BSD partitions. */
 	for (i = 0; i < NDOSPART; i++) {
-		if (md_disklabel.dosparts[i].dp_size == 0)
+		if (md_pm->disklabel.dosparts[i].dp_size == 0)
 			break;
-		if (memcmp(md_disklabel.dosparts[i].dp_typename, "Human68k", 8)) {
+		if (memcmp(md_pm->disklabel.dosparts[i].dp_typename, "Human68k", 8)) {
 			msg_display(MSG_existing);
 			process_menu(MENU_noyes);
 			preserve = yesno;
 			break;
 		}
 	}
-	emptylabel(bsdlabel);
-	bsdlabel[C].pi_fstype = FS_UNUSED;
-	bsdlabel[C].pi_offset = 0;
-	bsdlabel[C].pi_size = dlsize;
+	emptylabel(pm->bsdlabel);
+	pm->bsdlabel[C].pi_fstype = FS_UNUSED;
+	pm->bsdlabel[C].pi_offset = 0;
+	pm->bsdlabel[C].pi_size = pm->dlsize;
 	for (i = 0, j = A; i < NDOSPART;) {
 		if (j == C) {
 			j++;
 			continue;
 		}
 		if (!preserve &&
-		    memcmp(md_disklabel.dosparts[i].dp_typename,
+		    memcmp(md_pm->disklabel.dosparts[i].dp_typename,
 			    "Human68k", 8)) {
 			/* discard it. */
 			i++;
 			continue;
 		}
-		bsdlabel[j].pi_fstype = (i == 1) ? FS_SWAP : FS_BSDFFS;
-		bsdlabel[j].pi_offset = md_disklabel.dosparts[i].dp_start*2;
-		bsdlabel[j].pi_size = md_disklabel.dosparts[i].dp_size*2;
+		pm->bsdlabel[j].pi_fstype = (i == 1) ? FS_SWAP : FS_BSDFFS;
+		pm->bsdlabel[j].pi_offset = md_pm->disklabel.dosparts[i].dp_start*2;
+		pm->bsdlabel[j].pi_size = md_pm->disklabel.dosparts[i].dp_size*2;
 		i++;
 		j++;
 	}
 	if (j > 6) {
-		msg_display(MSG_nofreepart, diskdev);
+		msg_display(MSG_nofreepart, pm->diskdev);
 		return 0;
 	}
 	md_nfreepart = 8 - j;
 
 	/* check for free space */
-	fsptsize = bsdlabel[A].pi_offset - 64;
-	if (fptsize <= 0) {	/* XXX: should not be 0; minfsdb?  */
-		msg_display(MSG_notfirst, diskdev);
+	fspm->ptsize = pm->bsdlabel[A].pi_offset - 64;
+	if (fpm->ptsize <= 0) {	/* XXX: should not be 0; minfsdb?  */
+		msg_display(MSG_notfirst, pm->diskdev);
 		process_menu(MENU_ok);
 		exit(1);
 	}
@@ -246,7 +246,7 @@ md_check_partitions(void)
 #endif /* notyet */
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -257,13 +257,13 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	if (get_ramsize() < 6)
-		set_swap(diskdev, bsdlabel);
+		set_swap(pm->diskdev, pm->bsdlabel);
 	return 0;
 }
 
@@ -278,11 +278,11 @@ int
 md_post_newfs(void)
 {
 	/* boot blocks ... */
-	msg_display(MSG_dobootblks, diskdev);
+	msg_display(MSG_dobootblks, pm->diskdev);
 	cp_to_target("/usr/mdec/boot", "/boot");
 	if (run_program(RUN_DISPLAY | RUN_NO_CLEAR,
 	    "/usr/mdec/installboot.new /usr/mdec/sdboot_ufs /dev/r%sa",
-	    diskdev))
+	    pm->diskdev))
 		process_menu(MENU_ok,
 			deconst("Warning: disk is probably not bootable"));
 	return 0;
@@ -306,7 +306,7 @@ int
 md_pre_update(void)
 {
 	if (get_ramsize() < 6)
-		set_swap(diskdev, NULL);
+		set_swap(pm->diskdev, NULL);
 	return 1;
 }
 
@@ -321,10 +321,10 @@ md_update(void)
 static int
 md_newdisk(void)
 {
-	msg_display(MSG_newdisk, diskdev, diskdev);
+	msg_display(MSG_newdisk, pm->diskdev, pm->diskdev);
 
 	return run_program(RUN_FATAL|RUN_DISPLAY,
-	    "/usr/mdec/newdisk -v %s", diskdev);
+	    "/usr/mdec/newdisk -v %s", pm->diskdev);
 }
 
 

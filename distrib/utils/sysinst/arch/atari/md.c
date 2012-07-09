@@ -63,15 +63,15 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
 {
-	msg_display(MSG_infoahdilabel, diskdev);
+	msg_display(MSG_infoahdilabel, pm->diskdev);
 	process_menu(MENU_noyes, NULL);
 	if (yesno) {
-		run_program(RUN_DISPLAY, "ahdilabel /dev/r%sc", diskdev);
+		run_program(RUN_DISPLAY, "ahdilabel /dev/r%sc", pm->diskdev);
 	}
 	if (!make_bsd_partitions())
 		return 0;
@@ -79,7 +79,7 @@ md_make_bsd_partitions(void)
 	/*
 	 * Setup the disktype so /etc/disktab gets proper info
 	 */
-	if (strncmp (diskdev, "sd", 2) == 0)
+	if (strncmp (pm->diskdev, "sd", 2) == 0)
 		disktype = "SCSI";
 	else
 		disktype = "ST506";
@@ -97,7 +97,7 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
@@ -106,10 +106,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	return 0;
 }
@@ -140,7 +140,7 @@ md_post_newfs(void)
 	free(cpu_model);
 
 	/* copy tertiary boot and install boot blocks */
-	msg_display(MSG_dobootblks, diskdev);
+	msg_display(MSG_dobootblks, pm->diskdev);
 	snprintf(bootpath, sizeof(bootpath), "/usr/mdec/%s/boot.atari",
 	    milan ? "milan" : "std");
 	rv = cp_to_target(bootpath, "/");
@@ -148,7 +148,7 @@ md_post_newfs(void)
 		return rv;
 
 	rv = run_program(RUN_DISPLAY, "/usr/mdec/installboot -v%s /dev/r%sc",
-	    milan ? "m" : "", diskdev);
+	    milan ? "m" : "", pm->diskdev);
 
 	return rv;
 }

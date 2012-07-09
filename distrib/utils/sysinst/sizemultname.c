@@ -52,7 +52,7 @@ void
 set_sizemultname_cyl(void)
 {
 
-	sizemult = dlcylsize;
+	sizemult = pm->dlcylsize;
 	multname = msg_string(MSG_cylname);
 }
 
@@ -60,6 +60,6 @@ void
 set_sizemultname_meg(void)
 {
 
-	sizemult = MEG / sectorsize;
+	sizemult = MEG / pm->sectorsize;
 	multname = msg_string(MSG_megname);
 }

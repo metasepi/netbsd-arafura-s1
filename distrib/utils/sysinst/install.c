@@ -73,10 +73,10 @@ do_install(void)
 		clear();
 		refresh();
 
-		if (check_swap(diskdev, 0) > 0) {
+		if (check_swap(pm->diskdev, 0) > 0) {
 			msg_display(MSG_swapactive);
 			process_menu(MENU_ok, NULL);
-			if (check_swap(diskdev, 1) < 0) {
+			if (check_swap(pm->diskdev, 1) < 0) {
 				msg_display(MSG_swapdelfailed);
 				process_menu(MENU_ok, NULL);
 				if (!debug)
@@ -93,7 +93,7 @@ do_install(void)
 		/* Last chance ... do you really want to do this? */
 		clear();
 		refresh();
-		msg_display(MSG_lastchance, diskdev);
+		msg_display(MSG_lastchance, pm->diskdev);
 		process_menu(MENU_noyes, NULL);
 		if (!yesno)
 			return;

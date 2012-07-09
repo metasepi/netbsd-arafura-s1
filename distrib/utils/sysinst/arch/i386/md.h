@@ -84,16 +84,16 @@
  * On i386, we allow "wd"  ST-506/IDE disks,  "sd" scsi disks, "ld" logical
  * disks, "ed" IBM ESDI disks, "raid" raidframe disks
  */
-#define DISK_NAMES "wd", "sd", "ld", "ed", "raid:no_mbr", "xbd:no_mbr"
+#define DISK_NAMES "wd", "sd", "ld", "ed", "raid:pm->no_mbr", "xbd:pm->no_mbr"
 
 /*
  * Machine-specific command to write a new label to a disk.
- * For example, i386  uses "/sbin/disklabel -w -r", just like i386
+ * For example, i386  uses "/sbin/pm->disklabel -w -r", just like i386
  * miniroot scripts, though this may leave a bogus incore label.
- * Sun ports should probably use  DISKLABEL_CMD "/sbin/disklabel -w"
+ * Sun ports should probably use  DISKLABEL_CMD "/sbin/pm->disklabel -w"
  * to get incore  to ondisk inode translation for the Sun proms.
- * If not defined, we assume the port does not support disklabels and
- * hand-edited disklabel will NOT be written by MI code.
+ * If not defined, we assume the port does not support pm->disklabels and
+ * hand-edited pm->disklabel will NOT be written by MI code.
  *
  * On i386, do what the 1.2 install scripts did.
  */

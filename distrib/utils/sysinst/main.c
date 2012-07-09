@@ -105,7 +105,7 @@ static const struct f_arg fflagopts[] = {
 	{"local dir", "release", localfs_dir, sizeof localfs_dir},
 	{"targetroot mount", "/targetroot", targetroot_mnt, sizeof targetroot_mnt},
 	{"dist postfix", ".tgz", dist_postfix, sizeof dist_postfix},
-	{"diskname", "mydisk", bsddiskname, sizeof bsddiskname},
+	{"diskname", "mydisk", bsddiskname, sizeof bsddiskname}, /* TODO: xxx */
 	{"pkg host", SYSINST_PKG_HOST, pkg.host, sizeof pkg.host},
 	{"pkg dir", SYSINST_PKG_DIR, pkg.dir, sizeof pkg.dir},
 	{"pkg prefix", "/" MACH "/" REL "/All", pkg_dir, sizeof pkg_dir},

@@ -417,33 +417,33 @@ find_disks(const char *doingwhat)
 
 	disk = disks + selected_disk;
 	pm = pm_found;
-	strlcpy(diskdev, disk->dd_name, sizeof diskdev);
-	strlcpy(diskdev_descr, disk->dd_descr, sizeof diskdev_descr);
+	strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
+	strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
 
 	/* Use as a default disk if the user has the sets on a local disk */
 	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev); // TODO: sss
 
-	sectorsize = disk->dd_secsize;
-	dlcyl = disk->dd_cyl;
-	dlhead = disk->dd_head;
-	dlsec = disk->dd_sec;
-	dlsize = disk->dd_totsec;
-	no_mbr = disk->dd_no_mbr;
-	if (dlsize == 0)
-		dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
-	if (dlsize > UINT32_MAX) {
+	pm->sectorsize = disk->dd_secsize;
+	pm->dlcyl = disk->dd_cyl;
+	pm->dlhead = disk->dd_head;
+	pm->dlsec = disk->dd_sec;
+	pm->dlsize = disk->dd_totsec;
+	pm->no_mbr = disk->dd_no_mbr;
+	if (pm->dlsize == 0)
+		pm->dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
+	if (pm->dlsize > UINT32_MAX) {
 		msg_display(MSG_toobigdisklabel);
 		process_menu(MENU_ok, NULL);
 		return -1;
 	}
-	dlcylsize = dlhead * dlsec;
+	pm->dlcylsize = pm->dlhead * pm->dlsec;
 
 	/* Get existing/default label */
-	memset(&oldlabel, 0, sizeof oldlabel);
-	incorelabel(diskdev, oldlabel);
+	memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
+	incorelabel(pm->diskdev, pm->oldlabel);
 
 	/* Set 'target' label to current label in case we don't change it */
-	memcpy(&bsdlabel, &oldlabel, sizeof bsdlabel);
+	memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
 
 	return numdisks;
 }
@@ -454,7 +454,7 @@ fmt_fspart(menudesc *m, int ptn, void *arg)
 	unsigned int poffset, psize, pend;
 	const char *desc;
 	static const char *Yes, *No;
-	partinfo *p = bsdlabel + ptn;
+	partinfo *p = pm->bsdlabel + ptn;
 
 	if (Yes == NULL) {
 		Yes = msg_string(MSG_Yes);
@@ -496,13 +496,13 @@ fmt_fspart(menudesc *m, int ptn, void *arg)
 
 /*
  * Label a disk using an MD-specific string DISKLABEL_CMD for
- * to invoke disklabel.
+ * to invoke pm->disklabel.
  * if MD code does not define DISKLABEL_CMD, this is a no-op.
  *
- * i386 port uses "/sbin/disklabel -w -r", just like i386
+ * i386 port uses "/sbin/pm->disklabel -w -r", just like i386
  * miniroot scripts, though this may leave a bogus incore label.
  *
- * Sun ports should use DISKLABEL_CMD "/sbin/disklabel -w"
+ * Sun ports should use DISKLABEL_CMD "/sbin/pm->disklabel -w"
  * to get incore to ondisk inode translation for the Sun proms.
  */
 int
@@ -510,9 +510,9 @@ write_disklabel (void)
 {
 
 #ifdef DISKLABEL_CMD
-	/* disklabel the disk */
+	/* pm->disklabel the disk */
 	return run_program(RUN_DISPLAY, "%s -f /tmp/disktab %s '%s'",
-	    DISKLABEL_CMD, diskdev, bsddiskname);
+	    DISKLABEL_CMD, pm->diskdev, pm->bsddiskname);
 #else
 	return 0;
 #endif
@@ -522,8 +522,8 @@ write_disklabel (void)
 static int
 ptn_sort(const void *a, const void *b)
 {
-	return strcmp(bsdlabel[*(const int *)a].pi_mount,
-		      bsdlabel[*(const int *)b].pi_mount);
+	return strcmp(pm->bsdlabel[*(const int *)a].pi_mount,
+		      pm->bsdlabel[*(const int *)b].pi_mount);
 }
 
 int
@@ -531,14 +531,14 @@ make_filesystems(void)
 {
 	unsigned int i;
 	int ptn;
-	int ptn_order[nelem(bsdlabel)];
+	int ptn_order[nelem(pm->bsdlabel)];
 	int error = 0;
 	unsigned int maxpart = getmaxpartitions();
 	char *newfs;
 	partinfo *lbl;
 
-	if (maxpart > nelem(bsdlabel))
-		maxpart = nelem(bsdlabel);
+	if (maxpart > nelem(pm->bsdlabel))
+		maxpart = nelem(pm->bsdlabel);
 
 	/* Making new file systems and mounting them */
 
@@ -554,9 +554,9 @@ make_filesystems(void)
 		 * point defined, or is marked preserve, don't touch it!
 		 */
 		ptn = ptn_order[i];
-		lbl = bsdlabel + ptn;
+		lbl = pm->bsdlabel + ptn;
 
-		if (is_active_rootpart(diskdev, ptn))
+		if (is_active_rootpart(pm->diskdev, ptn))
 			continue;
 
 		if (*lbl->pi_mount == 0)
@@ -619,11 +619,11 @@ make_filesystems(void)
 			        /* newfs only if mount fails */
 			        if (run_program(RUN_SILENT | RUN_ERROR_OK,
 				    "mount -rt msdos /dev/%s%c /mnt2",
-				    diskdev, 'a' + ptn) != 0)
+				    pm->diskdev, 'a' + ptn) != 0)
 					error = run_program(
 					    RUN_DISPLAY | RUN_PROGRESS,
 					    "%s /dev/r%s%c",
-					    newfs, diskdev, 'a' + ptn);
+					    newfs, pm->diskdev, 'a' + ptn);
 				else {
 			        	run_program(RUN_SILENT | RUN_ERROR_OK,
 					    "umount /mnt2");
@@ -632,10 +632,10 @@ make_filesystems(void)
 			} else
 #endif
 			error = run_program(RUN_DISPLAY | RUN_PROGRESS,
-			    "%s /dev/r%s%c", newfs, diskdev, 'a' + ptn);
+			    "%s /dev/r%s%c", newfs, pm->diskdev, 'a' + ptn);
 		} else {
 			/* We'd better check it isn't dirty */
-			error = fsck_preen(diskdev, ptn, lbl->fsname);
+			error = fsck_preen(pm->diskdev, ptn, lbl->fsname);
 		}
 		free(newfs);
 		if (error != 0)
@@ -646,11 +646,11 @@ make_filesystems(void)
 		if (partman_go == 0 && lbl->pi_flags & PIF_MOUNT &&
 				lbl->mnt_opts != NULL) {
 			make_target_dir(lbl->pi_mount);
-			error = target_mount(lbl->mnt_opts, diskdev, ptn,
+			error = target_mount(lbl->mnt_opts, pm->diskdev, ptn,
 					    lbl->pi_mount);
 			if (error) {
 				msg_display(MSG_mountfail,
-					    diskdev, 'a' + ptn, lbl->pi_mount);
+					    pm->diskdev, 'a' + ptn, lbl->pi_mount);
 				process_menu(MENU_ok, NULL);
 				return error;
 			}
@@ -678,7 +678,7 @@ make_fstab(void)
 	}
 	if (logfp)
 		(void)fprintf(logfp,
-		    "Making %s/etc/fstab (%s).\n", target_prefix(), diskdev);
+		    "Making %s/etc/fstab (%s).\n", target_prefix(), pm->diskdev);
 	
 	if (f == NULL) {
 		msg_display(MSG_createfstab);
@@ -696,7 +696,7 @@ make_fstab(void)
 			"fstab/ for more examples.\n", target_prefix());
 	for (i = 0; i < getmaxpartitions(); i++) {
 		const char *s = "";
-		const char *mp = bsdlabel[i].pi_mount;
+		const char *mp = pm->bsdlabel[i].pi_mount;
 		const char *fstype = "ffs";
 		int fsck_pass = 0, dump_freq = 0;
 
@@ -709,7 +709,7 @@ make_fstab(void)
 			mp = "/mnt";
 		}
 
-		switch (bsdlabel[i].pi_fstype) {
+		switch (pm->bsdlabel[i].pi_fstype) {
 		case FS_UNUSED:
 			continue;
 		case FS_BSDLFS:
@@ -736,7 +736,7 @@ make_fstab(void)
 				dump_dev ="";
 			}
 			scripting_fprintf(f, "/dev/%s%c\t\tnone\tswap\tsw%s\t\t 0 0\n",
-				diskdev, 'a' + i, dump_dev);
+				pm->diskdev, 'a' + i, dump_dev);
 			continue;
 #ifdef USE_SYSVBFS
 		case FS_SYSVBFS:
@@ -750,20 +750,20 @@ make_fstab(void)
 			break;
 		}
 		/* The code that remounts root rw doesn't check the partition */
-		if (strcmp(mp, "/") == 0 && !(bsdlabel[i].pi_flags & PIF_MOUNT))
+		if (strcmp(mp, "/") == 0 && !(pm->bsdlabel[i].pi_flags & PIF_MOUNT))
 			s = "# ";
 
  		scripting_fprintf(f,
 		  "%s/dev/%s%c\t\t%s\t%s\trw%s%s%s%s%s%s%s%s\t\t %d %d\n",
-		   s, diskdev, 'a' + i, mp, fstype,
-		   bsdlabel[i].pi_flags & PIF_LOG ? ",log" : "",
-		   bsdlabel[i].pi_flags & PIF_MOUNT ? "" : ",noauto",
-		   bsdlabel[i].pi_flags & PIF_ASYNC ? ",async" : "",
-		   bsdlabel[i].pi_flags & PIF_NOATIME ? ",noatime" : "",
-		   bsdlabel[i].pi_flags & PIF_NODEV ? ",nodev" : "",
-		   bsdlabel[i].pi_flags & PIF_NODEVMTIME ? ",nodevmtime" : "",
-		   bsdlabel[i].pi_flags & PIF_NOEXEC ? ",noexec" : "",
-		   bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
+		   s, pm->diskdev, 'a' + i, mp, fstype,
+		   pm->bsdlabel[i].pi_flags & PIF_LOG ? ",log" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_MOUNT ? "" : ",noauto",
+		   pm->bsdlabel[i].pi_flags & PIF_ASYNC ? ",async" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_NOATIME ? ",noatime" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_NODEV ? ",nodev" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_NODEVMTIME ? ",nodevmtime" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_NOEXEC ? ",noexec" : "",
+		   pm->bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
 		   dump_freq, fsck_pass);
 	}
 	if (!fstab_prepared) {
@@ -776,7 +776,7 @@ make_fstab(void)
 			if (swap_dev != -1)
 				scripting_fprintf(f, "/dev/%s%c\t\t/tmp\tmfs\trw,-s=%"
 				    PRIi64 "\n",
-				    diskdev, 'a' + swap_dev, tmp_ramdisk_size);
+				    pm->diskdev, 'a' + swap_dev, tmp_ramdisk_size);
 			else
 				scripting_fprintf(f, "swap\t\t/tmp\tmfs\trw,-s=%"
 				    PRIi64 "\n",
@@ -938,19 +938,19 @@ mount_root(void)
 {
 	int	error;
 
-	error = fsck_preen(diskdev, rootpart, "ffs");
+	error = fsck_preen(pm->diskdev, rootpart, "ffs");
 	if (error != 0)
 		return error;
 
 	md_pre_mount();
 
-	/* Mount /dev/<diskdev>a on target's "".
+	/* Mount /dev/<pm->diskdev>a on target's "".
 	 * If we pass "" as mount-on, Prefixing will DTRT.
 	 * for now, use no options.
 	 * XXX consider -o remount in case target root is
 	 * current root, still readonly from single-user?
 	 */
-	return target_mount("", diskdev, rootpart, "");
+	return target_mount("", pm->diskdev, rootpart, "");
 }
 
 /* Get information on the file systems mounted from the root filesystem.
@@ -988,7 +988,7 @@ mount_disks(void)
 	/* Check the target /etc/fstab exists before trying to parse it. */
 	if (target_dir_exists_p("/etc") == 0 ||
 	    target_file_exists_p("/etc/fstab") == 0) {
-		msg_display(MSG_noetcfstab, diskdev);
+		msg_display(MSG_noetcfstab, pm->diskdev);
 		process_menu(MENU_ok, NULL);
 		return 0;
 	}
@@ -998,7 +998,7 @@ mount_disks(void)
 	fstabsize = target_collect_file(T_FILE, &fstab, "/etc/fstab");
 	if (fstabsize < 0) {
 		/* error ! */
-		msg_display(MSG_badetcfstab, diskdev);
+		msg_display(MSG_badetcfstab, pm->diskdev);
 		process_menu(MENU_ok, NULL);
 		return 0;
 	}
@@ -1016,7 +1016,7 @@ set_swap(const char *disk, partinfo *pp)
 	int rval;
 
 	if (pp == NULL)
-		pp = oldlabel;
+		pp = pm->oldlabel;
 
 	for (i = 0; i < MAXPARTITIONS; i++) {
 		if (pp[i].pi_fstype != FS_SWAP)
@@ -1092,11 +1092,11 @@ bootxx_name(void)
 	char *bootxx;
 
 	/* check we have boot code for the root partition type */
-	fstype = bsdlabel[rootpart].pi_fstype;
+	fstype = pm->bsdlabel[rootpart].pi_fstype;
 	switch (fstype) {
 #if defined(BOOTXX_FFSV1) || defined(BOOTXX_FFSV2)
 	case FS_BSDFFS:
-		if (bsdlabel[rootpart].pi_flags & PIF_FFSv2) {
+		if (pm->bsdlabel[rootpart].pi_flags & PIF_FFSv2) {
 #ifdef BOOTXX_FFSV2
 			bootxxname = BOOTXX_FFSV2;
 #else
@@ -1131,59 +1131,15 @@ bootxx_name(void)
 
 
 
+
 void
-partman_restoredev(pm_devs_t *pm_devs_in)
+partman_select(pm_devs_t *pm_devs_in)
 {
 	pm = pm_devs_in;
 	if (logfp)
-		(void)fprintf(logfp,"Partman device: %s\n", diskdev);
-	no_mbr = pm_devs_in->no_mbr;
-	strlcpy(diskdev, pm_devs_in->id, sizeof diskdev);
-	strlcpy(bsddiskname, pm_devs_in->bsddiskname, sizeof bsddiskname);
-	memcpy(oldlabel, pm_devs_in->oldlabel, sizeof oldlabel);
-	memcpy(bsdlabel, pm_devs_in->bsdlabel, sizeof bsdlabel);
-	memcpy(&mbr, &(pm_devs_in->mbr), sizeof mbr);
-	//*oldlabel = *(pm_devs_in->oldlabel);
-	//*bsdlabel = *(pm_devs_in->bsdlabel);
-	//mbr = pm_devs_in->mbr;
-	sectorsize = pm_devs_in->sectorsize;
-	dlcyl = pm_devs_in->dlcyl;
-	dlhead = pm_devs_in->dlhead;
-	dlsec = pm_devs_in->dlsec;
-	dlcylsize = pm_devs_in->dlcylsize;
-	current_cylsize = pm_devs_in->current_cylsize;
-	dlsize = pm_devs_in->dlsize;
-	ptstart = pm_devs_in->ptstart;
-	ptsize = pm_devs_in->ptsize;
-	bootstart = pm_devs_in->bootstart;
-	bootsize = pm_devs_in->bootsize;
+		(void)fprintf(logfp,"Partman device: %s\n", pm->diskdev);
 	return;
-}
 
-void
-partman_savedev(pm_devs_t *pm_devs_in)
-{
-	pm_devs_in->no_mbr = no_mbr;
-	strlcpy(pm_devs_in->bsddiskname, bsddiskname,
-				sizeof pm_devs_in->bsddiskname);
-	memcpy(pm_devs_in->oldlabel, oldlabel, sizeof pm_devs_in->oldlabel);
-	memcpy(pm_devs_in->bsdlabel, bsdlabel, sizeof pm_devs_in->bsdlabel);
-	memcpy(&(pm_devs_in->mbr), &mbr, sizeof pm_devs_in->mbr);
-	//*(pm_devs_in->oldlabel) = *oldlabel;
-	//*(pm_devs_in->bsdlabel) = *bsdlabel;
-	//pm_devs_in->mbr = mbr;
-	pm_devs_in->sectorsize = sectorsize;
-	pm_devs_in->dlcyl = dlcyl;
-	pm_devs_in->dlhead = dlhead;
-	pm_devs_in->dlsec = dlsec;
-	pm_devs_in->dlcylsize = dlcylsize;
-	pm_devs_in->current_cylsize = current_cylsize;
-	pm_devs_in->dlsize = dlsize;
-	pm_devs_in->ptstart = ptstart;
-	pm_devs_in->ptsize = ptsize;
-	pm_devs_in->bootstart = bootstart;
-	pm_devs_in->bootsize = bootsize;
-	return;
 }
 
 // TODO: mount order
@@ -1204,11 +1160,11 @@ partman_mountall(void)
 	int mnts_order[AAAAA];
 	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next) {
-		fprintf(logfp,"::%s\n",pm_devs_i->id); fflush(logfp);
+		fprintf(logfp,"::%s\n",pm_devs_i->diskdev); fflush(logfp);
 		for (i = 0; i < MAXPARTITIONS; i++) {
 			if (pm_devs_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
 					pm_devs_i->bsdlabel[i].mnt_opts != NULL) {
-				mnts[num_devs].diskdev = pm_devs_i->id;
+				mnts[num_devs].diskdev = pm_devs_i->diskdev;
 				mnts[num_devs].mnt_opts = pm_devs_i->bsdlabel[i].mnt_opts;
 				mnts[num_devs].fsname = pm_devs_i->bsdlabel[i].fsname;
 				mnts[num_devs].pi_mount = pm_devs_i->bsdlabel[i].pi_mount;
@@ -1223,9 +1179,9 @@ partman_mountall(void)
 
 	for (i = 0; i < num_devs; i++) {
 		make_target_dir(mnts[i].pi_mount);
-		error = target_mount(mnts[i].mnt_opts, diskdev, i, mnts[i].pi_mount);
+		error = target_mount(mnts[i].mnt_opts, pm->diskdev, i, mnts[i].pi_mount);
 		if (error) {
-			msg_display(MSG_mountfail, diskdev, 'a' + i, mnts[i].pi_mount);
+			msg_display(MSG_mountfail, pm->diskdev, 'a' + i, mnts[i].pi_mount);
 			process_menu(MENU_ok, NULL);
 			return error;
 		}
@@ -1245,10 +1201,10 @@ partman_adddisk(menudesc *m, void *arg)
 	clear();
 	refresh();
 
-	if (check_swap(diskdev, 0) > 0) {
+	if (check_swap(pm->diskdev, 0) > 0) {
 		msg_display(MSG_swapactive);
 		process_menu(MENU_ok, NULL);
-		if (check_swap(diskdev, 1) < 0) {
+		if (check_swap(pm->diskdev, 1) < 0) {
 			msg_display(MSG_swapdelfailed);
 			process_menu(MENU_ok, NULL);
 			return -1;
@@ -1257,14 +1213,14 @@ partman_adddisk(menudesc *m, void *arg)
 
 	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
 			pm_devs_tmp = pm_devs_tmp->next)
-		if (strcmp(pm_devs_tmp->next->id, diskdev) == 0)
+		if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
 			return 0;
 	
 	pm_devs_new = malloc(sizeof (pm_devs_t));
 	pm_devs_new->next = NULL;
-	partman_savedev(pm_devs_new);
-	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
-	strlcpy(pm_devs_new->desc, diskdev_descr, sizeof pm_devs_new->desc);
+	strlcpy(pm_devs_new->diskdev, pm->diskdev, sizeof pm_devs_new->diskdev);
+	strlcpy(pm_devs_new->diskdev_descr, pm->diskdev_descr,
+				sizeof pm_devs_new->diskdev_descr);
 	pm_devs_new->bootable = 0;
 	pm_devs_new->no_mbr = 1;
 	pm_devs_tmp->next = pm_devs_new;
@@ -1309,7 +1265,7 @@ partman_commit(menudesc *m, void *arg)
 
 	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next) {
-		partman_restoredev(pm_devs_i);
+		partman_select(pm_devs_i);
 		if (
 				md_pre_disklabel() != 0  || /* Write partition table */
 				write_disklabel() != 0   || /* Write slices table (disklabel) */
@@ -1339,7 +1295,7 @@ partman_submenu(menudesc *m, void *arg)
 	for (pm_devs_i = pm_devs->next, i = 0; !ok && pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next, i++)
 		if (i == m->cursel) {
-			partman_restoredev(pm_devs_i);
+			partman_select(pm_devs_i);
 			ok = 1;
 			break;
 		}
@@ -1347,7 +1303,6 @@ partman_submenu(menudesc *m, void *arg)
 		return -1;
 
 	process_menu(MENU_pmentry, &retvalue);
-	partman_savedev(pm);
 	return 0;
 }
 
@@ -1376,7 +1331,7 @@ partman_menufmt(menudesc *m, int ptn, void *arg)
 		}
 	}
 
-	wprintw(m->mw,"%-25s %-20s %4s", pm_devs_i->desc, dev_mounts,
+	wprintw(m->mw,"%-25s %-20s %4s", pm_devs_i->diskdev_descr, dev_mounts,
 			(pm_devs_i->bootable)?"BOOT":"" );
 	return;
 }

@@ -62,7 +62,7 @@ md_get_info(void)
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -80,20 +80,20 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
 {
-	if (no_mbr)
+	if (pm->no_mbr)
 		return 0;
 
 	msg_display(MSG_dofdisk);
 
 	/* write edited MBR onto disk. */
-	if (write_mbr(diskdev, &mbr, 1) != 0 ||
+	if (write_mbr(pm->diskdev, &mbr, 1) != 0 ||
 	    run_program(RUN_SILENT | RUN_ERROR_OK,
-	    "/sbin/fdisk -f -i -c /usr/mdec/mbr %s", diskdev)) {
+	    "/sbin/fdisk -f -i -c /usr/mdec/mbr %s", pm->diskdev)) {
 		msg_display(MSG_wmbrfail);
 		process_menu(MENU_ok, NULL);
 		return 1;
@@ -103,10 +103,10 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
-md_post_disklabel(void)
+md_post_pm->disklabel(void)
 {
 	return 0;
 }
@@ -124,12 +124,12 @@ md_post_newfs(void)
 	char *bootxx;
 	int error;
 
-	printf (msg_string(MSG_dobootblks), diskdev);
+	printf (msg_string(MSG_dobootblks), pm->diskdev);
 	cp_to_target("/usr/mdec/boot", "/boot");
 	bootxx = bootxx_name();
 	if (bootxx != NULL) {
 		error = run_program(RUN_DISPLAY | RUN_NO_CLEAR,
-		    "/usr/sbin/installboot -v /dev/r%sa %s", diskdev, bootxx);
+		    "/usr/sbin/installboot -v /dev/r%sa %s", pm->diskdev, bootxx);
 		free(bootxx);
 	} else
 		error = -1;

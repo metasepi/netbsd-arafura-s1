@@ -94,12 +94,12 @@ md_get_info(void)
 #define	NETBSD_NAMED	0x0400
 #define	ACTIVE_NAMED	0x0800
 
-	if (no_mbr)
+	if (pm->no_mbr)
 		return 1;
 
-	if (read_mbr(diskdev, &mbr) < 0)
+	if (read_mbr(pm->diskdev, &mbr) < 0)
 		memset(&mbr.mbr, 0, sizeof mbr.mbr - 2);
-	get_bios_info(diskdev);
+	get_bios_info(pm->diskdev);
 
 edit:
 	if (edit_mbr(&mbr) == 0)
@@ -118,7 +118,7 @@ edit:
 	}
 
 	/*
-	 * Ensure the install partition (at sector ptstart) and the active
+	 * Ensure the install partition (at sector pm->ptstart) and the active
 	 * partition are bootable.
 	 * Determine whether the bootselect code is needed.
 	 * Note that MBR_BS_NEWMBR is always set, so we ignore it!
@@ -130,14 +130,14 @@ edit:
 		for (i = 0; i < MBR_PART_COUNT; p++, i++) {
 			if (p->mbrp_flag == MBR_PFLAG_ACTIVE) {
 				fl |= ACTIVE_FOUND;
-			    if (ext->sector + p->mbrp_start == ptstart)
+			    if (ext->sector + p->mbrp_start == pm->ptstart)
 				fl |= NETBSD_ACTIVE;
 			}
 			if (ext->mbrb.mbrbs_nametab[i][0] == 0) {
 				/* No bootmenu label... */
 				if (ext->sector == 0)
 					continue;
-				if (ext->sector + p->mbrp_start == ptstart)
+				if (ext->sector + p->mbrp_start == pm->ptstart)
 					/*
 					 * Have installed into an extended ptn
 					 * force name & bootsel...
@@ -148,7 +148,7 @@ edit:
 			/* Partition has a bootmenu label... */
 			if (ext->sector != 0)
 				fl |= MBR_BS_EXTLBA;
-			if (ext->sector + p->mbrp_start == ptstart)
+			if (ext->sector + p->mbrp_start == pm->ptstart)
 				fl |= NETBSD_NAMED;
 			else if (p->mbrp_flag == MBR_PFLAG_ACTIVE)
 				fl |= ACTIVE_NAMED;
@@ -231,7 +231,7 @@ edit:
 }
 
 /*
- * md back-end code for menu-driven BSD disklabel editor.
+ * md back-end code for menu-driven BSD pm->disklabel editor.
  */
 int
 md_make_bsd_partitions(void)
@@ -259,18 +259,18 @@ md_check_partitions(void)
 }
 
 /*
- * hook called before writing new disklabel.
+ * hook called before writing new pm->disklabel.
  */
 int
 md_pre_disklabel(void)
 {
-	if (no_mbr)
+	if (pm->no_mbr)
 		return 0;
 
 	msg_display(MSG_dofdisk);
 
 	/* write edited MBR onto disk. */
-	if (write_mbr(diskdev, &mbr, 1) != 0) {
+	if (write_mbr(pm->diskdev, &mbr, 1) != 0) {
 		msg_display(MSG_wmbrfail);
 		process_menu(MENU_ok, NULL);
 		return 1;
@@ -279,13 +279,13 @@ md_pre_disklabel(void)
 }
 
 /*
- * hook called after writing disklabel to new target disk.
+ * hook called after writing pm->disklabel to new target disk.
  */
 int
 md_post_disklabel(void)
 {
 	if (get_ramsize() <= 32)
-		set_swap(diskdev, bsdlabel);
+		set_swap(pm->diskdev, pm->bsdlabel);
 
 	return 0;
 }
@@ -330,7 +330,7 @@ md_post_newfs(void)
 	}
 
 	process_menu(MENU_getboottype, &boottype);
-	msg_display(MSG_dobootblks, diskdev);
+	msg_display(MSG_dobootblks, pm->diskdev);
 	if (bp.bp_consdev == ~0u)
 		return 0;
 
@@ -341,7 +341,7 @@ md_post_newfs(void)
 	/* Copy bootstrap in by hand - /sbin/installboot explodes ramdisks */
 	ret = 1;
 
-	snprintf(bootxx, sizeof bootxx, "/dev/r%s%c", diskdev, 'a' + rootpart);
+	snprintf(bootxx, sizeof bootxx, "/dev/r%s%c", pm->diskdev, 'a' + rootpart);
 	td = open(bootxx, O_RDWR, 0);
 	bootxx_filename = bootxx_name();
 	if (bootxx_filename != NULL) {
@@ -410,7 +410,7 @@ int
 md_pre_update(void)
 {
 	if (get_ramsize() <= 8)
-		set_swap(diskdev, NULL);
+		set_swap(pm->diskdev, NULL);
 	return 1;
 }
 
@@ -468,7 +468,7 @@ get_bios_info(char *dev)
 	if (nip == NULL || nip->ni_nmatches == 0) {
 nogeom:
 		if (nip != NULL)
-			msg_display(MSG_nobiosgeom, dlcyl, dlhead, dlsec);
+			msg_display(MSG_nobiosgeom, pm->dlcyl, pm->dlhead, pm->dlsec);
 		if (guess_biosgeom_from_mbr(&mbr, &cyl, &head, &sec) >= 0
 		    && nip != NULL)
 			msg_display_add(MSG_biosguess, cyl, head, sec);
@@ -524,7 +524,7 @@ nogeom:
 static int
 mbr_root_above_chs(void)
 {
-	return ptstart + DEFROOTSIZE * (MEG / 512) >= bcyl * bhead * bsec;
+	return pm->ptstart + DEFROOTSIZE * (MEG / 512) >= bcyl * bhead * bsec;
 }
 
 static void
@@ -533,10 +533,10 @@ md_upgrade_mbrtype(void)
 	struct mbr_partition *mbrp;
 	int i, netbsdpart = -1, oldbsdpart = -1, oldbsdcount = 0;
 
-	if (no_mbr)
+	if (pm->no_mbr)
 		return;
 
-	if (read_mbr(diskdev, &mbr) < 0)
+	if (read_mbr(pm->diskdev, &mbr) < 0)
 		return;
 
 	mbrp = &mbr.mbr.mbr_parts[0];
@@ -551,7 +551,7 @@ md_upgrade_mbrtype(void)
 
 	if (netbsdpart == -1 && oldbsdcount == 1) {
 		mbrp[oldbsdpart].mbrp_type = MBR_PTYPE_NETBSD;
-		write_mbr(diskdev, &mbr, 0);
+		write_mbr(pm->diskdev, &mbr, 0);
 	}
 }
 
