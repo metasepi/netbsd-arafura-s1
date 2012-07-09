@@ -209,6 +209,8 @@ typedef struct _partinfo {
 #define PIF_LOG		0x0800		/* mount -o log */
 #define PIF_MOUNT_OPTS	0x0ff0		/* all above mount flags */
 #define PIF_RESET	0x1000		/* internal - restore previous values */
+    const char *mnt_opts;
+    const char *fsname;
 } partinfo;	/* Single partition from a disklabel */
 
 struct ptn_info {
@@ -252,7 +254,6 @@ FILE *script;
 /* Actual name of the disk. */
 char diskdev[SSTRSIZE];
 char diskdev_descr[STRSIZE];
-struct _pm_devs *pm_devs_cur;
 int no_mbr;				/* set for raid (etc) */
 int rootpart;				/* partition we install into */
 const char *disktype;		/* ST506, SCSI, ... */
@@ -282,7 +283,7 @@ char bsddiskname[DISKNAME_SIZE];
 const char *doessf;
 
 /* Information for extended partition manager */
-struct _pm_devs {
+typedef struct pm_devs_t {
     char id[SSTRSIZE];
     char desc[STRSIZE];
     char id_dk[SSTRSIZE];
@@ -297,8 +298,16 @@ struct _pm_devs {
     daddr_t dlsize;
     daddr_t ptstart, ptsize;
     int bootstart, bootsize;
-    struct _pm_devs *next;
-} *pm_devs;
+    struct pm_devs_t *next;
+} pm_devs_t;
+pm_devs_t *pm_devs;
+pm_devs_t *pm_devs_cur;
+#define AAAAA 100
+
+struct {
+    const char *diskdev, *mnt_opts, *fsname;
+    char *pi_mount;
+} mnts[AAAAA];
 
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
@@ -418,9 +427,10 @@ int partman_adddisk(menudesc *, void *);
 int partman_addvnd(menudesc *, void *);
 int partman_deldev(menudesc *, void *);
 int partman_commit(menudesc *, void *);
+int partman_mountall(void);
 void partman_menufmt(menudesc *, int, void *);
-void partman_restoredev(struct _pm_devs *);
-void partman_savedev(struct _pm_devs *);
+void partman_restoredev(pm_devs_t *);
+void partman_savedev(pm_devs_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

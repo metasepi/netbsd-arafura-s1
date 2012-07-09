@@ -534,8 +534,6 @@ make_filesystems(void)
 	int error = 0;
 	unsigned int maxpart = getmaxpartitions();
 	char *newfs;
-	const char *mnt_opts;
-	const char *fsname;
 	partinfo *lbl;
 
 	if (maxpart > nelem(bsdlabel))
@@ -565,14 +563,14 @@ make_filesystems(void)
 			continue;
 
 		newfs = NULL;
-		mnt_opts = NULL;
-		fsname = NULL;
+		lbl->mnt_opts = NULL;
+		lbl->fsname = NULL;
 		switch (lbl->pi_fstype) {
 		case FS_APPLEUFS:
 			asprintf(&newfs, "/sbin/newfs %s%.0d",
 				lbl->pi_isize != 0 ? "-i" : "", lbl->pi_isize);
-			mnt_opts = "-tffs -o async";
-			fsname = "ffs";
+			lbl->mnt_opts = "-tffs -o async";
+			lbl->fsname = "ffs";
 			break;
 		case FS_BSDFFS:
 			asprintf(&newfs,
@@ -581,36 +579,36 @@ make_filesystems(void)
 			    lbl->pi_fsize * lbl->pi_frag, lbl->pi_fsize,
 			    lbl->pi_isize != 0 ? " -i " : "", lbl->pi_isize);
 			if (lbl->pi_flags & PIF_LOG)
-				mnt_opts = "-tffs -o log";
+				lbl->mnt_opts = "-tffs -o log";
 			else
-				mnt_opts = "-tffs -o async";
-			fsname = "ffs";
+				lbl->mnt_opts = "-tffs -o async";
+			lbl->fsname = "ffs";
 			break;
 		case FS_BSDLFS:
 			asprintf(&newfs, "/sbin/newfs_lfs -b %d",
 				lbl->pi_fsize * lbl->pi_frag);
-			mnt_opts = "-tlfs";
-			fsname = "lfs";
+			lbl->mnt_opts = "-tlfs";
+			lbl->fsname = "lfs";
 			break;
 		case FS_MSDOS:
 #ifdef USE_NEWFS_MSDOS
 			asprintf(&newfs, "/sbin/newfs_msdos");
 #endif
-			mnt_opts = "-tmsdos";
-			fsname = "msdos";
+			lbl->mnt_opts = "-tmsdos";
+			lbl->fsname = "msdos";
 			break;
 #ifdef USE_SYSVBFS
 		case FS_SYSVBFS:
 			asprintf(&newfs, "/sbin/newfs_sysvbfs");
-			mnt_opts = "-tsysvbfs";
-			fsname = "sysvbfs";
+			lbl->mnt_opts = "-tsysvbfs";
+			lbl->fsname = "sysvbfs";
 			break;
 #endif
 #ifdef USE_EXT2FS
 		case FS_EX2FS:
 			asprintf(&newfs, "/sbin/newfs_ext2fs");
-			mnt_opts = "-text2fs";
-			fsname = "ext2fs";
+			lbl->mnt_opts = "-text2fs";
+			lbl->fsname = "ext2fs";
 			break;
 #endif
 		}
@@ -636,7 +634,7 @@ make_filesystems(void)
 			    "%s /dev/r%s%c", newfs, diskdev, 'a' + ptn);
 		} else {
 			/* We'd better check it isn't dirty */
-			error = fsck_preen(diskdev, ptn, fsname);
+			error = fsck_preen(diskdev, ptn, lbl->fsname);
 		}
 		free(newfs);
 		if (error != 0)
@@ -644,9 +642,10 @@ make_filesystems(void)
 
 		md_pre_mount();
 
-		if (lbl->pi_flags & PIF_MOUNT && mnt_opts != NULL) {
+		if (partman_go == 0 && lbl->pi_flags & PIF_MOUNT &&
+				lbl->mnt_opts != NULL) {
 			make_target_dir(lbl->pi_mount);
-			error = target_mount(mnt_opts, diskdev, ptn,
+			error = target_mount(lbl->mnt_opts, diskdev, ptn,
 					    lbl->pi_mount);
 			if (error) {
 				msg_display(MSG_mountfail,
@@ -1132,7 +1131,7 @@ bootxx_name(void)
 
 
 void
-partman_restoredev(struct _pm_devs *pm_devs_in)
+partman_restoredev(pm_devs_t *pm_devs_in)
 {
 	pm_devs_cur = pm_devs_in;
 	if (logfp)
@@ -1161,7 +1160,7 @@ partman_restoredev(struct _pm_devs *pm_devs_in)
 }
 
 void
-partman_savedev(struct _pm_devs *pm_devs_in)
+partman_savedev(pm_devs_t *pm_devs_in)
 {
 	pm_devs_in->no_mbr = no_mbr;
 	strlcpy(pm_devs_in->bsddiskname, bsddiskname,
@@ -1186,12 +1185,58 @@ partman_savedev(struct _pm_devs *pm_devs_in)
 	return;
 }
 
+// TODO: mount order
+static int
+partman_mountall_sort(const void *a, const void *b)
+{
+	return strcmp(mnts[*(const int *)a].pi_mount,
+		      mnts[*(const int *)b].pi_mount);
+}
+
+int
+partman_mountall(void)
+{
+	pm_devs_t *pm_devs_i;
+	int num_devs = 0;
+	int i, error;
+
+	int mnts_order[AAAAA];
+	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
+			pm_devs_i = pm_devs_i->next) {
+		fprintf(logfp,"::%s\n",pm_devs_i->id); fflush(logfp);
+		for (i = 0; i < MAXPARTITIONS; i++) {
+			if (pm_devs_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
+					pm_devs_i->bsdlabel[i].mnt_opts != NULL) {
+				mnts[num_devs].diskdev = pm_devs_i->id;
+				mnts[num_devs].mnt_opts = pm_devs_i->bsdlabel[i].mnt_opts;
+				mnts[num_devs].fsname = pm_devs_i->bsdlabel[i].fsname;
+				mnts[num_devs].pi_mount = pm_devs_i->bsdlabel[i].pi_mount;
+				num_devs++;
+				fprintf(logfp,":::%s\n",mnts[num_devs].pi_mount); fflush(logfp);
+			}
+		}
+	}
+	for (i = 0; i < num_devs; i++)
+		mnts_order[i] = i;
+	qsort(mnts_order, num_devs, sizeof mnts_order[0], partman_mountall_sort);
+
+	for (i = 0; i < num_devs; i++) {
+		make_target_dir(mnts[i].pi_mount);
+		error = target_mount(mnts[i].mnt_opts, diskdev, i, mnts[i].pi_mount);
+		if (error) {
+			msg_display(MSG_mountfail, diskdev, 'a' + i, mnts[i].pi_mount);
+			process_menu(MENU_ok, NULL);
+			return error;
+		}
+	}
+	return 0;
+}
 
 int
 partman_adddisk(menudesc *m, void *arg)
 {
 	*(int *)arg = m->cursel + 1;
-	struct _pm_devs *pm_devs_new, *pm_devs_tmp;
+	pm_devs_t *pm_devs_new, *pm_devs_tmp;
 
 	if (find_disks(msg_string(MSG_install)) < 0)
 		return -1;
@@ -1214,7 +1259,7 @@ partman_adddisk(menudesc *m, void *arg)
 		if (strcmp(pm_devs_tmp->next->id, diskdev) == 0)
 			return 0;
 	
-	pm_devs_new = malloc(sizeof (struct _pm_devs));
+	pm_devs_new = malloc(sizeof (pm_devs_t));
 	pm_devs_new->next = NULL;
 	partman_savedev(pm_devs_new);
 	strlcpy(pm_devs_new->id, diskdev, sizeof pm_devs_new->id);
@@ -1236,7 +1281,7 @@ partman_addvnd(menudesc *m, void *arg)
 int
 partman_deldev(menudesc *m, void *arg)
 {
-	struct _pm_devs *pm_devs_tmp, *pm_devs_swap;
+	pm_devs_t *pm_devs_tmp, *pm_devs_swap;
 	*(int *)arg = m->cursel + 1;
 
 	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
@@ -1258,18 +1303,17 @@ partman_deldev(menudesc *m, void *arg)
 int
 partman_commit(menudesc *m, void *arg)
 {
-	struct _pm_devs *pm_devs_i;
+	pm_devs_t *pm_devs_i;
 	*(int *)arg = m->cursel + 1;
 
 	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) { // TODO: / must be first
+			pm_devs_i = pm_devs_i->next) {
 		partman_restoredev(pm_devs_i);
 		if (
 				md_pre_disklabel() != 0  || /* Write partition table */
 				write_disklabel() != 0   || /* Write slices table (disklabel) */
 				md_post_disklabel() != 0 || /* Enable swap and check badblock */
-				make_filesystems()       || /* Create filesystems by newfs */
-				make_fstab() != 0           /* Generate /etc/fstab */
+				make_filesystems()          /* Create filesystems by newfs */
 			) { /* If something fails... */
 			return -1;
 		}
@@ -1284,7 +1328,7 @@ partman_commit(menudesc *m, void *arg)
 static int
 partman_submenu(menudesc *m, void *arg)
 {
-	struct _pm_devs *pm_devs_i;
+	pm_devs_t *pm_devs_i;
 	int retvalue;
 	int ok = 0;
 	int i;
@@ -1309,7 +1353,7 @@ partman_submenu(menudesc *m, void *arg)
 void
 partman_menufmt(menudesc *m, int ptn, void *arg)
 {
-	struct _pm_devs *pm_devs_i;
+	pm_devs_t *pm_devs_i;
 	int i;
 	unsigned int maxpart;
 	char *dev_mounts = malloc(STRSIZE * sizeof(char));
@@ -1345,7 +1389,7 @@ partman(void)
 	int menu_pm;
 	int i, ii;
 	int retvalue = 0;
-	struct _pm_devs *pm_devs_i;
+	pm_devs_t *pm_devs_i;
 
 	do {
 		clear();
@@ -1404,11 +1448,16 @@ partman(void)
 	// TODO: check_partitions()
 	/* Check that fstab on target device is readable - if so then we can go */
 	if (retvalue == 0) {
-		FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
-		if (file_tmp == NULL)
+		if (partman_mountall() != 0 ||
+			make_fstab() != 0)
 			retvalue = -1;
-		else
-			fclose(file_tmp);
+		else {
+			FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
+			if (file_tmp == NULL)
+				retvalue = -1;
+			else
+				fclose(file_tmp);
+		}
 	}
 
 	/* retvalue <0 - error, retvalue ==0 - user quits, retvalue >0 - all ok */

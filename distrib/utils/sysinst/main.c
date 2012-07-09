@@ -135,7 +135,7 @@ init(void)
 	mnt2_mounted = 0;
 	fd_type = "msdos";
 
-	pm_devs = malloc (sizeof (struct _pm_devs));
+	pm_devs = malloc (sizeof (pm_devs_t));
 	pm_devs->next = NULL;
 
 	for (arg = fflagopts; arg->name != NULL; arg++)
