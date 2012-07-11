@@ -1272,8 +1272,12 @@ edit_mbr(mbr_info_t *mbri)
 
 	part = &mbrs->mbr_parts[0];
 	get_ptn_alignment(part);  /* update ptn_alignment */
-	msg_display(MSG_fullpart, pm->diskdev);
-	process_menu(MENU_fullpart, &usefull);
+	if (partman_go)
+		usefull = 0;
+	else {
+		msg_display(MSG_fullpart, pm->diskdev);
+		process_menu(MENU_fullpart, &usefull);
+	}
 
 	/* DOS fdisk label checking and value setting. */
 	if (usefull) {

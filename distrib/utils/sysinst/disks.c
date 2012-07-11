@@ -418,11 +418,12 @@ find_disks(const char *doingwhat)
 	disk = disks + selected_disk;
 	pm = pm_found;
 	pm->bootable = 0;
+	pm->pi.menu_no = -1;
 	strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
 	strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
 
 	/* Use as a default disk if the user has the sets on a local disk */
-	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev); // TODO: sss
+	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
 
 	pm->sectorsize = disk->dd_secsize;
 	pm->dlcyl = disk->dd_cyl;
@@ -1155,37 +1156,51 @@ partman_mountall(void)
 {
 	pm_devs_t *pm_devs_i;
 	int num_devs = 0;
-	int i, error;
+	int i, ii, error, ok;
+	char diskdev_with_root[SSTRSIZE];
+	diskdev_with_root[0] = '\0';
 
 	int mnts_order[MNTS_MAX]; // TODO: rewrite
 	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
 			pm_devs_i = pm_devs_i->next) {
-		fprintf(logfp,"::%s\n",pm_devs_i->diskdev); fflush(logfp);
+		ok = 0;
 		for (i = 0; i < MAXPARTITIONS; i++) {
 			if (pm_devs_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
 					pm_devs_i->bsdlabel[i].mnt_opts != NULL) {
+				mnts[num_devs].partnum = i;
 				mnts[num_devs].diskdev = pm_devs_i->diskdev;
 				mnts[num_devs].mnt_opts = pm_devs_i->bsdlabel[i].mnt_opts;
 				mnts[num_devs].fsname = pm_devs_i->bsdlabel[i].fsname;
 				mnts[num_devs].pi_mount = pm_devs_i->bsdlabel[i].pi_mount;
+				if (strcmp(pm_devs_i->bsdlabel[i].pi_mount, "/") == 0)
+					strlcpy(diskdev_with_root, pm_devs_i->bsdlabel[i].pi_mount, 
+						sizeof diskdev_with_root);
 				num_devs++;
-				fprintf(logfp,":::%s\n",mnts[num_devs].pi_mount); fflush(logfp);
+				ok = 1;
 			}
 		}
+		if (ok)
+			md_pre_mount();
+	}
+	if (strlen(diskdev_with_root) == 0) {
+		msg_display("No root partition defined, cannot continue\n"); // TODO: localize
+		process_menu(MENU_ok, NULL);
+		return -1;
 	}
 	for (i = 0; i < num_devs; i++)
 		mnts_order[i] = i;
 	qsort(mnts_order, num_devs, sizeof mnts_order[0], partman_mountall_sort);
 
 	for (i = 0; i < num_devs; i++) {
-		make_target_dir(mnts[i].pi_mount);
-		error = target_mount(mnts[i].mnt_opts, pm->diskdev, i, mnts[i].pi_mount);
+		ii = mnts_order[i];
+		make_target_dir(mnts[ii].pi_mount);
+		error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev, mnts[ii].partnum, mnts[ii].pi_mount);
 		if (error) {
-			msg_display(MSG_mountfail, pm->diskdev, 'a' + i, mnts[i].pi_mount);
-			process_menu(MENU_ok, NULL);
 			return error;
 		}
 	}
+	/* Use disk with / as a default if the user has the sets on a local disk */
+	strlcpy(localfs_dev, diskdev_with_root, sizeof localfs_dev);
 	return 0;
 }
 
@@ -1220,6 +1235,7 @@ partman_adddisk(menudesc *m, void *arg)
 	pm_found = malloc(sizeof (pm_devs_t));
 	pm_found->next = NULL;
 
+	(void) savenewlabel(pm->oldlabel, getmaxpartitions());
 	return 0;
 }
 
@@ -1394,23 +1410,24 @@ partman(void)
 
 		if (logfp)
 			(void)fprintf(logfp, "partman retvalue is %d\n", retvalue);
+		// TODO: check_partitions()
+		/* Check that fstab on target device is readable - if so then we can go */
+		if (retvalue == 0) {
+			if (partman_mountall() != 0 ||
+				make_fstab() != 0) {
+					msg_display("Do you want to try?");
+					process_menu(MENU_yesno, NULL);
+					retvalue = (yesno) ? 1:-1;
+			} else {
+				FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
+				if (file_tmp == NULL)
+					retvalue = -1;
+				else
+					fclose(file_tmp);
+			}
+		}
 	} while (retvalue > 0);
 	
-	// TODO: check_partitions()
-	/* Check that fstab on target device is readable - if so then we can go */
-	if (retvalue == 0) {
-		if (partman_mountall() != 0 ||
-			make_fstab() != 0)
-			retvalue = -1;
-		else {
-			FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
-			if (file_tmp == NULL)
-				retvalue = -1;
-			else
-				fclose(file_tmp);
-		}
-	}
-
 	/* retvalue <0 - error, retvalue ==0 - user quits, retvalue >0 - all ok */
 	return (retvalue >= 0)?0:-1;
 }

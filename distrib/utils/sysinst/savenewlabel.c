@@ -55,7 +55,7 @@ __RCSID("$NetBSD: savenewlabel.c,v 1.12 2012/01/05 22:18:36 christos Exp $");
 
 int
 /*ARGSUSED*/
-savenewlabel(partinfo *lp, int nparts)
+savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 {
 	FILE *f;
 	char *f_name = malloc(STRSIZE * sizeof(char));

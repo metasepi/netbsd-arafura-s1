@@ -286,6 +286,7 @@ typedef struct pm_devs_t {
     daddr_t ptstart, ptsize;
     /* If we have an MBR boot partition, start and size in sectors */
     int bootstart, bootsize;
+    struct ptn_info pi;
     struct pm_devs_t *next;
 } pm_devs_t;
 pm_devs_t *pm_devs; /* Pointer to head of list with all devices */
@@ -297,6 +298,7 @@ pm_devs_t *pm; /* Pointer to currend device with which we work */
 struct {
     const char *diskdev, *mnt_opts, *fsname;
     char *pi_mount;
+    int partnum;
 } mnts[MNTS_MAX];
 
 /* Relative file name for storing a distribution. */

@@ -241,7 +241,7 @@ menu distmedium, title MSG_Select_medium, y=-5;
 	option MSG_Skip_group,exit, action { *(int *)arg = SET_SKIP_GROUP; };
 	option MSG_Abandon,   exit, action { *(int *)arg = SET_ABANDON; };
 
-menu distset, title MSG_Select_your_distribution, exit;
+menu distset, title MSG_Select_your_distribution, exit, no default exit;
 	display action { msg_display (MSG_distset); };
 	option MSG_Full_installation, exit, action { *(int *)arg = 1; init_set_status(0);  };
 	option MSG_Full_installation_nox, exit, action { *(int *)arg = 1; init_set_status(SFLAG_NOX); };
@@ -506,7 +506,7 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
-menu pmentry, x=50, y=5, sub menu, exit, default exit;
+menu pmentry, x=50, y=5, sub menu, exit, default exit; /* TODO: localize */
 	option "Prepare",			exit, action { md_get_info(); };
 	option "Prepare GPT",		exit, action { md_get_info(); };
 	option "Commit prepare",	exit, action { md_pre_disklabel(); };

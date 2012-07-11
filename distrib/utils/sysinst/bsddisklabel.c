@@ -339,7 +339,7 @@ set_ptn_size(menudesc *m, void *arg)
 
 /* Menu to change sizes of /, /usr, /home and etc. partitions */
 void
-get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
+get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap) // TODO: smart
 {
 	int i;
 	int maxpart = getmaxpartitions();
@@ -347,7 +347,8 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	struct ptn_size *p;
 	daddr_t size;
 
-	struct ptn_info pi = { -1, {
+	if (pm->pi.menu_no < 0)
+	pm->pi = (struct ptn_info) { -1, {
 #define PI_ROOT 0
 		{ PART_ROOT,	{ '/', '\0' },
 		  DEFROOTSIZE,	DEFROOTSIZE , 0, 0},
@@ -379,133 +380,133 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	msg_display(MSG_ptnsizes);
 	msg_table_add(MSG_ptnheaders);
 
-	if (pi.menu_no < 0) {
+	if (pm->pi.menu_no < 0) {
 		/* If there is a swap partition elsewhere, don't add one here.*/
 		if (no_swap) {
-			pi.ptn_sizes[PI_SWAP].size = 0;
+			pm->pi.ptn_sizes[PI_SWAP].size = 0;
 		} else {
 #if DEFSWAPSIZE == -1
 			/* Dynamic swap size. */
-			pi.ptn_sizes[PI_SWAP].dflt_size = get_ramsize();
-			pi.ptn_sizes[PI_SWAP].size =
-			    pi.ptn_sizes[PI_SWAP].dflt_size;
+			pm->pi.ptn_sizes[PI_SWAP].dflt_size = get_ramsize();
+			pm->pi.ptn_sizes[PI_SWAP].size =
+			    pm->pi.ptn_sizes[PI_SWAP].dflt_size;
 #endif
 		}
 
 		/* If installing X increase default size of /usr */
 		if (set_X11_selected())
-			pi.ptn_sizes[PI_USR].dflt_size += XNEEDMB;
+			pm->pi.ptn_sizes[PI_USR].dflt_size += XNEEDMB;
 
 		/* Start of planning to give free space to / */
-		pi.pool_part = &pi.ptn_sizes[PI_ROOT];
+		pm->pi.pool_part = &pm->pi.ptn_sizes[PI_ROOT];
 		/* Make size of root include default size of /usr */
-		pi.ptn_sizes[PI_ROOT].size += pi.ptn_sizes[PI_USR].dflt_size;
+		pm->pi.ptn_sizes[PI_ROOT].size += pm->pi.ptn_sizes[PI_USR].dflt_size;
 
 		sm = MEG / pm->sectorsize;
 
 		if (root_limit != 0) {
 			/* Bah - bios can not read all the disk, limit root */
-			pi.ptn_sizes[PI_ROOT].limit = root_limit - part_start;
+			pm->pi.ptn_sizes[PI_ROOT].limit = root_limit - part_start;
 			/* Allocate a /usr partition if bios can't read
 			 * everything except swap.
 			 */
-			if (pi.ptn_sizes[PI_ROOT].limit
-			    < sectors - pi.ptn_sizes[PI_SWAP].size * sm) {
+			if (pm->pi.ptn_sizes[PI_ROOT].limit
+			    < sectors - pm->pi.ptn_sizes[PI_SWAP].size * sm) {
 				/* Root won't be able to access all the space */
 				/* Claw back space for /usr */
-				pi.ptn_sizes[PI_USR].size =
-						pi.ptn_sizes[PI_USR].dflt_size;
-				pi.ptn_sizes[PI_ROOT].size -=
-						pi.ptn_sizes[PI_USR].dflt_size;
-				pi.ptn_sizes[PI_ROOT].changed = 1;
+				pm->pi.ptn_sizes[PI_USR].size =
+						pm->pi.ptn_sizes[PI_USR].dflt_size;
+				pm->pi.ptn_sizes[PI_ROOT].size -=
+						pm->pi.ptn_sizes[PI_USR].dflt_size;
+				pm->pi.ptn_sizes[PI_ROOT].changed = 1;
 				/* Give free space to /usr */
-				pi.pool_part = &pi.ptn_sizes[PI_USR];
+				pm->pi.pool_part = &pm->pi.ptn_sizes[PI_USR];
 			}
 		}
 
 		/* Change preset sizes from MB to sectors */
-		pi.free_space = sectors;
-		for (p = pi.ptn_sizes; p->mount[0]; p++) {
+		pm->pi.free_space = sectors;
+		for (p = pm->pi.ptn_sizes; p->mount[0]; p++) {
 			p->size = NUMSEC(p->size, sm, pm->dlcylsize);
 			p->dflt_size = NUMSEC(p->dflt_size, sm, pm->dlcylsize);
-			pi.free_space -= p->size;
+			pm->pi.free_space -= p->size;
 		}
 
 		/* Steal space from swap to make things fit.. */
-		if (pi.free_space < 0) {
-			i = roundup(-pi.free_space, pm->dlcylsize);
-			if (i > pi.ptn_sizes[PI_SWAP].size)
-				i = pi.ptn_sizes[PI_SWAP].size;
-			pi.ptn_sizes[PI_SWAP].size -= i;
-			pi.free_space += i;
+		if (pm->pi.free_space < 0) {
+			i = roundup(-pm->pi.free_space, pm->dlcylsize);
+			if (i > pm->pi.ptn_sizes[PI_SWAP].size)
+				i = pm->pi.ptn_sizes[PI_SWAP].size;
+			pm->pi.ptn_sizes[PI_SWAP].size -= i;
+			pm->pi.free_space += i;
 		}
 
 		/* Add space for 2 system dumps to / (traditional) */
 		i = get_ramsize() * sm;
 		i = roundup(i, pm->dlcylsize);
-		if (pi.free_space > i * 2)
+		if (pm->pi.free_space > i * 2)
 			i *= 2;
-		if (pi.free_space > i) {
-			pi.ptn_sizes[PI_ROOT].size += i;
-			pi.free_space -= i;
+		if (pm->pi.free_space > i) {
+			pm->pi.ptn_sizes[PI_ROOT].size += i;
+			pm->pi.free_space -= i;
 		}
 
 		/* Ensure all of / is readable by the system boot code */
-		i = pi.ptn_sizes[PI_ROOT].limit;
-		if (i != 0 && (i -= pi.ptn_sizes[PI_ROOT].size) < 0) {
-			pi.ptn_sizes[PI_ROOT].size += i;
-			pi.free_space -= i;
+		i = pm->pi.ptn_sizes[PI_ROOT].limit;
+		if (i != 0 && (i -= pm->pi.ptn_sizes[PI_ROOT].size) < 0) {
+			pm->pi.ptn_sizes[PI_ROOT].size += i;
+			pm->pi.free_space -= i;
 		}
 
 		/* Count free partition slots */
-		pi.free_parts = 0;
+		pm->pi.free_parts = 0;
 		for (i = 0; i < maxpart; i++) {
 			if (pm->bsdlabel[i].pi_size == 0)
-				pi.free_parts++;
+				pm->pi.free_parts++;
 		}
 		for (i = 0; i < MAXPARTITIONS; i++) {
-			p = &pi.ptn_sizes[i];
+			p = &pm->pi.ptn_sizes[i];
 			if (i != 0 && p->ptn_id == 0)
 				p->ptn_id = PART_EXTRA;
 			if (p->size != 0)
-				pi.free_parts--;
+				pm->pi.free_parts--;
 		}
 
-		pi.menu_no = new_menu(0, pi.ptn_menus, nelem(pi.ptn_menus),
+		pm->pi.menu_no = new_menu(0, pm->pi.ptn_menus, nelem(pm->pi.ptn_menus),
 			3, -1, 12, 70,
 			MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
 			NULL, set_ptn_titles, NULL,
-			"help", pi.exit_msg);
+			"help", pm->pi.exit_msg);
 
-		if (pi.menu_no < 0)
+		if (pm->pi.menu_no < 0)
 			return;
 	}
 
 	do {
-		set_ptn_menu(&pi);
+		set_ptn_menu(&pm->pi);
 		pm->current_cylsize = pm->dlcylsize;
-		process_menu(pi.menu_no, &pi);
-	} while (pi.free_space < 0 || pi.free_parts < 0);
+		process_menu(pm->pi.menu_no, &pm->pi);
+	} while (pm->pi.free_space < 0 || pm->pi.free_parts < 0);
 
 	/* Give any cylinder fragment to last partition */
-	if (pi.pool_part != NULL || pi.free_space < pm->dlcylsize) {
-		for (p = pi.ptn_sizes + nelem(pi.ptn_sizes) - 1; ;p--) {
+	if (pm->pi.pool_part != NULL || pm->pi.free_space < pm->dlcylsize) {
+		for (p = pm->pi.ptn_sizes + nelem(pm->pi.ptn_sizes) - 1; ;p--) {
 			if (p->size == 0) {
-				if (p == pi.ptn_sizes)
+				if (p == pm->pi.ptn_sizes)
 					break;
 				continue;
 			}
 			if (p->ptn_id == PART_TMP_RAMDISK)
 				continue;
-			p->size += pi.free_space % pm->dlcylsize;
+			p->size += pm->pi.free_space % pm->dlcylsize;
 			break;
 		}
 	}
 
-	for (p = pi.ptn_sizes; p->mount[0]; p++, part_start += size) {
+	for (p = pm->pi.ptn_sizes; p->mount[0]; p++, part_start += size) {
 		size = p->size;
-		if (p == pi.pool_part) {
-			size += rounddown(pi.free_space, pm->dlcylsize);
+		if (p == pm->pi.pool_part) {
+			size += rounddown(pm->pi.free_space, pm->dlcylsize);
 			if (p->limit != 0 && size > p->limit)
 				size = p->limit;
 		}
@@ -538,7 +539,9 @@ make_bsd_partitions(void)
 	int part_raw, part_bsd;
 	daddr_t ptend;
 	int no_swap = 0, valid_part = -1;
-	partinfo *p;
+	partinfo *p, savedlabel[MAXPARTITIONS];
+
+	memcpy(&savedlabel, &pm->bsdlabel, sizeof savedlabel);
 
 	/*
 	 * Initialize global variables that track space used on this disk.
@@ -558,8 +561,11 @@ make_bsd_partitions(void)
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE,
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE + XNEEDMB);
 
-	process_menu(MENU_layout, NULL);
-
+	if (partman_go)
+		layoutkind = 1;
+	else
+		process_menu(MENU_layout, NULL);
+		
 	/* Set so we use the 'real' geometry for rounding, input in MB */
 	pm->current_cylsize = pm->dlcylsize;
 	set_sizemultname_meg();
@@ -701,13 +707,13 @@ make_bsd_partitions(void)
 	 * OK, we have a partition table. Give the user the chance to
 	 * edit it and verify it's OK, or abort altogether.
 	 */
- edit_check:
-	if (edit_and_check_label(pm->bsdlabel, maxpart, part_raw, part_bsd) == 0) {
-		msg_display(MSG_abort);
-		return 0;
-	}
-	if (partman_go == 0 && check_partitions() == 0)
-		goto edit_check;
+ 	do {
+		if (edit_and_check_label(pm->bsdlabel, maxpart, part_raw, part_bsd) == 0) {
+			msg_display(MSG_abort);
+			memcpy(&pm->bsdlabel, &savedlabel, sizeof pm->bsdlabel);
+			return 0;
+		}
+	} while (partman_go == 0 && check_partitions() == 0);
 
 	/* Disk name */
 	msg_prompt(MSG_packname, pm->bsddiskname, pm->bsddiskname, sizeof pm->bsddiskname);
