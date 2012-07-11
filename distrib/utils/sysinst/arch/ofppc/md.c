@@ -101,7 +101,7 @@ md_make_bsd_partitions(void)
 	if (rdb_found) {
 		/*
 		 * We found RDB partitions on the disk, which cannot be
-		 * modified by rewriting the pm->disklabel.
+		 * modified by rewriting the disklabel.
 		 * So just use what we have got.
 		 */
 		for (part = 0; part < maxpart; part++) {

@@ -81,7 +81,7 @@ md_get_info(void)
 	char buf[1024];
 	int fd;
 	char dev_name[100];
-	struct pm->disklabel pm->disklabel;
+	struct disklabel disklabel;
 
 	snprintf(dev_name, 100, "/dev/r%sc", pm->diskdev);
 
@@ -93,7 +93,7 @@ md_get_info(void)
 		fprintf(stderr, "Can't open %s\n", dev_name);
 		exit(1);
 	}
-	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
 		if (logfp)
 			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
 				dev_name);
@@ -102,18 +102,18 @@ md_get_info(void)
 		close(fd);
 		exit(1);
 	}
-	if (pm->disklabel.d_secsize != 512) {
+	if (disklabel.d_secsize != 512) {
 		endwin();
 		fprintf(stderr, "Non-512byte/sector disk is not supported.\n");
 		close(fd);
 		exit(1);
 	}
 
-	pm->dlcyl = pm->disklabel.d_ncylinders;
-	pm->dlhead = pm->disklabel.d_ntracks;
-	pm->dlsec = pm->disklabel.d_nsectors;
-	pm->sectorsize = pm->disklabel.d_secsize;
-	pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlcyl = disklabel.d_ncylinders;
+	pm->dlhead = disklabel.d_ntracks;
+	pm->dlsec = disklabel.d_nsectors;
+	pm->sectorsize = disklabel.d_secsize;
+	pm->dlcylsize = disklabel.d_secpercyl;
 	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
 
 	if (read(fd, buf, 1024) < 0) {

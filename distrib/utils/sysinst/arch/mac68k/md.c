@@ -134,7 +134,7 @@ md_init_set_status(int flags)
 int
 md_get_info(void)
 {
-	struct pm->disklabel pm->disklabel;
+	struct disklabel disklabel;
 	int fd, i;
 	char dev_name[100];
 	struct apple_part_map_entry block;
@@ -154,7 +154,7 @@ md_get_info(void)
 	/*
 	 * Try to get the default disklabel info for the device
 	 */
-	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
 		endwin();
 		fprintf (stderr, "Can't read disklabel on %s\n", dev_name);
 		close(fd);
@@ -164,15 +164,15 @@ md_get_info(void)
 	 * Get the disk parameters from the disk driver.  It should have
 	 *  obained them by querying the disk itself.
 	 */
-	blk_size = pm->disklabel.d_secsize;
-	pm->dlcyl = pm->disklabel.d_ncylinders;
-	pm->dlhead = pm->disklabel.d_ntracks;
-	pm->dlsec = pm->disklabel.d_nsectors;
+	blk_size = disklabel.d_secsize;
+	pm->dlcyl = disklabel.d_ncylinders;
+	pm->dlhead = disklabel.d_ntracks;
+	pm->dlsec = disklabel.d_nsectors;
 	/*
 	 * Just in case, initialize the structures we'll need if we
 	 *  need to completely initialize the disk.
 	 */
-	pm->dlsize = pm->disklabel.d_secperunit;
+	pm->dlsize = disklabel.d_secperunit;
 	for (i=0;i<NEW_MAP_SIZE;i++) {
 	   if (i > 0)
 		new_map[i].pmPyPartStart = new_map[i-1].pmPyPartStart +
@@ -185,7 +185,7 @@ md_get_info(void)
 	   }
 	   pm->dlsize -= new_map[i].pmPartBlkCnt;
 	}
-	pm->dlsize = pm->disklabel.d_secperunit;
+	pm->dlsize = disklabel.d_secperunit;
 #if 0
 	msg_display(MSG_dldebug, blk_size, pm->dlcyl, pm->dlhead, pm->dlsec, pm->dlsize);
 	process_menu(MENU_ok, NULL);
@@ -270,7 +270,7 @@ md_make_bsd_partitions(void)
 	pm->bsdlabel[RAW_PART].pi_size = pm->dlsize;
 	/*
 	 * Now, scan through the Disk Partition Map and transfer the
-	 *  information into the incore pm->disklabel.
+	 *  information into the incore disklabel.
 	 */
 	for (i=0;i<map.usable_cnt;i++) {
 	    j = map.mblk[i];
@@ -369,7 +369,7 @@ md_pre_disklabel(void)
 {
     int fd;
     char dev_name[100];
-    struct pm->disklabel lp;
+    struct disklabel lp;
     Block0 new_block0 = {APPLE_DRVR_MAP_MAGIC, 512,
 	 		 0, 0, 0, 0, 0, 0, 0, 0, {0}};
 
@@ -457,7 +457,7 @@ md_pre_disklabel(void)
 int
 md_post_disklabel(void)
 {
-    struct pm->disklabel updated_label;
+    struct disklabel updated_label;
     int fd, i, no_match;
     char dev_name[100], buf[80];
     const char *fst[] = {"free", "swap", " v6 ", " v7 ", "sysv", "v71k",

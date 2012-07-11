@@ -66,7 +66,7 @@ md_init_set_status(int flags)
 int
 md_get_info(void)
 {
-	struct pm->disklabel pm->disklabel;
+	struct disklabel disklabel;
 	int fd;
 	char dev_name[100];
 
@@ -80,7 +80,7 @@ md_get_info(void)
 		fprintf(stderr, "Can't open %s\n", dev_name);
 		exit(1);
 	}
-	if (ioctl(fd, DIOCGDINFO, &pm->disklabel) == -1) {
+	if (ioctl(fd, DIOCGDINFO, &disklabel) == -1) {
 		if (logfp)
 			(void)fprintf(logfp, "Can't read disklabel on %s.\n",
 				dev_name);
@@ -91,11 +91,11 @@ md_get_info(void)
 	}
 	close(fd);
 
-	pm->dlcyl = pm->disklabel.d_ncylinders;
-	pm->dlhead = pm->disklabel.d_ntracks;
-	pm->dlsec = pm->disklabel.d_nsectors;
-	pm->sectorsize = pm->disklabel.d_secsize;
-	pm->dlcylsize = pm->disklabel.d_secpercyl;
+	pm->dlcyl = disklabel.d_ncylinders;
+	pm->dlhead = disklabel.d_ntracks;
+	pm->dlsec = disklabel.d_nsectors;
+	pm->sectorsize = disklabel.d_secsize;
+	pm->dlcylsize = disklabel.d_secpercyl;
 
 	/*
 	 * Compute whole disk size. Take max of (pm->dlcyl*pm->dlhead*pm->dlsec)
@@ -104,8 +104,8 @@ md_get_info(void)
 	 * in-core RAW_PART size  value, updating the label will fail.)
 	 */
 	pm->dlsize = pm->dlcyl*pm->dlhead*pm->dlsec;
-	if (pm->disklabel.d_secperunit > pm->dlsize)
-		pm->dlsize = pm->disklabel.d_secperunit;
+	if (disklabel.d_secperunit > pm->dlsize)
+		pm->dlsize = disklabel.d_secperunit;
 
 	return 1;
 }

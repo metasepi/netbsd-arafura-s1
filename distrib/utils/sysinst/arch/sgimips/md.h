@@ -63,7 +63,7 @@
  * hand-edited disklabel will NOT be written by MI code.
  */
 /*
- * sgimips should not use -r, as this prevents the SGI pm->disklabel
+ * sgimips should not use -r, as this prevents the SGI disklabel
  * from being written.
  */
 #define DISKLABEL_CMD "disklabel -w"

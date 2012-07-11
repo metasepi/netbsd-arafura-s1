@@ -36,7 +36,7 @@
 /*
  * Symbolic names for disk partitions
  */
-#include <machine/pm->disklabel.h>
+#include <machine/disklabel.h>
 
 #define	PART_ROOT	PART_A
 #define	PART_SWAP	PART_B
