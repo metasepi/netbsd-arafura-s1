@@ -499,6 +499,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap) // TODO: smart
 			if (p->ptn_id == PART_TMP_RAMDISK)
 				continue;
 			p->size += pm->pi.free_space % pm->dlcylsize;
+			pm->pi.free_space -= pm->pi.free_space % pm->dlcylsize;
 			break;
 		}
 	}
@@ -556,16 +557,16 @@ make_bsd_partitions(void)
 	ptend = pm->ptstart + pm->ptsize;
 
 	/* Ask for layout type -- standard or special */
-	msg_display(MSG_layout,
+	if (partman_go)
+		layoutkind = 1;
+	else {
+		msg_display(MSG_layout,
 		    (int) (pm->ptsize / (MEG / pm->sectorsize)),
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE,
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE + XNEEDMB);
 
-	if (partman_go)
-		layoutkind = 1;
-	else
 		process_menu(MENU_layout, NULL);
-		
+	}
 	/* Set so we use the 'real' geometry for rounding, input in MB */
 	pm->current_cylsize = pm->dlcylsize;
 	set_sizemultname_meg();

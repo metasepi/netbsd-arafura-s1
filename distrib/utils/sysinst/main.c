@@ -138,8 +138,10 @@ init(void)
 	fd_type = "msdos";
 
 	pm_devs = malloc (sizeof (pm_devs_t));
+	memset(pm_devs, 0, sizeof *pm_devs);
 	pm_devs->next = NULL;
 	pm_found = malloc (sizeof (pm_devs_t));
+	memset(pm_found, 0, sizeof *pm_found);
 	pm_found->next = NULL;
 
 	for (arg = fflagopts; arg->name != NULL; arg++)

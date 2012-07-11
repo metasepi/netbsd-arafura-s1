@@ -798,10 +798,8 @@ make_fstab(void)
 	scripting_fprintf(NULL, "EOF\n");
 
 	fstab_prepared = 1;
-#ifndef DEBUG
 	fclose(f);
 	fflush(NULL);
-#endif
 	return 0;
 }
 
@@ -1233,6 +1231,7 @@ partman_adddisk(menudesc *m, void *arg)
 	pm_devs_tmp->next = pm_found;
 
 	pm_found = malloc(sizeof (pm_devs_t));
+	memset(pm_found, 0, sizeof *pm_found);
 	pm_found->next = NULL;
 
 	(void) savenewlabel(pm->oldlabel, getmaxpartitions());
