@@ -51,7 +51,7 @@ deconst(const void *p)
 
 #include "msg_defs.h"
 #include "menu_defs.h"
-#include "mbr.h"
+#include "mbr.h" // TODO: sss
 
 #define min(a,b)	((a) < (b) ? (a) : (b))
 #define max(a,b)	((a) > (b) ? (a) : (b))
@@ -264,7 +264,6 @@ enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
 daddr_t tmp_ramdisk_size;
 
 #define DISKNAME_SIZE 16
-char bsddiskname[DISKNAME_SIZE]; // TODO: xxx
 const char *doessf;
 
 /* Information for extended partition manager */

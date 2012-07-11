@@ -76,6 +76,8 @@ struct {
 
 /* String defaults and stuff for processing the -f file argument. */
 
+static char bsddiskname[DISKNAME_SIZE]; /* default name for fist selected disk */
+
 struct f_arg {
 	const char *name;
 	const char *dflt;
@@ -105,7 +107,7 @@ static const struct f_arg fflagopts[] = {
 	{"local dir", "release", localfs_dir, sizeof localfs_dir},
 	{"targetroot mount", "/targetroot", targetroot_mnt, sizeof targetroot_mnt},
 	{"dist postfix", ".tgz", dist_postfix, sizeof dist_postfix},
-	{"diskname", "mydisk", bsddiskname, sizeof bsddiskname}, /* TODO: xxx */
+	{"diskname", "mydisk", bsddiskname, sizeof bsddiskname},
 	{"pkg host", SYSINST_PKG_HOST, pkg.host, sizeof pkg.host},
 	{"pkg dir", SYSINST_PKG_DIR, pkg.dir, sizeof pkg.dir},
 	{"pkg prefix", "/" MACH "/" REL "/All", pkg_dir, sizeof pkg_dir},
@@ -142,6 +144,7 @@ init(void)
 
 	for (arg = fflagopts; arg->name != NULL; arg++)
 		strlcpy(arg->var, arg->dflt, arg->size);
+	strlcpy(pm_found->bsddiskname, bsddiskname, sizeof pm_found->bsddiskname);
 	pkg.xfer_type = pkgsrc.xfer_type = "http";
 	
 	clr_arg.bg=COLOR_BLUE;
@@ -496,6 +499,7 @@ process_f_flag(char *f_name)
 			break;
 		}
 	}
+	strlcpy(pm_found->bsddiskname, bsddiskname, sizeof pm_found->bsddiskname);
 
 	fclose(fp);
 }
