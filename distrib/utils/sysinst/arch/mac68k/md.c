@@ -224,10 +224,10 @@ md_get_info(void)
 	 * Setup the disktype so /etc/disktab gets proper info
 	 */
 	if (strncmp(pm->diskdev, "sd", 2) == 0) {
-		disktype = "SCSI";
-		doessf = "sf:";
+		pm->disktype = "SCSI";
+		pm->doessf = "sf:";
 	} else
-		disktype = "IDE";
+		pm->disktype = "IDE";
 
 	return edit_diskmap();
 }
@@ -322,10 +322,10 @@ md_make_bsd_partitions(void)
 		exit (1);
 	}
 	(void)fprintf (f, "%s|NetBSD installation generated:\\\n", pm->bsddiskname);
-	(void)fprintf (f, "\t:dt=%s:ty=winchester:\\\n", disktype);
+	(void)fprintf (f, "\t:dt=%s:ty=winchester:\\\n", pm->disktype);
 	(void)fprintf (f, "\t:nc#%d:nt#%d:ns#%d:\\\n", pm->dlcyl, pm->dlhead, pm->dlsec);
 	(void)fprintf (f, "\t:sc#%d:su#%" PRIu32 ":\\\n", pm->dlhead*pm->dlsec, (uint32_t)pm->dlsize);
-	(void)fprintf (f, "\t:se#%d:%s\\\n", blk_size, doessf);
+	(void)fprintf (f, "\t:se#%d:%s\\\n", blk_size, pm->doessf);
 	for (i=0; i<8; i++) {
 		if (pm->bsdlabel[i].pi_fstype == FS_HFS)
 		    (void)fprintf (f, "\t:p%c#%d:o%c#%d:t%c=macos:",

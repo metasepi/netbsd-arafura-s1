@@ -218,7 +218,7 @@ rdb_edit_check:
 		p = &pm->oldlabel[i];
 		if (p->pi_fstype == FS_UNUSED || p->pi_size == 0)
 			continue;
-		if (layoutkind == 4) {
+		if (layoutkind == LY_USEEXIST) {
 			if (PI_ISBSDFS(p))
 				p->pi_flags |= PIF_MOUNT;
 		} else {
@@ -232,7 +232,7 @@ rdb_edit_check:
 		pm->bsdlabel[i] = pm->oldlabel[i];
 	 }
 
-	if (layoutkind == 4) {
+	if (layoutkind == LY_USEEXIST) {
 		/* XXX Check we have a sensible layout */
 		;
 	} else

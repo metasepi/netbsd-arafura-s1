@@ -84,6 +84,11 @@ deconst(const void *p)
 #define RUN_NO_CLEAR	0x0100		/* Leave program output after error */
 #define RUN_XFER_DIR	0x0200		/* cd to xfer_dir in child */
 
+/* for bsddisklabel.c */
+#define LY_SETNEW 1
+#define LY_NEWRAID 2
+#define LY_USEEXIST 4
+
 /* Installation sets */
 enum {
     SET_NONE,
@@ -244,7 +249,7 @@ pid_t ttysig_forward;
 int layoutkind;
 int sizemult;
 const char *multname;
-int partman_go;   /* run partition manager */
+int partman_go; /* run extended partition manager */
 int fstab_prepared; /* Should we create new /etc/fstab or append old? */
 
 /* logging variables */
@@ -252,33 +257,33 @@ int fstab_prepared; /* Should we create new /etc/fstab or append old? */
 FILE *logfp;
 FILE *script;
 
-
-int rootpart;				/* partition we install into */
-const char *disktype;		/* ST506, SCSI, ... */
-unsigned int root_limit;    /* BIOS (etc) read limit */
-
 /* Information for the NetBSD disklabel */
+
 enum DLTR { PART_A, PART_B, PART_C, PART_D, PART_E, PART_F, PART_G, PART_H,
 	    PART_I, PART_J, PART_K, PART_L, PART_M, PART_N, PART_O, PART_P};
 #define partition_name(x)	('a' + (x))
 daddr_t tmp_ramdisk_size;
+#define MAX_DISKS 15
 
-#define DISKNAME_SIZE 16
-const char *doessf;
+unsigned int root_limit;    /* BIOS (etc) read limit */
 
-/* Information for extended partition manager */
+/* All information that is unique for each drive */
+
 typedef struct pm_devs_t {
-    /* Actual name of the disk. */
-    char diskdev[SSTRSIZE];
+    char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
     char id_dk[SSTRSIZE];
     int bootable;
+#define DISKNAME_SIZE 16
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
     mbr_info_t mbr;
     int no_mbr; /* set for raid (etc) */
     int use_gpt;
+    int rootpart; /* partition we install into */
+    const char *disktype; /* ST506, SCSI, ... */
+    const char *doessf;
     /* Actual values for current disk - set by find_disks() or md_get_info() */
     int sectorsize, dlcyl, dlhead, dlsec, dlcylsize, current_cylsize;
     daddr_t dlsize;
@@ -415,13 +420,7 @@ int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char	*bootxx_name(void);
 int	partman(void);
-int partman_adddisk(menudesc *, void *);
-int partman_addvnd(menudesc *, void *);
 int partman_deldev(menudesc *, void *);
-int partman_commit(menudesc *, void *);
-int partman_mountall(void);
-void partman_menufmt(menudesc *, int, void *);
-void partman_select(pm_devs_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

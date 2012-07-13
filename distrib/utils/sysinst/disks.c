@@ -62,7 +62,6 @@
 #include "txtwalk.h"
 
 /* Disk descriptions */
-#define MAX_DISKS 15
 struct disk_desc {
 	char	dd_name[SSTRSIZE];
 	char	dd_descr[70];
@@ -419,6 +418,8 @@ find_disks(const char *doingwhat)
 	pm = pm_found;
 	pm->bootable = 0;
 	pm->pi.menu_no = -1;
+	pm->disktype = "unknown";
+	pm->doessf = "";
 	strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
 	strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
 
@@ -937,7 +938,7 @@ mount_root(void)
 {
 	int	error;
 
-	error = fsck_preen(pm->diskdev, rootpart, "ffs");
+	error = fsck_preen(pm->diskdev, pm->rootpart, "ffs");
 	if (error != 0)
 		return error;
 
@@ -949,7 +950,7 @@ mount_root(void)
 	 * XXX consider -o remount in case target root is
 	 * current root, still readonly from single-user?
 	 */
-	return target_mount("", pm->diskdev, rootpart, "");
+	return target_mount("", pm->diskdev, pm->rootpart, "");
 }
 
 /* Get information on the file systems mounted from the root filesystem.
@@ -1091,11 +1092,11 @@ bootxx_name(void)
 	char *bootxx;
 
 	/* check we have boot code for the root partition type */
-	fstype = pm->bsdlabel[rootpart].pi_fstype;
+	fstype = pm->bsdlabel[pm->rootpart].pi_fstype;
 	switch (fstype) {
 #if defined(BOOTXX_FFSV1) || defined(BOOTXX_FFSV2)
 	case FS_BSDFFS:
-		if (pm->bsdlabel[rootpart].pi_flags & PIF_FFSv2) {
+		if (pm->bsdlabel[pm->rootpart].pi_flags & PIF_FFSv2) {
 #ifdef BOOTXX_FFSV2
 			bootxxname = BOOTXX_FFSV2;
 #else
@@ -1127,306 +1128,3 @@ bootxx_name(void)
 	return bootxx;
 }
 #endif
-
-
-
-
-void
-partman_select(pm_devs_t *pm_devs_in)
-{
-	pm = pm_devs_in;
-	if (logfp)
-		(void)fprintf(logfp,"Partman device: %s\n", pm->diskdev);
-	return;
-
-}
-
-// TODO: mount order
-static int
-partman_mountall_sort(const void *a, const void *b)
-{
-	return strcmp(mnts[*(const int *)a].pi_mount,
-		      mnts[*(const int *)b].pi_mount);
-}
-
-int
-partman_mountall(void)
-{
-	pm_devs_t *pm_devs_i;
-	int num_devs = 0;
-	int i, ii, error, ok;
-	char diskdev_with_root[SSTRSIZE];
-	diskdev_with_root[0] = '\0';
-
-	int mnts_order[MNTS_MAX]; // TODO: rewrite
-	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) {
-		ok = 0;
-		for (i = 0; i < MAXPARTITIONS; i++) {
-			if (pm_devs_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
-					pm_devs_i->bsdlabel[i].mnt_opts != NULL) {
-				mnts[num_devs].partnum = i;
-				mnts[num_devs].diskdev = pm_devs_i->diskdev;
-				mnts[num_devs].mnt_opts = pm_devs_i->bsdlabel[i].mnt_opts;
-				mnts[num_devs].fsname = pm_devs_i->bsdlabel[i].fsname;
-				mnts[num_devs].pi_mount = pm_devs_i->bsdlabel[i].pi_mount;
-				if (strcmp(pm_devs_i->bsdlabel[i].pi_mount, "/") == 0)
-					strlcpy(diskdev_with_root, pm_devs_i->bsdlabel[i].pi_mount, 
-						sizeof diskdev_with_root);
-				num_devs++;
-				ok = 1;
-			}
-		}
-		if (ok)
-			md_pre_mount();
-	}
-	if (strlen(diskdev_with_root) == 0) {
-		msg_display("No root partition defined, cannot continue\n"); // TODO: localize
-		process_menu(MENU_ok, NULL);
-		return -1;
-	}
-	for (i = 0; i < num_devs; i++)
-		mnts_order[i] = i;
-	qsort(mnts_order, num_devs, sizeof mnts_order[0], partman_mountall_sort);
-
-	for (i = 0; i < num_devs; i++) {
-		ii = mnts_order[i];
-		make_target_dir(mnts[ii].pi_mount);
-		error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev, mnts[ii].partnum, mnts[ii].pi_mount);
-		if (error) {
-			return error;
-		}
-	}
-	/* Use disk with / as a default if the user has the sets on a local disk */
-	strlcpy(localfs_dev, diskdev_with_root, sizeof localfs_dev);
-	return 0;
-}
-
-int
-partman_adddisk(menudesc *m, void *arg)
-{
-	*(int *)arg = m->cursel + 1;
-	pm_devs_t *pm_devs_tmp;
-
-	if (find_disks(msg_string(MSG_install)) < 0)
-		return -1;
-
-	clear();
-	refresh();
-
-	if (check_swap(pm->diskdev, 0) > 0) {
-		msg_display(MSG_swapactive);
-		process_menu(MENU_ok, NULL);
-		if (check_swap(pm->diskdev, 1) < 0) {
-			msg_display(MSG_swapdelfailed);
-			process_menu(MENU_ok, NULL);
-			return -1;
-		}
-	}
-
-	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
-			pm_devs_tmp = pm_devs_tmp->next)
-		if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
-			return 0;
-	pm_devs_tmp->next = pm_found;
-
-	pm_found = malloc(sizeof (pm_devs_t));
-	memset(pm_found, 0, sizeof *pm_found);
-	pm_found->next = NULL;
-
-	(void) savenewlabel(pm->oldlabel, getmaxpartitions());
-	return 0;
-}
-
-int
-partman_addvnd(menudesc *m, void *arg)
-{
-	*(int *)arg = m->cursel + 1;
-	return 0;
-}
-
-int
-partman_deldev(menudesc *m, void *arg)
-{
-	pm_devs_t *pm_devs_tmp, *pm_devs_swap;
-	*(int *)arg = m->cursel + 1;
-
-	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
-			pm_devs_tmp = pm_devs_tmp->next)
-		if (pm_devs_tmp->next == pm) {
-			if (pm_devs_tmp->next->next == NULL) {
-				free(pm_devs_tmp->next);
-				pm_devs_tmp->next = NULL;
-			} else {
-				pm_devs_swap = pm_devs_tmp->next->next;
-				free(pm_devs_tmp->next);
-				pm_devs_tmp->next = pm_devs_swap;
-			}
-			return 0;
-		}
-	return -1;
-}
-
-int
-partman_commit(menudesc *m, void *arg)
-{
-	pm_devs_t *pm_devs_i;
-	*(int *)arg = m->cursel + 1;
-
-	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) {
-		partman_select(pm_devs_i);
-		if (
-				md_pre_disklabel() != 0  || /* Write partition table */
-				write_disklabel() != 0   || /* Write slices table (disklabel) */
-				md_post_disklabel() != 0 || /* Enable swap and check badblock */
-				make_filesystems()          /* Create filesystems by newfs */
-			) { /* If something fails... */
-			return -1;
-		}
-		/* Write bootsector if needed */
-		if (pm_devs_i->bootable && md_post_newfs() != 0) {
-			return -1;
-		}
-	}
-    return 0;
-}
-
-static int
-partman_submenu(menudesc *m, void *arg)
-{
-	pm_devs_t *pm_devs_i;
-	int retvalue;
-	int ok = 0;
-	int i;
-	*(int *)arg = m->cursel + 1;
-
-	/* write selected disk to diskdev variable */
-	for (pm_devs_i = pm_devs->next, i = 0; !ok && pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next, i++)
-		if (i == m->cursel) {
-			partman_select(pm_devs_i);
-			ok = 1;
-			break;
-		}
-	if (!ok)
-		return -1;
-
-	process_menu(MENU_pmentry, &retvalue);
-	return 0;
-}
-
-void
-partman_menufmt(menudesc *m, int ptn, void *arg)
-{
-	pm_devs_t *pm_devs_i;
-	int i;
-	unsigned int maxpart;
-	char *dev_mounts = malloc(STRSIZE * sizeof(char));
-	dev_mounts[0] = '\0';
-
-	for (pm_devs_i = pm_devs->next, i = 0;
-			i != ptn && pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next, i++);
-	if (i != ptn || pm_devs_i == NULL) 
-		return;
-
-	maxpart = ((unsigned int)getmaxpartitions() > nelem(pm_devs_i->bsdlabel))?
-				nelem(pm_devs_i->bsdlabel) : (unsigned int)getmaxpartitions();
-	for (i = 0; (unsigned int)i < maxpart; i++) {
-		if (pm_devs_i->bsdlabel[i].pi_mount != 0 &&
-				pm_devs_i->bsdlabel[i].pi_fstype != FS_UNUSED) {
-			strcat(dev_mounts, pm_devs_i->bsdlabel[i].pi_mount);
-			strcat(dev_mounts, " ");
-		}
-	}
-
-	wprintw(m->mw,"%-25s %-20s %4s", pm_devs_i->diskdev_descr, dev_mounts,
-			(pm_devs_i->bootable)?"BOOT":"" );
-	return;
-}
-
-// TODO: switch to langfiles
-// TODO: resolve case with 2 same bsddisknames
-int
-partman(void)
-{
-	menu_ent part_menu[MAX_DISKS];
-	int menu_pm;
-	int i, ii;
-	int retvalue = 0;
-	pm_devs_t *pm_devs_i;
-
-	do {
-		clear();
-		refresh();
-		for (pm_devs_i = pm_devs->next, i = 0; pm_devs_i != NULL;
-				pm_devs_i = pm_devs_i->next, i++) {
-			part_menu[i].opt_name = NULL;
-			part_menu[i].opt_action = partman_submenu;
-		}
-
-		part_menu[i] = (struct menu_ent) {
-			.opt_name = "Add disk",
-			.opt_action = partman_adddisk,
-		};
-		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Create CGD",
-			.opt_action = partman_addvnd,
-		};
-		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Create VND disk",
-			.opt_action = partman_addvnd,
-		};
-		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Create LVM VG",
-			.opt_action = partman_addvnd,
-		};
-		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Create RAIFframe",
-			.opt_action = partman_addvnd,
-		};
-		part_menu[++i] = (struct menu_ent) {
-			.opt_name = "Commit changes",
-			.opt_action = partman_commit,
-		};
-
-		for (ii = 0; ii <= i; ii++) {
-			part_menu[ii].opt_menu = OPT_NOMENU;
-			part_menu[ii].opt_flags = OPT_EXIT;
-		}
-
-		menu_pm = new_menu("Disk editor. All disks, partitions, LVM, RAID displayed there.\nAt first add drive, then prepare partitions and go.",
-			part_menu, i+1,	1, 1, 0, 0, MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
-			NULL, partman_menufmt, NULL, NULL, NULL);
-		retvalue = 0;
-		if (menu_pm == -1)
-			retvalue = -1;
-		else {
-			process_menu(menu_pm, &retvalue);
-			free_menu(menu_pm);
-		}
-
-		if (logfp)
-			(void)fprintf(logfp, "partman retvalue is %d\n", retvalue);
-		// TODO: check_partitions()
-		/* Check that fstab on target device is readable - if so then we can go */
-		if (retvalue == 0) {
-			if (partman_mountall() != 0 ||
-				make_fstab() != 0) {
-					msg_display("Do you want to try?");
-					process_menu(MENU_yesno, NULL);
-					retvalue = (yesno) ? 1:-1;
-			} else {
-				FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
-				if (file_tmp == NULL)
-					retvalue = -1;
-				else
-					fclose(file_tmp);
-			}
-		}
-	} while (retvalue > 0);
-	
-	/* retvalue <0 - error, retvalue ==0 - user quits, retvalue >0 - all ok */
-	return (retvalue >= 0)?0:-1;
-}

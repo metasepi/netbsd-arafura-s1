@@ -80,9 +80,9 @@ md_make_bsd_partitions(void)
 	 * Setup the disktype so /etc/disktab gets proper info
 	 */
 	if (strncmp (pm->diskdev, "sd", 2) == 0)
-		disktype = "SCSI";
+		pm->disktype = "SCSI";
 	else
-		disktype = "ST506";
+		pm->disktype = "ST506";
 
 	return 1;
 }

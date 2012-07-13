@@ -161,7 +161,7 @@ check_one_root(partinfo *lp, int nparts)
 			return 0;
 		foundroot = 1;
 		/* Save partition number, a few things need to know it */
-		rootpart = part;
+		pm->rootpart = part;
 	}
 	return foundroot;
 }

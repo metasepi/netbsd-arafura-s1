@@ -61,8 +61,7 @@ savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 	char *f_name = malloc(STRSIZE * sizeof(char));
 	int i;
 
-	strlcpy(f_name, "/tmp/disktab.", STRSIZE);
-	strlcat(f_name, pm->bsddiskname, STRSIZE);
+	snprintf(f_name, STRSIZE, "/tmp/disktab.%s", pm->bsddiskname); // TODO: test
 
 	/*
 	  N.B. disklabels only support up to 2TB (32-bit field for sectors).
@@ -85,11 +84,11 @@ savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 		exit (1);
 	}
 	scripting_fprintf(f, "%s|NetBSD installation generated:\\\n", pm->bsddiskname);
-	scripting_fprintf(f, "\t:dt=%s:ty=winchester:\\\n", disktype);
+	scripting_fprintf(f, "\t:dt=%s:ty=winchester:\\\n", pm->disktype);
 	scripting_fprintf(f, "\t:nc#%d:nt#%d:ns#%d:\\\n", pm->dlcyl, pm->dlhead, pm->dlsec);
 	scripting_fprintf(f, "\t:sc#%d:su#%" PRIu32 ":\\\n", pm->dlhead*pm->dlsec,
 	    (uint32_t)pm->dlsize);
-	scripting_fprintf(f, "\t:se#%d:%s\\\n", pm->sectorsize, doessf);
+	scripting_fprintf(f, "\t:se#%d:%s\\\n", pm->sectorsize, pm->doessf);
 	if ((size_t)nparts > __arraycount(pm->bsdlabel)) {
 		nparts = __arraycount(pm->bsdlabel);
 		if (logfp)

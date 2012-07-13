@@ -557,16 +557,14 @@ make_bsd_partitions(void)
 	ptend = pm->ptstart + pm->ptsize;
 
 	/* Ask for layout type -- standard or special */
-	if (partman_go)
-		layoutkind = 1;
-	else {
+	if (partman_go == 0) {
 		msg_display(MSG_layout,
 		    (int) (pm->ptsize / (MEG / pm->sectorsize)),
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE,
 		    DEFROOTSIZE + DEFSWAPSIZE + DEFUSRSIZE + XNEEDMB);
-
 		process_menu(MENU_layout, NULL);
 	}
+
 	/* Set so we use the 'real' geometry for rounding, input in MB */
 	pm->current_cylsize = pm->dlcylsize;
 	set_sizemultname_meg();
@@ -640,7 +638,7 @@ make_bsd_partitions(void)
 	pm->bsdlabel[PART_REST].pi_size = pm->ptstart;
 #endif
 
-	if (layoutkind == 4) {
+	if (layoutkind == LY_USEEXIST) {
 		/*
 		 * If 'pm->oldlabel' is a default label created by the kernel it
 		 * will have exactly one valid partition besides raw_part
@@ -680,10 +678,10 @@ make_bsd_partitions(void)
 		p = &pm->oldlabel[i];
 		if (p->pi_fstype == FS_UNUSED || p->pi_size == 0)
 			continue;
-		if (layoutkind == 4) {
+		if (layoutkind == LY_USEEXIST) {
 			if (PI_ISBSDFS(p)) {
 				p->pi_flags |= PIF_MOUNT;
-				if (layoutkind == 4 && i == valid_part) {
+				if (layoutkind == LY_USEEXIST && i == valid_part) {
 					int fstype = p->pi_fstype;
 					p->pi_fstype = 0;
 					strcpy(p->pi_mount, "/");
@@ -701,8 +699,13 @@ make_bsd_partitions(void)
 		pm->bsdlabel[i] = pm->oldlabel[i];
 	 }
 
-	if (layoutkind != 4)
+	if (layoutkind == LY_SETNEW)
 		get_ptn_sizes(partstart, ptend - partstart, no_swap);
+
+	if (layoutkind == LY_NEWRAID) {
+		pm->bsdlabel[0].pi_fstype = FS_RAID;
+		pm->bsdlabel[0].pi_size = pm->ptsize;
+	}
 
 	/*
 	 * OK, we have a partition table. Give the user the chance to
@@ -753,9 +756,9 @@ check_partitions(void)
 	}
 #endif
 #ifndef HAVE_UFS2_BOOT
-	fstype = pm->bsdlabel[rootpart].pi_fstype;
+	fstype = pm->bsdlabel[pm->rootpart].pi_fstype;
 	if (fstype == FS_BSDFFS &&
-	    (pm->bsdlabel[rootpart].pi_flags & PIF_FFSv2) != 0) {
+	    (pm->bsdlabel[pm->rootpart].pi_flags & PIF_FFSv2) != 0) {
 		process_menu(MENU_ok, deconst(MSG_cannot_ufs2_root));
 		return 0;
 	}

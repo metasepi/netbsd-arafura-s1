@@ -74,9 +74,9 @@ md_get_info(void)
 	int offset = 0;
 
 	if (strncmp(pm->diskdev, "wd", 2) == 0)
-		disktype = "ST506";
+		pm->disktype = "ST506";
 	else
-		disktype = "SCSI";
+		pm->disktype = "SCSI";
 
 	snprintf(dev_name, 100, "/dev/r%s%c", pm->diskdev, 'a' + getrawpartition());
 

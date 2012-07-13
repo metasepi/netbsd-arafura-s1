@@ -159,7 +159,7 @@ md_make_bsd_partitions(void)
 		p = &pm->oldlabel[i];
 		if (p->pi_fstype == FS_UNUSED || p->pi_size == 0)
 			continue;
-		if (layoutkind == 4) {
+		if (layoutkind == LY_USEEXIST) {
 			if (PI_ISBSDFS(p))
 				p->pi_flags |= PIF_MOUNT;
 		} else {
@@ -173,7 +173,7 @@ md_make_bsd_partitions(void)
 		pm->bsdlabel[i] = pm->oldlabel[i];
 	 }
 
-	if (layoutkind == 4) {
+	if (layoutkind == LY_USEEXIST) {
 		/* XXX Check we have a sensible layout */
 		;
 	} else

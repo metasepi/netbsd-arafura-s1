@@ -77,9 +77,9 @@ md_get_info(void)
 		return 0;
 
 	if (strncmp(pm->diskdev, "wd", 2) == 0)
-		disktype = "ST506";
+		pm->disktype = "ST506";
 	else
-		disktype = "SCSI";
+		pm->disktype = "SCSI";
 
 	snprintf(dev_name, 100, "/dev/r%sc", pm->diskdev);
 

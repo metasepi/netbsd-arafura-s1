@@ -130,12 +130,11 @@ init(void)
 	const struct f_arg *arg;
 	
 	sizemult = 1;
-	disktype = "unknown";
 	tmp_ramdisk_size = 0;
-	doessf = "";
 	clean_xfer_dir = 0;
 	mnt2_mounted = 0;
 	fd_type = "msdos";
+	layoutkind = LY_SETNEW;
 
 	pm_devs = malloc (sizeof (pm_devs_t));
 	memset(pm_devs, 0, sizeof *pm_devs);

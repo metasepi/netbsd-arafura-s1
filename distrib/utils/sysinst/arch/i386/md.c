@@ -341,7 +341,7 @@ md_post_newfs(void)
 	/* Copy bootstrap in by hand - /sbin/installboot explodes ramdisks */
 	ret = 1;
 
-	snprintf(bootxx, sizeof bootxx, "/dev/r%s%c", pm->diskdev, 'a' + rootpart);
+	snprintf(bootxx, sizeof bootxx, "/dev/r%s%c", pm->diskdev, 'a' + pm->rootpart);
 	td = open(bootxx, O_RDWR, 0);
 	bootxx_filename = bootxx_name();
 	if (bootxx_filename != NULL) {

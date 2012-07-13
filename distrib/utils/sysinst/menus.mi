@@ -206,8 +206,8 @@ menu ok, no shortcut, y=-10;
 	option MSG_Hit_enter_to_continue, exit;
 
 menu layout, sub menu, y=-1, title  MSG_Choose_your_installation;
-	option MSG_Set_Sizes, 	  exit, action { layoutkind = 1; };
-	option MSG_Use_Existing,  exit, action { layoutkind = 4; };
+	option MSG_Set_Sizes, 	  exit, action { layoutkind = LY_SETNEW; };
+	option MSG_Use_Existing,  exit, action { layoutkind = LY_USEEXIST; };
 
 menu sizechoice, sub menu, y=0, title MSG_Choose_your_size_specifier;
 	display action {
@@ -510,7 +510,10 @@ menu pmentry, x=50, y=5, sub menu, exit, default exit; /* TODO: localize */
 	option "Prepare",			exit, action { md_get_info(); };
 	option "Prepare GPT",		exit, action { md_get_info(); };
 	option "Commit prepare",	exit, action { md_pre_disklabel(); };
-	option "Disk label",		exit, action { md_make_bsd_partitions(); };
+	option "Disk label",		exit, action { layoutkind = LY_SETNEW;
+												md_make_bsd_partitions(); };
 	option "Commit label",		exit, action { write_disklabel(); md_post_disklabel(); };
+	option "Prepare RAID",		exit, action { layoutkind = LY_NEWRAID;
+												md_make_bsd_partitions(); };
 	option "Toggle bootable",   exit, action { pm->bootable = !pm->bootable; };
 	option "Remove",			exit, action { partman_deldev(m, arg); };

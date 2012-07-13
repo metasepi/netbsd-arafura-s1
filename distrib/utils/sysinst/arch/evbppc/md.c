@@ -103,7 +103,7 @@ int
 md_post_disklabel(void)
 {
 	/* Sector forwarding / badblocks ... */
-	if (*doessf) {
+	if (*pm->doessf) {
 		printf ("%s", msg_string (MSG_dobad144));
 		return run_program(RUN_DISPLAY, "/usr/sbin/bad144 %s 0",
 		    pm->diskdev);

@@ -159,7 +159,7 @@ target_already_root(void)
 		 */
 		return 1;
 
-	return is_active_rootpart(pm->diskdev, rootpart);
+	return is_active_rootpart(pm->diskdev, pm->rootpart);
 }
 
 
