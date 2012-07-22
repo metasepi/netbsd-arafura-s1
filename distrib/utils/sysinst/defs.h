@@ -403,7 +403,7 @@ int	md_update(void);
 void	toplevel(void);
 
 /* from disks.c */
-int	find_disks(const char *);
+int	find_disks(const char *, int);
 struct menudesc;
 void	fmt_fspart(struct menudesc *, int, void *);
 void	disp_cur_fspart(int, int);

@@ -137,7 +137,7 @@ part_entry_t partman_getdev(int);
 static void partman_select(pm_devs_t *);
 static int partman_mountall_sort(const void *, const void *);
 static int partman_mountall(void);
-static int partman_adddev(menudesc *, void *);
+static int partman_upddevlist(menudesc *, void *);
 static int partman_vnd_commit(void);
 static int partman_vnd_manage(menudesc *, void *);
 static int partman_commit(menudesc *, void *);
@@ -1103,38 +1103,28 @@ partman_shred(char *dev, int shredtype)
 }
 
 static int
-partman_adddev(menudesc *m, void *arg)
+partman_upddevlist(menudesc *m, void *arg)
 {
-	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+	int i;
 	pm_devs_t *pm_devs_tmp;
 
-	if (find_disks(msg_string(MSG_install)) < 0)
-		return -1;
+	if (arg != NULL)
+		((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
-	clear();
-	refresh();
+	for (i = 0; find_disks(msg_string(MSG_install), i) > 0; i++) {
+		
+		for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
+				pm_devs_tmp = pm_devs_tmp->next)
+			if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
+				return 0;
+		pm_devs_tmp->next = pm_found;
 
-	if (check_swap(pm->diskdev, 0) > 0) {
-		msg_display(MSG_swapactive);
-		process_menu(MENU_ok, NULL);
-		if (check_swap(pm->diskdev, 1) < 0) {
-			msg_display(MSG_swapdelfailed);
-			process_menu(MENU_ok, NULL);
-			return -1;
-		}
+		pm_found = malloc(sizeof (pm_devs_t));
+		memset(pm_found, 0, sizeof *pm_found);
+		pm_found->next = NULL;
+
+		(void) savenewlabel(pm->oldlabel, getmaxpartitions());
 	}
-
-	for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
-			pm_devs_tmp = pm_devs_tmp->next)
-		if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
-			return 0;
-	pm_devs_tmp->next = pm_found;
-
-	pm_found = malloc(sizeof (pm_devs_t));
-	memset(pm_found, 0, sizeof *pm_found);
-	pm_found->next = NULL;
-
-	(void) savenewlabel(pm->oldlabel, getmaxpartitions());
 	return 0;
 }
 
@@ -1238,6 +1228,8 @@ partman(void)
 	do {
 		clear();
 		refresh();
+		partman_upddevlist(NULL, NULL);
+
 		for (pm_devs_i = pm_devs->next, i = 0; pm_devs_i != NULL;
 				pm_devs_i = pm_devs_i->next, i++) {
 			menu_entries[i].opt_name = NULL;
@@ -1246,8 +1238,8 @@ partman(void)
 		}
 
 		menu_entries[i] = (struct menu_ent) {
-			.opt_name = "Add disk for preparing",
-			.opt_action = partman_adddev,
+			.opt_name = "Update devices list",
+			.opt_action = partman_upddevlist,
 		};
 		menu_entries[++i] = (struct menu_ent) {
 			.opt_name = "Manage cryptographic volumes (CGD)",

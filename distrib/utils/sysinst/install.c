@@ -60,7 +60,7 @@ do_install(void)
 	get_ramsize();
 
 	/* Create and mount partitions */
-	find_disks_ret = find_disks(msg_string(MSG_install));
+	find_disks_ret = find_disks(msg_string(MSG_install), -1);
 	if (partman_go == 1) {
 		if (partman() < 0) {
 			msg_display(MSG_abort);

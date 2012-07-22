@@ -349,14 +349,13 @@ get_disks(struct disk_desc *dd)
 }
 
 int
-find_disks(const char *doingwhat)
+find_disks(const char *doingwhat, int selected_disk)
 {
 	struct disk_desc disks[MAX_DISKS];
 	menu_ent dsk_menu[nelem(disks) + !partman_go];
 	struct disk_desc *disk;
 	int i;
 	int numdisks;
-	int selected_disk = -1;
 	int menu_no;
 
 	/* Find disks. */
@@ -368,44 +367,45 @@ find_disks(const char *doingwhat)
 	/* Kill typeahead, it won't be what the user had in mind */
 	fpurge(stdin);
 
-	if (numdisks == 0) {
-		/* No disks found! */
-		msg_display(MSG_nodisk);
-		process_menu(MENU_ok, NULL);
-		/*endwin();*/
-		return -1;
-	} else {
-		/* One or more disks found! */
-		for (i = 0; i < numdisks; i++) {
-			dsk_menu[i].opt_name = disks[i].dd_descr;
-			dsk_menu[i].opt_menu = OPT_NOMENU;
-			dsk_menu[i].opt_flags = OPT_EXIT;
-			dsk_menu[i].opt_action = set_menu_select;
-		}
-		if (partman_go == 0) {
-			dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
-			dsk_menu[i].opt_menu = OPT_NOMENU;
-			dsk_menu[i].opt_flags = OPT_EXIT;
-			dsk_menu[i].opt_action = set_menu_select;
-		}
-
-		menu_no = new_menu(MSG_Available_disks,
-			dsk_menu, numdisks + !partman_go, -1, 4, 0, 0,
-			MC_SCROLL,
-			NULL, NULL, NULL, NULL, NULL);
-		if (menu_no == -1)
+	if (selected_disk < 0) {
+		if (numdisks == 0) {
+			/* No disks found! */
+			msg_display(MSG_nodisk);
+			process_menu(MENU_ok, NULL);
+			/*endwin();*/
 			return -1;
-		msg_display(MSG_ask_disk, doingwhat);
-		process_menu(menu_no, &selected_disk);
-		free_menu(menu_no);
-	}
+		} else {
+			/* One or more disks found! */
+			for (i = 0; i < numdisks; i++) {
+				dsk_menu[i].opt_name = disks[i].dd_descr;
+				dsk_menu[i].opt_menu = OPT_NOMENU;
+				dsk_menu[i].opt_flags = OPT_EXIT;
+				dsk_menu[i].opt_action = set_menu_select;
+			}
+			if (partman_go == 0) {
+				dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
+				dsk_menu[i].opt_menu = OPT_NOMENU;
+				dsk_menu[i].opt_flags = OPT_EXIT;
+				dsk_menu[i].opt_action = set_menu_select;
+			}
 
-	if (selected_disk == -1)
-	    return -1;
-	if (selected_disk == numdisks) {
+			menu_no = new_menu(MSG_Available_disks,
+				dsk_menu, numdisks + !partman_go, -1, 4, 0, 0,
+				MC_SCROLL,
+				NULL, NULL, NULL, NULL, NULL);
+			if (menu_no == -1)
+				return -1;
+			msg_display(MSG_ask_disk, doingwhat);
+			process_menu(menu_no, &selected_disk);
+			free_menu(menu_no);
+		}
+	}
+	if (partman_go == 0 && selected_disk == numdisks) {
 		partman_go = 1;
 	    return -2;
 	}
+	if (selected_disk < 0 || selected_disk >= numdisks)
+	    return -1;
 
 	disk = disks + selected_disk;
 	pm = pm_found;
