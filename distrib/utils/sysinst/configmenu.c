@@ -93,6 +93,7 @@ configinfo config_list[] = {
 	{MSG_run_ntpdate, CONFIGOPT_NTPDATE, "ntpdate", toggle_rcvar, NULL},
 	{MSG_enable_mdnsd, CONFIGOPT_MDNSD, "mdnsd", toggle_rcvar, NULL},
 	{"Enable XDM", CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
+	{"Enable CGD", CONFIGOPT_XDM, "cgd", toggle_rcvar, NULL},
 	{NULL,		CONFIGOPT_LAST,	NULL, NULL, NULL}
 }; // TODO: XDM
 

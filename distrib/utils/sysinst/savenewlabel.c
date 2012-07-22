@@ -60,6 +60,13 @@ savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 	FILE *f;
 	char *f_name = malloc(STRSIZE * sizeof(char));
 	int i;
+	pm_devs_t *pm_devs_i;
+
+	/* Check names collision */
+	for (pm_devs_i = pm_devs->next; pm_devs_i != pm && pm_devs_i != NULL;
+		pm_devs_i = pm_devs_i->next)
+		while (!strcmp(pm_devs_i->bsddiskname, pm->bsddiskname))
+			pm->bsddiskname[strlen(pm->bsddiskname)-1] = rand() % ('z' - 'a') + 'a';
 
 	snprintf(f_name, STRSIZE, "/tmp/disktab.%s", pm->bsddiskname); // TODO: test
 

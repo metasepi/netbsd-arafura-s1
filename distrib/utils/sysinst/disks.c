@@ -85,7 +85,7 @@ static void fixsb(const char *, const char *, char);
 #define DISK_NAMES "wd", "sd", "ld", "raid"
 #endif
 
-static const char *disk_names[] = { DISK_NAMES, "vnd", NULL };
+static const char *disk_names[] = { DISK_NAMES, "vnd", "cgd", NULL };
 
 const char *
 getfslabelname(uint8_t f)
@@ -348,13 +348,6 @@ get_disks(struct disk_desc *dd)
 	return numdisks;
 }
 
-static int
-set_dsk_select(menudesc *m, void *arg)
-{
-	*(int *)arg = m->cursel;
-	return 1;
-}
-
 int
 find_disks(const char *doingwhat)
 {
@@ -387,13 +380,13 @@ find_disks(const char *doingwhat)
 			dsk_menu[i].opt_name = disks[i].dd_descr;
 			dsk_menu[i].opt_menu = OPT_NOMENU;
 			dsk_menu[i].opt_flags = OPT_EXIT;
-			dsk_menu[i].opt_action = set_dsk_select;
+			dsk_menu[i].opt_action = set_menu_select;
 		}
 		if (partman_go == 0) {
 			dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
 			dsk_menu[i].opt_menu = OPT_NOMENU;
 			dsk_menu[i].opt_flags = OPT_EXIT;
-			dsk_menu[i].opt_action = set_dsk_select;
+			dsk_menu[i].opt_action = set_menu_select;
 		}
 
 		menu_no = new_menu(MSG_Available_disks,

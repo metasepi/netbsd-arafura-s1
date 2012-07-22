@@ -489,14 +489,6 @@ cd_has_sets(void)
 	return dir_exists_p(ext_dir_bin);
 }
 
-
-static int
-set_cd_select(menudesc *m, void *arg)
-{
-	*(int *)arg = m->cursel;
-	return 1;
-}
-
 /*
  * Check whether we can remove the boot media.
  * If it is not a local filesystem, return -1.
@@ -553,7 +545,7 @@ get_via_cdrom(void)
 			cd_menu[i].opt_name = cds[i].menu;
 			cd_menu[i].opt_menu = OPT_NOMENU;
 			cd_menu[i].opt_flags = OPT_EXIT;
-			cd_menu[i].opt_action = set_cd_select;
+			cd_menu[i].opt_action = set_menu_select;
 		}
 		/* create a menu offering available choices */
 		menu_cd = new_menu(MSG_Available_cds,
@@ -1632,4 +1624,11 @@ do_coloring (unsigned int fg, unsigned int bg) {
 	wrefresh(stdscr);
 	wrefresh(mainwin);
 	return;
+}
+
+int
+set_menu_select(menudesc *m, void *arg)
+{
+	*(int *)arg = m->cursel;
+	return 1;
 }

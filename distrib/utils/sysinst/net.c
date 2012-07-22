@@ -510,13 +510,6 @@ handle_license(const char *dev)
 	return 1;
 }
 
-static int
-set_net_select(menudesc *m, void *arg)
-{
-	*(int *)arg = m->cursel;
-	return 1;
-}
-
 /*
  * Get the information to configure the network, configure it and
  * make sure both the gateway and the name server are up.
@@ -564,7 +557,7 @@ config_network(void)
 		net_menu[i].opt_name = net_devs[i].if_dev;
 		net_menu[i].opt_menu = OPT_NOMENU;
 		net_menu[i].opt_flags = OPT_EXIT;
-		net_menu[i].opt_action = set_net_select;
+		net_menu[i].opt_action = set_menu_select;
 	}
 again:
 	selected_net = -1;

@@ -339,7 +339,7 @@ set_ptn_size(menudesc *m, void *arg)
 
 /* Menu to change sizes of /, /usr, /home and etc. partitions */
 void
-get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap) // TODO: smart
+get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 {
 	int i;
 	int maxpart = getmaxpartitions();
@@ -523,6 +523,13 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap) // TODO: smart
 			save_ptn(i, part_start, size, FS_SWAP, NULL);
 			continue;
 		}
+		if (!strcmp(p->mount, "raid")) {
+			save_ptn(i, part_start, size, FS_RAID, NULL);
+			continue;			
+		} else if (!strcmp(p->mount, "cgd")) {
+			save_ptn(i, part_start, size, FS_CGD, NULL);
+			continue;						
+		}
 		save_ptn(i, part_start, size, FS_BSDFFS, p->mount);
 	}
 }
@@ -703,8 +710,13 @@ make_bsd_partitions(void)
 		get_ptn_sizes(partstart, ptend - partstart, no_swap);
 
 	if (layoutkind == LY_NEWRAID) {
-		pm->bsdlabel[0].pi_fstype = FS_RAID;
-		pm->bsdlabel[0].pi_size = pm->ptsize;
+		set_ptype(&(pm->bsdlabel[4]), FS_RAID, 0);
+		pm->bsdlabel[4].pi_size = pm->ptsize;
+	}
+
+	if (layoutkind == LY_NEWCGD) {
+		set_ptype(&(pm->bsdlabel[4]), FS_CGD, 0);
+		pm->bsdlabel[4].pi_size = pm->ptsize;
 	}
 
 	/*

@@ -506,14 +506,66 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
-menu pmentry, x=50, y=5, sub menu, exit, default exit; /* TODO: localize */
-	option "Prepare",			exit, action { md_get_info(); };
-	option "Prepare GPT",		exit, action { md_get_info(); };
-	option "Commit prepare",	exit, action { md_pre_disklabel(); };
-	option "Disk label",		exit, action { layoutkind = LY_SETNEW;
+menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
+	option "Prepare MBR",		exit, action { pm->changed = 1; md_get_info(); };
+	option "Prepare GPT [WIP]",	exit, action { pm->changed = 1; };
+	option "Save MBR/GPT",		exit, action { if (md_pre_disklabel() == 0)
+													pm->changed = 0; };
+	option "Disk label",		exit, action { pm->changed = 1;
+												layoutkind = LY_SETNEW;
 												md_make_bsd_partitions(); };
-	option "Commit label",		exit, action { write_disklabel(); md_post_disklabel(); };
-	option "Prepare RAID",		exit, action { layoutkind = LY_NEWRAID;
+	option "Save label",		exit, action { if (write_disklabel() == 0 &&
+													md_post_disklabel() == 0)
+													pm->changed = 0; };
+	option "Use as RAID",		exit, action { pm->changed = 1;
+												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
-	option "Toggle bootable",   exit, action { pm->bootable = !pm->bootable; };
-	option "Remove",			exit, action { partman_deldev(m, arg); };
+	option "Use as CGD",		exit, action { pm->changed = 1;
+												layoutkind = LY_NEWCGD;
+												md_make_bsd_partitions(); };
+	option "Bootable flag",		exit, action { pm->changed = 1;
+												pm->bootable = !pm->bootable; };
+	option "Safe erase",		next menu shred_modes;
+	option "(U)Mount...",		exit, action { partman_mountmenu(); };
+
+menu shred_modes, x=50, y=5, exit, default exit;
+	option "Fill by zeros",			exit, action { partman_shred(pm->diskdev,
+													SHRED_ZEROS); };
+	option "Fill by random data",	exit, action { partman_shred(pm->diskdev,
+													SHRED_RANDOM); };
+	option "Fill by crypto data",	exit, action { partman_shred(pm->diskdev,
+													SHRED_CRYPTO); };
+
+menu raidlevel;
+	option "0 - No parity, only simple striping.", exit,
+		action { *(int *)arg = 0; };
+	option "1 - Mirroring.  The parity is the mirror.", exit,
+		action { *(int *)arg = 1; };
+	option "4 - Striping with parity stored on the last component.", exit,
+		action { *(int *)arg = 4; };
+	option "5 - Striping with parity at the all components.", exit,
+		action { *(int *)arg = 5; };
+
+menu cgd_enctype;
+	option "aes-cbc",			exit, action { *(const char**)arg = "aes-cbc"; };
+	option "3des-cbc",			exit, action { *(const char**)arg = "3des-cbc"; };
+	option "blowfish-cbc",		exit, action { *(const char**)arg = "blowfish-cbc"; };
+
+menu cgd_ivtype;
+	option "encblkno1",			exit, action { *(const char**)arg = "encblkno1"; };
+	option "encblkno8",			exit, action { *(const char**)arg = "encblkno8"; };
+
+menu cgd_keygentype;
+	option "pkcs5_pbkdf2/sha1",	exit, action { *(const char**)arg = "pkcs5_pbkdf2/sha1"; };
+	option "pkcs5_pbkdf2",		exit, action { *(const char**)arg = "pkcs5_pbkdf2"; };
+	option "storedkey",			exit, action { *(const char**)arg = "storedkey"; };
+	option "randomkey",			exit, action { *(const char**)arg = "randomkey"; };
+	option "urandomkey",		exit, action { *(const char**)arg = "urandomkey"; };
+	option "shell_cmd",			exit, action { *(const char**)arg = "shell_cmd"; };
+
+menu cgd_verifytype;
+	option "none",				exit, action { *(const char**)arg = "none"; };
+	option "disklabel",			exit, action { *(const char**)arg = "disklabel"; };
+	option "ffs",				exit, action { *(const char**)arg = "ffs"; };
+	option "re-enter",			exit, action { *(const char**)arg = "re-enter"; };
+

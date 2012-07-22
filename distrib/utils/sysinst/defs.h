@@ -87,6 +87,7 @@ deconst(const void *p)
 /* for bsddisklabel.c */
 #define LY_SETNEW 1
 #define LY_NEWRAID 2
+#define LY_NEWCGD 3
 #define LY_USEEXIST 4
 
 /* Installation sets */
@@ -268,8 +269,9 @@ daddr_t tmp_ramdisk_size;
 unsigned int root_limit;    /* BIOS (etc) read limit */
 
 /* All information that is unique for each drive */
-
+enum SHRED_T { SHRED_NONE=0, SHRED_ZEROS, SHRED_RANDOM, SHRED_CRYPTO };
 typedef struct pm_devs_t {
+    int changed; /* Flag indicating to partman that device need saving */
     char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
     char id_dk[SSTRSIZE];
@@ -298,13 +300,6 @@ pm_devs_t *pm_devs; /* Pointer to head of list with all devices */
 pm_devs_t *pm_found; /* Pointer to selected in find_disks device
                         (when extended partition manager isn't used) */
 pm_devs_t *pm; /* Pointer to currend device with which we work */
-
-#define MNTS_MAX 100
-struct {
-    const char *diskdev, *mnt_opts, *fsname;
-    char *pi_mount;
-    int partnum;
-} mnts[MNTS_MAX];
 
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
@@ -420,7 +415,8 @@ int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char	*bootxx_name(void);
 int	partman(void);
-int partman_deldev(menudesc *, void *);
+int partman_mountmenu(void);
+int partman_shred(char *, int);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
@@ -508,6 +504,7 @@ void	replace(const char *, const char *, ...);
 void	get_tz_default(void);
 int	extract_file(distinfo *, int);
 void	do_coloring (unsigned int, unsigned int);
+int set_menu_select(menudesc *, void *);
 
 /* from target.c */
 #if defined(DEBUG)  ||	defined(DEBUG_ROOT)
