@@ -509,7 +509,7 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
 	option "Prepare MBR",		exit, action { pm->changed = 1; md_get_info(); };
 	option "Prepare GPT [WIP]",	exit, action { pm->changed = 1; };
-	option "Edit BSD partitions", exit, action { pm->changed = 1;
+	option "Edit BSD partitions", exit, action { *(int *)arg = 1; pm->changed = 1;
 								layoutkind = LY_SETNEW;
 								md_make_bsd_partitions();
 								if (pm->bsdlabel[pm->rootpart].pi_flags & PIF_MOUNT)
@@ -519,10 +519,10 @@ menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
 	option "Set disk name",		exit, action { msg_prompt_win(MSG_packname, -1,
 								18,	0, 0, pm->bsddiskname, pm->bsddiskname,
 								sizeof pm->bsddiskname); };
-	option "Add to RAID",		exit, action { pm->changed = 1;
+	option "Add to RAID",		exit, action { *(int *)arg = 1; pm->changed = 1;
 												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
-	option "Encrypt",			exit, action { pm->changed = 1;
+	option "Encrypt",			exit, action { *(int *)arg = 1; pm->changed = 1;
 												layoutkind = LY_NEWCGD;
 												md_make_bsd_partitions();
 												partman_cgd_edit_adddisk(0, pm); };

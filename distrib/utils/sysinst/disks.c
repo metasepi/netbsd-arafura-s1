@@ -1166,3 +1166,31 @@ bootxx_name(void)
 	return bootxx;
 }
 #endif
+
+const char *
+fstype_name(int fstype)
+{
+	switch (fstype) {
+		case FS_BSDFFS:
+			return "FFS";
+		case FS_BSDLFS:
+			return "LFS";
+		case FS_SWAP:
+			return "SWAP";
+		case FS_EX2FS:
+			return "EXT2";
+		case FS_MSDOS:
+			return "FAT";
+		case FS_APPLEUFS:
+			return "APPLEUFS";
+		case FS_SYSVBFS:
+			return "SYSVB";
+		case FS_RAID:
+			return "RAID";
+		case FS_CGD:
+			return "CGD";
+		case FS_UNUSED:
+			return "none";
+	}
+	return "???";
+}

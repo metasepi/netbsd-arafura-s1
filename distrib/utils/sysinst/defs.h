@@ -413,7 +413,10 @@ int	make_fstab(void);
 int	mount_disks(void);
 int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
-char	*bootxx_name(void);
+char *bootxx_name(void);
+const char *fstype_name(int);
+
+/* from partman.c */
 int	partman(void);
 int partman_mountmenu(void);
 int partman_shred(char *, int);
