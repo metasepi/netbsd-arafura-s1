@@ -379,7 +379,7 @@ partman_raid_new_init(void* none)
 static int
 partman_raid_check(int dev_num)
 {
-	int ok = 1, i;
+	int ok = 0, i;
 	for (i = 0; i < MAX_IN_RAID; i++)
 		if (raids[dev_num].pm[i] != NULL && 
 				raids[dev_num].pm_is_spare[i] != 1) {
@@ -388,7 +388,7 @@ partman_raid_check(int dev_num)
 		}
 	if (! ok)
 		raids[manage_curdev].enabled = 0;
-	return raids[manage_curdev].enabled = 0;
+	return raids[manage_curdev].enabled;
 }
 
 static int
@@ -936,6 +936,17 @@ partman_cgd_commit(void)
 
 /*** LVM ***/
 
+static int
+partman_lvm_edit(menudesc *m, void *arg)
+{
+	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+
+	return 0;
+//	return partman_manage_edit(PML_MENU_END, partman_lvm_edit_menufmt,
+//		partman_lvm_set_value,	partman_lvm_check, partman_lvm_new_init,
+//		NULL, ((part_entry_t *)arg)[m->cursel].dev_num, MAX_LVMS,
+//		sizeof lvms[0], &(lvms[0].enabled));
+}
 
 /*** Partman generic functions ***/
 
@@ -1241,7 +1252,6 @@ partman_upddevlist(menudesc *m, void *arg)
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Create cryptographic volume (CGD)",
 			.opt_action = partman_cgd_edit,
-			.opt_flags = OPT_EXIT,
 		};
 		for (ii = 0; ii < MAX_CGDS; ii++) {
 			if (cgds[ii].enabled == 0)
@@ -1249,7 +1259,6 @@ partman_upddevlist(menudesc *m, void *arg)
 			m->opts[i] = (struct menu_ent) {
 				.opt_name = NULL,
 				.opt_action = partman_cgd_edit,
-				.opt_flags = OPT_EXIT,
 			};
 			((part_entry_t *)arg)[i].dev_num = ii;
 			((part_entry_t *)arg)[i].type = PM_CGD_T;
@@ -1259,7 +1268,6 @@ partman_upddevlist(menudesc *m, void *arg)
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Create virtual disk image (VND)",
 			.opt_action = partman_vnd_edit,
-			.opt_flags = OPT_EXIT,
 		};
 		for (ii = 0; ii < MAX_VNDS; ii++) {
 			if (vnds[ii].enabled == 0)
@@ -1267,7 +1275,6 @@ partman_upddevlist(menudesc *m, void *arg)
 			m->opts[i] = (struct menu_ent) {
 				.opt_name = NULL,
 				.opt_action = partman_vnd_edit,
-				.opt_flags = OPT_EXIT,
 			};
 			((part_entry_t *)arg)[i].dev_num = ii;
 			((part_entry_t *)arg)[i].type = PM_VND_T;
@@ -1276,21 +1283,19 @@ partman_upddevlist(menudesc *m, void *arg)
 		((part_entry_t *)arg)[i].dev_num = -1;
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Create logical volume (LVM) [WIP]",
-			.opt_action = NULL,
+			.opt_action = partman_lvm_edit,
 		};
+		((part_entry_t *)arg)[i].dev_num = -1;
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Create software RAID",
 			.opt_action = partman_raid_edit,
-			.opt_flags = OPT_EXIT,
 		};
-		((part_entry_t *)arg)[i].dev_num = -1;
 		for (ii = 0; ii < MAX_RAIDS; ii++) {
 			if (raids[ii].enabled == 0)
 				continue;
 			m->opts[i] = (struct menu_ent) {
 				.opt_name = NULL,
 				.opt_action = partman_raid_edit,
-				.opt_flags = OPT_EXIT,
 			};
 			((part_entry_t *)arg)[i].dev_num = ii;
 			((part_entry_t *)arg)[i].type = PM_RAID_T;
@@ -1299,15 +1304,15 @@ partman_upddevlist(menudesc *m, void *arg)
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Update devices list",
 			.opt_action = partman_upddevlist,
-			.opt_flags = OPT_EXIT,
 		};
 		m->opts[i  ] = (struct menu_ent) {
 			.opt_name = "Save changes",
 			.opt_action = partman_commit,
-			.opt_flags = OPT_EXIT,
 		};
-		for (ii = 0; ii <= i; ii++)
+		for (ii = 0; ii <= i; ii++) {
 			m->opts[ii].opt_menu = OPT_NOMENU;
+			m->opts[ii].opt_flags = OPT_EXIT;
+		}
 	}
 	return i;
 }
