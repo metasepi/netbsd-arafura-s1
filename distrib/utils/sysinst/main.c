@@ -136,8 +136,8 @@ init(void)
 	fd_type = "msdos";
 	layoutkind = LY_SETNEW;
 
-	pm_devs = malloc (sizeof (pm_devs_t));
-	memset(pm_devs, 0, sizeof *pm_devs);
+	pm_head = malloc (sizeof (pm_devs_t));
+	memset(pm_head, 0, sizeof *pm_head);
 	pm_found = malloc (sizeof (pm_devs_t));
 	memset(pm_found, 0, sizeof *pm_found);
 

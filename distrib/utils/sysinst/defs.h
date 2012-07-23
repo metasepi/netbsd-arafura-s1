@@ -272,6 +272,7 @@ unsigned int root_limit;    /* BIOS (etc) read limit */
 enum SHRED_T { SHRED_NONE=0, SHRED_ZEROS, SHRED_RANDOM, SHRED_CRYPTO };
 typedef struct pm_devs_t {
     int changed; /* Flag indicating to partman that device need saving */
+    int found; /* Flag to delete unplugged and unconfigured devices */
     char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
     char id_dk[SSTRSIZE];
@@ -296,10 +297,9 @@ typedef struct pm_devs_t {
     struct ptn_info pi;
     struct pm_devs_t *next;
 } pm_devs_t;
-pm_devs_t *pm_devs; /* Pointer to head of list with all devices */
-pm_devs_t *pm_found; /* Pointer to selected in find_disks device
-                        (when extended partition manager isn't used) */
 pm_devs_t *pm; /* Pointer to currend device with which we work */
+pm_devs_t *pm_head; /* Pointer to head of list with all devices */
+pm_devs_t *pm_found; /* Pointer for next allocating device in find_disks() */
 
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
@@ -403,7 +403,7 @@ int	md_update(void);
 void	toplevel(void);
 
 /* from disks.c */
-int	find_disks(const char *, int);
+int	find_disks(const char *);
 struct menudesc;
 void	fmt_fspart(struct menudesc *, int, void *);
 void	disp_cur_fspart(int, int);
@@ -417,6 +417,8 @@ char	*bootxx_name(void);
 int	partman(void);
 int partman_mountmenu(void);
 int partman_shred(char *, int);
+int partman_unconfigure(void);
+int partman_cgd_edit_adddisk(int, pm_devs_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

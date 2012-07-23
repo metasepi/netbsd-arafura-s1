@@ -218,8 +218,8 @@ set_ptn_size(menudesc *m, void *arg)
 		return 0;
 
 	if (p->mount[0] == 0) {
-		msg_prompt_win(MSG_askfsmount, -1, 18, 0, 0,
-			NULL, p->mount, sizeof p->mount);
+		msg_prompt_win(partman_go?"Mountpoint or 'raid' or 'cgd'?":MSG_askfsmount,
+			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount);
 		if (p->mount[0] == 0)
 			return 0;
 	}
@@ -710,13 +710,13 @@ make_bsd_partitions(void)
 		get_ptn_sizes(partstart, ptend - partstart, no_swap);
 
 	if (layoutkind == LY_NEWRAID) {
-		set_ptype(&(pm->bsdlabel[4]), FS_RAID, 0);
-		pm->bsdlabel[4].pi_size = pm->ptsize;
+		set_ptype(&(pm->bsdlabel[PART_E]), FS_RAID, 0);
+		pm->bsdlabel[PART_E].pi_size = pm->ptsize;
 	}
 
 	if (layoutkind == LY_NEWCGD) {
-		set_ptype(&(pm->bsdlabel[4]), FS_CGD, 0);
-		pm->bsdlabel[4].pi_size = pm->ptsize;
+		set_ptype(&(pm->bsdlabel[PART_E]), FS_CGD, 0);
+		pm->bsdlabel[PART_E].pi_size = pm->ptsize;
 	}
 
 	/*
@@ -732,7 +732,9 @@ make_bsd_partitions(void)
 	} while (partman_go == 0 && check_partitions() == 0);
 
 	/* Disk name */
-	msg_prompt(MSG_packname, pm->bsddiskname, pm->bsddiskname, sizeof pm->bsddiskname);
+	if (!partman_go)
+		msg_prompt(MSG_packname, pm->bsddiskname, pm->bsddiskname,
+			sizeof pm->bsddiskname);
 
 	/* save label to disk for MI code to update. */
 	(void) savenewlabel(pm->bsdlabel, maxpart);

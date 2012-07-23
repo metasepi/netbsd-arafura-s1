@@ -63,7 +63,7 @@ do_upgrade(void)
 
 	get_ramsize();
 
-	if (find_disks(msg_string(MSG_upgrade), -1) < 0)
+	if (find_disks(msg_string(MSG_upgrade)) < 0)
 		return;
 
 	if (md_pre_update() < 0)
@@ -182,7 +182,7 @@ do_reinstall_sets(void)
 	if (!yesno)
 		return;
 
-	if (find_disks(msg_string(MSG_reinstall), -1) < 0)
+	if (find_disks(msg_string(MSG_reinstall)) < 0)
 		return;
 
 	if (mount_disks() != 0)

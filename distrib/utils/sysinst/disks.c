@@ -296,6 +296,7 @@ get_descr(struct disk_desc *dd)
 	/* try SCSI */
 	if (get_descr_scsi(dd, fd))
 		goto done;
+	/* TODO: get description from raid, cgd, vnd... */
 
 done:
 	if (fd >= 0)
@@ -349,13 +350,14 @@ get_disks(struct disk_desc *dd)
 }
 
 int
-find_disks(const char *doingwhat, int selected_disk)
+find_disks(const char *doingwhat)
 {
 	struct disk_desc disks[MAX_DISKS];
-	menu_ent dsk_menu[nelem(disks) + !partman_go];
+	menu_ent dsk_menu[nelem(disks) + 1]; // + 1 for extended partitioning entry
 	struct disk_desc *disk;
-	int i;
-	int numdisks;
+	pm_devs_t *pm_i, *pm_swap;
+	int i, already_found;
+	int numdisks, selected_disk = -1;
 	int menu_no;
 
 	/* Find disks. */
@@ -367,7 +369,7 @@ find_disks(const char *doingwhat, int selected_disk)
 	/* Kill typeahead, it won't be what the user had in mind */
 	fpurge(stdin);
 
-	if (selected_disk < 0) {
+	if (! partman_go) {
 		if (numdisks == 0) {
 			/* No disks found! */
 			msg_display(MSG_nodisk);
@@ -382,16 +384,14 @@ find_disks(const char *doingwhat, int selected_disk)
 				dsk_menu[i].opt_flags = OPT_EXIT;
 				dsk_menu[i].opt_action = set_menu_select;
 			}
-			if (partman_go == 0) {
-				dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
-				dsk_menu[i].opt_menu = OPT_NOMENU;
-				dsk_menu[i].opt_flags = OPT_EXIT;
-				dsk_menu[i].opt_action = set_menu_select;
-			}
+			
+			dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
+			dsk_menu[i].opt_menu = OPT_NOMENU;
+			dsk_menu[i].opt_flags = OPT_EXIT;
+			dsk_menu[i].opt_action = set_menu_select;
 
 			menu_no = new_menu(MSG_Available_disks,
-				dsk_menu, numdisks + !partman_go, -1, 4, 0, 0,
-				MC_SCROLL,
+				dsk_menu, numdisks + 1, -1, 4, 0, 0, MC_SCROLL,
 				NULL, NULL, NULL, NULL, NULL);
 			if (menu_no == -1)
 				return -1;
@@ -399,48 +399,93 @@ find_disks(const char *doingwhat, int selected_disk)
 			process_menu(menu_no, &selected_disk);
 			free_menu(menu_no);
 		}
+		if (selected_disk == numdisks) {
+			partman_go = 1;
+	    	return -2;
+		}
+		if (selected_disk < 0 || selected_disk >= numdisks)
+	    	return -1;
 	}
-	if (partman_go == 0 && selected_disk == numdisks) {
-		partman_go = 1;
-	    return -2;
+
+	/* Mark all devicec as not found */
+	for (pm_i = pm_head->next; partman_go && pm_i != NULL;
+		 pm_i = pm_i->next)
+			pm_i->found = 0;
+	/* Fill pm struct with device(s) info */
+	for (i = 0; i < numdisks; i++) {
+		if (! partman_go)
+			disk = disks + selected_disk;
+		else {
+			disk = disks + i;
+			already_found = 0;
+			for (pm_i = pm_head; pm_i->next != NULL; pm_i = pm_i->next)
+				if (!already_found && 
+						strcmp(pm_i->next->diskdev, disk->dd_name) == 0) {
+					pm_i->next->found = 1;
+					already_found = 1;
+				}
+			if (already_found)
+				/* We already added this device, skipping */
+				continue;
+		}
+		pm = pm_found;
+		pm->found = 1;
+		pm->bootable = 0;
+		pm->pi.menu_no = -1;
+		pm->disktype = "unknown";
+		pm->doessf = "";
+		strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
+		strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
+		/* Use as a default disk if the user has the sets on a local disk */
+		strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
+
+		pm->sectorsize = disk->dd_secsize;
+		pm->dlcyl = disk->dd_cyl;
+		pm->dlhead = disk->dd_head;
+		pm->dlsec = disk->dd_sec;
+		pm->dlsize = disk->dd_totsec;
+		pm->no_mbr = disk->dd_no_mbr;
+		if (pm->dlsize == 0)
+			pm->dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
+		if (pm->dlsize > UINT32_MAX) {
+			if (partman_go)
+				continue;
+			msg_display(MSG_toobigdisklabel);
+			process_menu(MENU_ok, NULL);
+			return -1;
+		}
+		pm->dlcylsize = pm->dlhead * pm->dlsec;
+
+		/* Get existing/default label */
+		memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
+		incorelabel(pm->diskdev, pm->oldlabel);
+
+		/* Set 'target' label to current label in case we don't change it */
+		memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
+		if (partman_go) {
+			pm_i->next = pm_found;
+			pm_found = malloc(sizeof (pm_devs_t));
+			memset(pm_found, 0, sizeof *pm_found);
+			pm_found->next = NULL;
+			savenewlabel(pm->oldlabel, getmaxpartitions());
+		} else
+			/* We is not in partman and do not want to process all devices, exit */
+			break;
 	}
-	if (selected_disk < 0 || selected_disk >= numdisks)
-	    return -1;
-
-	disk = disks + selected_disk;
-	pm = pm_found;
-	pm->bootable = 0;
-	pm->pi.menu_no = -1;
-	pm->disktype = "unknown";
-	pm->doessf = "";
-	strlcpy(pm->diskdev, disk->dd_name, sizeof pm->diskdev);
-	strlcpy(pm->diskdev_descr, disk->dd_descr, sizeof pm->diskdev_descr);
-
-	/* Use as a default disk if the user has the sets on a local disk */
-	strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
-
-	pm->sectorsize = disk->dd_secsize;
-	pm->dlcyl = disk->dd_cyl;
-	pm->dlhead = disk->dd_head;
-	pm->dlsec = disk->dd_sec;
-	pm->dlsize = disk->dd_totsec;
-	pm->no_mbr = disk->dd_no_mbr;
-	if (pm->dlsize == 0)
-		pm->dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
-	if (pm->dlsize > UINT32_MAX) {
-		msg_display(MSG_toobigdisklabel);
-		process_menu(MENU_ok, NULL);
-		return -1;
-	}
-	pm->dlcylsize = pm->dlhead * pm->dlsec;
-
-	/* Get existing/default label */
-	memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
-	incorelabel(pm->diskdev, pm->oldlabel);
-
-	/* Set 'target' label to current label in case we don't change it */
-	memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
-
+	for (pm_i = pm_head; partman_go && pm_i->next != NULL;
+			pm_i = pm_i->next)
+		if (! pm_i->next->found) {
+			/* If device not found then delete it */
+			if (pm_i->next->next == NULL) {
+				free(pm_i->next);
+				pm_i->next = NULL;
+				break;
+			} else {
+				pm_swap = pm_i->next->next;
+				free(pm_i->next);
+				pm_i->next = pm_swap;
+			}
+		}
 	return numdisks;
 }
 

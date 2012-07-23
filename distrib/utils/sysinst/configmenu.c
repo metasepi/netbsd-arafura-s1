@@ -415,7 +415,7 @@ do_configmenu()
 	/* if the target isn't mounted already, figure it out. */
 	if (target_mounted() == 0) {
 		partman_go = 1;
-		if (find_disks(msg_string(MSG_configure_prior), -1) < 0)
+		if (find_disks(msg_string(MSG_configure_prior)) < 0)
 			return;
 
 		if (mount_disks() != 0)

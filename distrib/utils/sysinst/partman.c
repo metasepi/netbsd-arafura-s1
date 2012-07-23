@@ -72,7 +72,7 @@ struct raids_t {
 	int sectPerSU, SUsPerParityUnit, SUsPerReconUnit, RAID_level;
 } raids[MAX_RAIDS];
 
-#define MAX_VNDS 16
+#define MAX_VNDS 4
 struct vnds_t {
 	int enabled;
 	char filepath[STRSIZE];
@@ -83,7 +83,7 @@ struct vnds_t {
 	int secsize, nsectors, ntracks, ncylinders;
 } vnds[MAX_VNDS];
 
-#define MAX_CGDS 16
+#define MAX_CGDS 4
 struct cgds_t {
 	int enabled;
 	pm_devs_t *pm;
@@ -121,19 +121,19 @@ enum { /* CGD menu enum */
 static int partman_manage_menu(const char *, void (*)(menudesc *, int, void *),
 	int (*)(menudesc *, void *), int, int, void *);
 static int partman_manage_edit(int menu_entries_count, void (*)(menudesc *, int, void *),
-	int (*)(menudesc *, void *), void (*)(void), int cursel, int max,
+	int (*)(menudesc *, void *), void (*)(void *), void *, int cursel, int max,
 	int entry_size, void *entry_enabled);
+part_entry_t partman_manage_getdev(int);
 static int partman_raid_edit(menudesc *, void *);
 static void partman_raid_edit_menufmt(menudesc *, int, void *);
 static int partman_raid_set_value(menudesc *, void *);
-static void partman_raid_new_init(void);
+static void partman_raid_new_init(void *);
 static int partman_raid_disk_add(menudesc *, void *);
 static int partman_raid_disk_del(menudesc *, void *);
 static int partman_raid_set_value(menudesc *, void *);
 static void partman_raid_manage_menufmt(menudesc *, int, void *);
 static int partman_raid_manage(menudesc *, void *);
 static int partman_raid_commit(void);
-part_entry_t partman_getdev(int);
 static void partman_select(pm_devs_t *);
 static int partman_mountall_sort(const void *, const void *);
 static int partman_mountall(void);
@@ -179,7 +179,7 @@ partman_manage_menu(const char *header, void (*menu_fmt)(menudesc *, int, void *
 			};
 		else
 			menu_entries[num_devs] = (struct menu_ent) {
-				.opt_name = "Entries count limit reached",
+				.opt_name = "Limit for the devices count was reached!",
 				.opt_action = NULL,
 				.opt_menu = OPT_NOMENU,
 				.opt_flags = 0,
@@ -200,19 +200,23 @@ partman_manage_menu(const char *header, void (*menu_fmt)(menudesc *, int, void *
 
 static int
 partman_manage_edit(int menu_entries_count, void (*menu_fmt)(menudesc *, int, void *),
-	int (*action)(menudesc *, void *), void (*entry_init)(void),
-	int cursel, int max, int entry_size, void *entry_enabled)
+	int (*action)(menudesc *, void *), void (*entry_init)(void *),
+	void* entry_init_arg, int cursel, int max, int entry_size, void *entry_enabled)
 {
 	int i, retvalue = 0, ok = 0;
 
 	for (i = -1, manage_curdev = -1; manage_curdev < max-1 && i < cursel;)
 		if (*(int*)((char*)entry_enabled + entry_size * ++manage_curdev) != 0)
-			i++;
-	if (i < cursel) { /* Cannot find device, try to create new */
+			i++; 
+	if (cursel >= max || manage_curdev >= max) {
+		msg_prompt_win("Limit for the devices count was reached!",
+						-1, 18, 0, 0, NULL, NULL, 0);
+		return -1;
+	} else if (i < cursel || i < 0) { /* Cannot find device, try to create new */
 		for (i = 0; i < max && !ok; i++) {
 			if (*(int*)((char*)entry_enabled + entry_size * i) != 1) {
 				manage_curdev = i;
-				entry_init();
+				entry_init(entry_init_arg);
 				*(int*)((char*)entry_enabled + entry_size * i) = 1;
 				ok = 1;
 			}
@@ -240,6 +244,48 @@ partman_manage_edit(int menu_entries_count, void (*menu_fmt)(menudesc *, int, vo
 	return retvalue;
 }
 
+part_entry_t
+partman_manage_getdev(int fstype)
+{
+	pm_devs_t *pm_i;
+	int dev_num = -1, num_devs;
+	int i;
+	int menu_no;
+	menu_ent menu_entries[MAX_DISKS*MAXPARTITIONS];
+	part_entry_t disk_entries[MAX_DISKS*MAXPARTITIONS];
+
+	for (pm_i = pm_head->next, num_devs = 0; pm_i != NULL; pm_i = pm_i->next)
+		for (i = 0; i < MAXPARTITIONS; i++) {
+			if (pm_i->bsdlabel[i].pi_fstype == fstype) {
+				disk_entries[num_devs].dev_pm = pm_i;
+				disk_entries[num_devs].dev_num = 'a' + i;
+				snprintf(disk_entries[num_devs].fullname, SSTRSIZE, "%s%c",
+						pm_i->diskdev, 'a' + i);
+				menu_entries[num_devs] = (struct menu_ent) {
+					.opt_name = disk_entries[num_devs].fullname,
+					.opt_action = set_menu_select,
+					.opt_menu = OPT_NOMENU,
+					.opt_flags = OPT_EXIT,
+				};
+				num_devs++;
+			}
+		}
+
+	menu_no = new_menu("Available disks:",
+		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13, MC_SCROLL | MC_NOCLEAR,
+		NULL, NULL , NULL, NULL, NULL);
+	if (menu_no == -1)
+		return (part_entry_t) { .retvalue = -1, };
+	process_menu(menu_no, &dev_num);
+	free_menu(menu_no);
+
+	if (dev_num < 0 || dev_num >= num_devs)
+		return (part_entry_t) { .retvalue = -1, };
+
+	disk_entries[dev_num].retvalue = dev_num;
+	return disk_entries[dev_num];
+}
+
 /*** RAIDs ***/
 
 static int
@@ -248,7 +294,7 @@ partman_raid_edit(menudesc *m, void *arg)
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
 	return partman_manage_edit(PMR_MENU_END, partman_raid_edit_menufmt,
-		partman_raid_set_value,	partman_raid_new_init, m->cursel, MAX_RAIDS,
+		partman_raid_set_value,	partman_raid_new_init, NULL, m->cursel, MAX_RAIDS,
 		sizeof raids[0], &(raids[0].enabled));
 }
 
@@ -367,7 +413,7 @@ partman_raid_set_value(menudesc *m, void *arg)
 }
 
 static void
-partman_raid_new_init(void)
+partman_raid_new_init(void* none)
 {
 	memset(&(raids[manage_curdev]), 0, sizeof raids[manage_curdev]);
 	raids[manage_curdev] = (struct raids_t) {
@@ -383,7 +429,7 @@ static int
 partman_raid_disk_add(menudesc *m, void *arg)
 {
 	int i;
-	part_entry_t disk_entries = partman_getdev(FS_RAID);
+	part_entry_t disk_entries = partman_manage_getdev(FS_RAID);
 	if (disk_entries.retvalue < 0)
 		return disk_entries.retvalue;
 
@@ -532,11 +578,11 @@ partman_raid_commit(void)
 
 		/* Raid initialization */
 		if (
-			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -C %s raid%d",
+			run_program(RUN_DISPLAY, "raidctl -C %s raid%d",
 							f_name, raid_devnum) == 0 &&
-			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -I %d raid%d",
+			run_program(RUN_DISPLAY, "raidctl -I %d raid%d",
 							rand(), raid_devnum) == 0 &&
-			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -vi raid%d",
+			run_program(RUN_DISPLAY, "raidctl -vi raid%d",
 							raid_devnum) == 0
 			)
 			raids[i].enabled = 0; /* RAID creation done, remove it from list to 
@@ -663,7 +709,7 @@ partman_vnd_set_value(menudesc *m, void *arg)
 }
 
 static void
-partman_vnd_new_init(void)
+partman_vnd_new_init(void * none)
 {
 	memset(&(vnds[manage_curdev]), 0, sizeof vnds[manage_curdev]);
 	vnds[manage_curdev] = (struct vnds_t) {
@@ -687,7 +733,7 @@ partman_vnd_edit(menudesc *m, void *arg)
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
 	return partman_manage_edit(PMV_MENU_END, partman_vnd_edit_menufmt,
-		partman_vnd_set_value,	partman_vnd_new_init, m->cursel, MAX_RAIDS,
+		partman_vnd_set_value, partman_vnd_new_init, NULL, m->cursel, MAX_VNDS,
 		sizeof vnds[0], &(vnds[0].enabled));
 }
 
@@ -697,7 +743,10 @@ partman_vnd_manage_menufmt(menudesc *m, int opt, void *arg)
 	int num = ((part_entry_t *)arg)[opt].dev_num;
 
 	if (vnds[num].enabled != 0) {
-		wprintw(m->mw, "%s (%dMB)", vnds[num].filepath, vnds[num].size);
+		if (strlen(vnds[num].filepath) < 1)
+			wprintw(m->mw, "PATH NOT DEFINED!");
+		else
+			wprintw(m->mw, "%s (%dMB)", vnds[num].filepath, vnds[num].size);
 	}
 	return;
 }
@@ -719,14 +768,15 @@ partman_vnd_commit(void)
 
 	for (i = 0; i < MAX_VNDS; i++) {
 		not_ok = 0;
-		if (vnds[i].enabled == 0)
+		if (vnds[i].enabled == 0 || vnds[i].size < 1 ||
+			strlen(vnds[i].filepath) < 1)
 			continue;
 		strcpy(r_o, vnds[i].readonly?"-r":"");
 		/* If this is a new image */
 		if (!vnds[i].is_exist)
 			not_ok += run_program(RUN_DISPLAY,
-									"dd if=/dev/zero of=%s bs=1m count=%d",
-									target_expand(vnds[i].filepath), vnds[i].size);
+						"dd if=/dev/zero of=%s bs=1m count=%d progress=100 msgfmt=human",
+						target_expand(vnds[i].filepath), vnds[i].size);
 		if (not_ok)
 			continue;
 
@@ -750,22 +800,34 @@ partman_vnd_commit(void)
 /*** CGD ***/
 
 static int
-partman_cgd_disk_set(void)
+partman_cgd_disk_set(part_entry_t *disk_entrie)
 {
-	part_entry_t disk_entries = partman_getdev(FS_CGD);
-	if (disk_entries.retvalue < 0)
-		return disk_entries.retvalue;
+	int alloc_disk_entrie = 0;
+	if (disk_entrie == NULL) {
+		alloc_disk_entrie = 1;
+		disk_entrie = malloc (sizeof(part_entry_t));
+		if (disk_entrie == NULL)
+			return -2;
+		*disk_entrie = partman_manage_getdev(FS_CGD);
+		if (disk_entrie->retvalue < 0) {
+			free(disk_entrie);
+			return -1;
+		}
+	}
+	cgds[manage_curdev].pm = disk_entrie->dev_pm;
+	cgds[manage_curdev].pm_part = disk_entrie->dev_num;
+	strncpy(cgds[manage_curdev].pm_name, disk_entrie->fullname, SSTRSIZE);
 
-	cgds[manage_curdev].pm = disk_entries.dev_pm;
-	cgds[manage_curdev].pm_part = disk_entries.dev_num;
-	strncpy(cgds[manage_curdev].pm_name, disk_entries.fullname, SSTRSIZE);
-
+	if (alloc_disk_entrie)
+		free(disk_entrie);
 	return 0;
 }
 
 static void
-partman_cgd_new_init(void)
+partman_cgd_new_init(void *assign_pm)
 {
+	part_entry_t disk_entrie;
+
 	memset(&(cgds[manage_curdev]), 0, sizeof cgds[manage_curdev]);
 	cgds[manage_curdev] = (struct cgds_t) {
 		.enabled = 1,
@@ -778,6 +840,13 @@ partman_cgd_new_init(void)
 		.iv_type = "encblkno1",
 		.key_size = 192,
 	};
+	if (assign_pm != NULL) {
+			disk_entrie.dev_pm = assign_pm;
+			disk_entrie.dev_num = 'a' + PART_E;
+			snprintf(disk_entrie.fullname, SSTRSIZE, "%s%c",
+				pm->diskdev, 'a' + PART_E);
+		partman_cgd_disk_set(&disk_entrie);
+	}
 	return;
 }
 
@@ -814,8 +883,7 @@ partman_cgd_set_value(menudesc *m, void *arg)
 
 	switch (m->cursel) {
 		case PMC_MENU_DEV:
-			partman_cgd_disk_set();
-			return 0;
+			return partman_cgd_disk_set(NULL);
 		case PMC_MENU_ENCTYPE:
 			process_menu(MENU_cgd_enctype, &retstring);
 			cgds[manage_curdev].enc_type = retstring;
@@ -852,14 +920,21 @@ partman_cgd_set_value(menudesc *m, void *arg)
 	return -1;
 }
 
+int
+partman_cgd_edit_adddisk(int cursel, pm_devs_t *assign_pm)
+{
+	if (assign_pm != NULL)
+		cursel = -1;
+	return partman_manage_edit(PMC_MENU_END, partman_cgd_edit_menufmt,
+		partman_cgd_set_value, partman_cgd_new_init, assign_pm, cursel,
+		MAX_CGDS, sizeof cgds[0], &(cgds[0].enabled));
+}
+
 static int
 partman_cgd_edit(menudesc *m, void *arg)
 {
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
-
-	return partman_manage_edit(PMC_MENU_END, partman_cgd_edit_menufmt,
-		partman_cgd_set_value, partman_cgd_new_init, m->cursel, MAX_CGDS,
-		sizeof cgds[0], &(cgds[0].enabled));
+	return partman_cgd_edit_adddisk(m->cursel, NULL);
 }
 
 static void
@@ -867,9 +942,13 @@ partman_cgd_manage_menufmt(menudesc *m, int opt, void *arg)
 {
 	int num = ((part_entry_t *)arg)[opt].dev_num;
 
-	if (cgds[num].enabled != 0)
-		wprintw(m->mw, "%s%c (%s-%d)", cgds[num].pm->diskdev, cgds[num].pm_part,
-			cgds[num].enc_type, cgds[num].key_size);
+	if (cgds[num].enabled != 0) {
+		if (cgds[num].pm == NULL)
+			wprintw(m->mw, "DISK NOT DEFINED!");
+		else
+			wprintw(m->mw, "%s%c (%s-%d)", cgds[num].pm->diskdev,
+				cgds[num].pm_part, cgds[num].enc_type, cgds[num].key_size);
+	}
 	return;
 }
 
@@ -887,7 +966,7 @@ partman_cgd_commit(void)
 {
 	int i;
 	for (i = 0; i < MAX_CGDS; i++) {
-		if (! cgds[i].enabled)
+		if (! cgds[i].enabled || cgds[i].pm == NULL)
 			continue;
 		if (run_program(RUN_DISPLAY, "cgdconfig -g -i %s -k %s -o /tmp/%s %s %d",
 			cgds[i].iv_type, cgds[i].keygen_type, cgds[i].pm_name,
@@ -896,54 +975,34 @@ partman_cgd_commit(void)
 		if (run_program(RUN_DISPLAY, "cgdconfig -V re-enter cgd%d /dev/%s /tmp/%s",
 			i, cgds[i].pm_name, cgds[i].pm_name) != 0)
 			continue;
+		cgds[i].enabled = 0;
 	}
 
 	return 0;
 }
 
+/*** LVM ***/
+
+static int
+partman_lvm_manage(menudesc *m, void *arg)
+{
+	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+//	partman_manage_menu("LVM manager", partman_lvm_manage_menufmt,
+//		partman_lvm_edit, MAX_LVMS, sizeof lvms[0], &(lvms[0].enabled));
+	return 0;
+}
+
 /*** Partman generic functions ***/
 
-part_entry_t
-partman_getdev(int fstype)
+int
+partman_unconfigure(void)
 {
-	pm_devs_t *pm_devs_i;
-	int dev_num = -1, num_devs;
-	int i;
-	int menu_no;
-	menu_ent menu_entries[MAX_DISKS*MAXPARTITIONS];
-	part_entry_t disk_entries[MAX_DISKS*MAXPARTITIONS];
-
-	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next)
-		for (i = 0; i < MAXPARTITIONS; i++) {
-			if (pm_devs_i->bsdlabel[i].pi_fstype == fstype) {
-				disk_entries[num_devs].dev_pm = pm_devs_i;
-				disk_entries[num_devs].dev_num = 'a' + i;
-				snprintf(disk_entries[num_devs].fullname, SSTRSIZE, "%s%c",
-						pm_devs_i->diskdev, 'a' + i);
-				menu_entries[num_devs] = (struct menu_ent) {
-					.opt_name = disk_entries[num_devs].fullname,
-					.opt_action = set_menu_select,
-					.opt_menu = OPT_NOMENU,
-					.opt_flags = OPT_EXIT,
-				};
-				num_devs++;
-			}
-		}
-
-	menu_no = new_menu("Available disks:",
-		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13, MC_SCROLL | MC_NOCLEAR,
-		NULL, NULL , NULL, NULL, NULL);
-	if (menu_no == -1)
-		return (part_entry_t) { .retvalue = -1, };
-	process_menu(menu_no, &dev_num);
-	free_menu(menu_no);
-
-	if (dev_num < 0 || dev_num >= num_devs)
-		return (part_entry_t) { .retvalue = -1, };
-
-	disk_entries[dev_num].retvalue = dev_num;
-	return disk_entries[dev_num];
+	// TODO: rewrite
+	run_program(RUN_SILENT | RUN_ERROR_OK, "cgdconfig -u %s", pm->diskdev);
+	run_program(RUN_SILENT | RUN_ERROR_OK, "vnconfig -u %s", pm->diskdev);
+	run_program(RUN_SILENT | RUN_ERROR_OK, "raidctl -u %s", pm->diskdev);
+	run_program(RUN_SILENT | RUN_ERROR_OK, "umount /dev/%s*", pm->diskdev);
+	return 0;
 }
 
 static void
@@ -966,26 +1025,25 @@ partman_mountall_sort(const void *a, const void *b)
 static int
 partman_mountall(void)
 {
-	pm_devs_t *pm_devs_i;
+	pm_devs_t *pm_i;
 	int num_devs = 0;
 	int i, ii, error, ok;
 	char diskdev_with_root[SSTRSIZE];
 	diskdev_with_root[0] = '\0';
 
 	int mnts_order[MNTS_MAX]; // TODO: rewrite
-	for (pm_devs_i = pm_devs->next, num_devs = 0; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) {
+	for (pm_i = pm_head->next, num_devs = 0; pm_i != NULL; pm_i = pm_i->next) {
 		ok = 0;
 		for (i = 0; i < MAXPARTITIONS; i++) {
-			if (pm_devs_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
-					pm_devs_i->bsdlabel[i].mnt_opts != NULL) {
-				mnts[num_devs].pm_part = i;
-				mnts[num_devs].diskdev = pm_devs_i->diskdev;
-				mnts[num_devs].mnt_opts = pm_devs_i->bsdlabel[i].mnt_opts;
-				mnts[num_devs].fsname = pm_devs_i->bsdlabel[i].fsname;
-				mnts[num_devs].pi_mount = pm_devs_i->bsdlabel[i].pi_mount;
-				if (strcmp(pm_devs_i->bsdlabel[i].pi_mount, "/") == 0)
-					strlcpy(diskdev_with_root, pm_devs_i->bsdlabel[i].pi_mount, 
+			if (pm_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
+					pm_i->bsdlabel[i].mnt_opts != NULL) {
+				mnts[num_devs].pm_part  = i;
+				mnts[num_devs].diskdev  = pm_i->diskdev;
+				mnts[num_devs].mnt_opts = pm_i->bsdlabel[i].mnt_opts;
+				mnts[num_devs].fsname   = pm_i->bsdlabel[i].fsname;
+				mnts[num_devs].pi_mount = pm_i->bsdlabel[i].pi_mount;
+				if (strcmp(pm_i->bsdlabel[i].pi_mount, "/") == 0)
+					strlcpy(diskdev_with_root, pm_i->bsdlabel[i].pi_mount, 
 						sizeof diskdev_with_root);
 				num_devs++;
 				ok = 1;
@@ -1041,7 +1099,7 @@ partman_mount(menudesc *m, void *arg)
 	return 0;
 }
 
-int
+int // TODO: eeee
 partman_mountmenu(void)
 {
 	int i, num_devs = 0;
@@ -1103,43 +1161,16 @@ partman_shred(char *dev, int shredtype)
 }
 
 static int
-partman_upddevlist(menudesc *m, void *arg)
-{
-	int i;
-	pm_devs_t *pm_devs_tmp;
-
-	if (arg != NULL)
-		((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
-
-	for (i = 0; find_disks(msg_string(MSG_install), i) > 0; i++) {
-		
-		for (pm_devs_tmp = pm_devs; pm_devs_tmp->next != NULL;
-				pm_devs_tmp = pm_devs_tmp->next)
-			if (strcmp(pm_devs_tmp->next->diskdev, pm->diskdev) == 0)
-				return 0;
-		pm_devs_tmp->next = pm_found;
-
-		pm_found = malloc(sizeof (pm_devs_t));
-		memset(pm_found, 0, sizeof *pm_found);
-		pm_found->next = NULL;
-
-		(void) savenewlabel(pm->oldlabel, getmaxpartitions());
-	}
-	return 0;
-}
-
-static int
 partman_commit(menudesc *m, void *arg)
 {
 	int retcode;
-	pm_devs_t *pm_devs_i;
+	pm_devs_t *pm_i;
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
-	for (pm_devs_i = pm_devs->next; pm_devs_i != NULL;
-			pm_devs_i = pm_devs_i->next) {
-		if (! pm_devs_i->changed)
+	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
+		if (! pm_i->changed)
 			continue;
-		partman_select(pm_devs_i);
+		partman_select(pm_i);
 		if (
 				md_pre_disklabel() != 0  || /* Write partition table */
 				write_disklabel() != 0   || /* Write slices table (disklabel) */
@@ -1149,9 +1180,10 @@ partman_commit(menudesc *m, void *arg)
 			if (logfp)
 				fprintf(logfp, "Disk preparing error\n");
 			return -1;
-		}
+		} else
+			pm_i->changed = 0;
 		/* Write bootsector if needed */
-		if (pm_devs_i->bootable && md_post_newfs() != 0)
+		if (pm_i->bootable && md_post_newfs() != 0)
 			return -1;
 	}
 	/* Call all functions that may create new devices */
@@ -1170,6 +1202,7 @@ partman_commit(menudesc *m, void *arg)
 			fprintf(logfp, "CGD configuring error #%d\n", retcode);
 		return -1;
 	}
+	partman_upddevlist(m, arg);
 	if (logfp)
 		fflush (logfp);
     return 0;
@@ -1178,16 +1211,18 @@ partman_commit(menudesc *m, void *arg)
 static int
 partman_submenu(menudesc *m, void *arg)
 {
-	pm_devs_t *pm_devs_i = ((part_entry_t *)arg)[m->cursel].dev_pm;;
-	int retvalue;
-
+	pm_devs_t *pm_i = ((part_entry_t *)arg)[m->cursel].dev_pm;;
+	int we_need_updlist = 0;
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
-	if (pm_devs_i == NULL) 
+	if (pm_i == NULL) 
 		return -1;
-	partman_select(pm_devs_i);
+	partman_select(pm_i);
 
-	process_menu(MENU_pmentry, &retvalue);
+	process_menu(MENU_pmentry, &we_need_updlist);
+	if (we_need_updlist)
+		partman_upddevlist(m, arg);
+
 	return 0;
 }
 
@@ -1195,24 +1230,88 @@ static void
 partman_menufmt(menudesc *m, int opt, void *arg)
 {
 	int i;
-	char dev_mounts[STRSIZE];
-	dev_mounts[0] = '\0';
-	pm_devs_t *pm_devs_i = ((part_entry_t *)arg)[opt].dev_pm;
+	char dev_info[STRSIZE];
+	const char *dev_status = "";
+	dev_info[0] = '\0';
+	pm_devs_t *pm_i = ((part_entry_t *)arg)[opt].dev_pm;
 
-	if (pm_devs_i == NULL) 
+	if (pm_i == NULL) 
 		return;
 
 	for (i = 0; i < MAXPARTITIONS; i++) {
-		if (pm_devs_i->bsdlabel[i].pi_mount != 0 &&
-				pm_devs_i->bsdlabel[i].pi_fstype != FS_UNUSED) {
-			strcat(dev_mounts, pm_devs_i->bsdlabel[i].pi_mount);
-			strcat(dev_mounts, " ");
+		if (pm_i->changed) {
+			if (pm_i->bsdlabel[i].pi_flags & PIF_MOUNT &&
+					pm_i->bsdlabel[i].pi_fstype != FS_UNUSED)
+				snprintf(dev_info, STRSIZE, "%s %s", dev_info,
+					pm_i->bsdlabel[i].pi_mount);
+			else if (pm_i->bsdlabel[i].pi_fstype == FS_RAID)
+				snprintf(dev_info, STRSIZE, "%s RAID", dev_info);
+			else if (pm_i->bsdlabel[i].pi_fstype == FS_CGD)
+				snprintf(dev_info, STRSIZE, "%s CGD" , dev_info);
+		} else {
+			if (pm_i->oldlabel[i].pi_fstype == FS_RAID)
+				snprintf(dev_info, STRSIZE, "%s RAID", dev_info);
+			else if (pm_i->oldlabel[i].pi_fstype == FS_CGD)
+				snprintf(dev_info, STRSIZE, "%s CGD" , dev_info);		
 		}
 	}
-	wprintw(m->mw, "%-25s%1s %-20s %4s", pm_devs_i->diskdev_descr,
-			pm_devs_i->changed? "*" : "", dev_mounts,
-			pm_devs_i->bootable? "BOOT" : "");
+	if (! pm_i->changed)
+		dev_status = "UNUSED";
+	else if (pm_i->bootable)
+		dev_status = "BOOT";
+
+	wprintw(m->mw, "%-25s%s %-35s %6s", pm_i->diskdev_descr,
+			pm_i->changed? "*" : " ", dev_info, dev_status);
 	return;
+}
+
+static int
+partman_upddevlist(menudesc *m, void *arg)
+{
+	int i, ii;
+	pm_devs_t *pm_i;
+	if (arg != NULL)
+		((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+
+	find_disks("partman");
+
+	if (m != NULL && arg != NULL) {
+		for (pm_i = pm_head->next, i = 0; pm_i != NULL && i <MAX_DISKS;
+				pm_i = pm_i->next, i++) {
+			m->opts[i].opt_name = NULL;
+			m->opts[i].opt_action = partman_submenu;
+			((part_entry_t *)arg)[i].dev_pm = pm_i;
+		}
+		m->opts[i] = (struct menu_ent) {
+			.opt_name = "Update devices list",
+			.opt_action = partman_upddevlist,
+			.opt_flags = OPT_EXIT,
+		};
+		m->opts[++i] = (struct menu_ent) {
+			.opt_name = "Manage cryptographic volumes (CGD)",
+			.opt_action = partman_cgd_manage,
+		};
+		m->opts[++i] = (struct menu_ent) {
+			.opt_name = "Manage virtual disk images (VND)",
+			.opt_action = partman_vnd_manage,
+		};
+		m->opts[++i] = (struct menu_ent) {
+			.opt_name = "Manage logical volumes (LVM) [WIP]",
+			.opt_action = partman_lvm_manage,
+		};
+		m->opts[++i] = (struct menu_ent) {
+			.opt_name = "Manage software RAIDs",
+			.opt_action = partman_raid_manage,
+		};
+		m->opts[++i] = (struct menu_ent) {
+			.opt_name = "Save changes",
+			.opt_action = partman_commit,
+			.opt_flags = OPT_EXIT,
+		};
+		for (ii = 0; ii <= i; ii++)
+			m->opts[ii].opt_menu = OPT_NOMENU;
+	}
+	return i;
 }
 
 // TODO: switch to langfiles
@@ -1220,55 +1319,17 @@ int
 partman(void)
 {
 	int menu_no;
-	int i, ii;
-	pm_devs_t *pm_devs_i;
-	menu_ent menu_entries[MAX_DISKS];
+	int menu_num_entries;
+	menu_ent menu_entries[MAX_DISKS+6];
 	part_entry_t args[MAX_DISKS];
 
 	do {
 		clear();
 		refresh();
-		partman_upddevlist(NULL, NULL);
-
-		for (pm_devs_i = pm_devs->next, i = 0; pm_devs_i != NULL;
-				pm_devs_i = pm_devs_i->next, i++) {
-			menu_entries[i].opt_name = NULL;
-			menu_entries[i].opt_action = partman_submenu;
-			args[i].dev_pm = pm_devs_i;
-		}
-
-		menu_entries[i] = (struct menu_ent) {
-			.opt_name = "Update devices list",
-			.opt_action = partman_upddevlist,
-		};
-		menu_entries[++i] = (struct menu_ent) {
-			.opt_name = "Manage cryptographic volumes (CGD)",
-			.opt_action = partman_cgd_manage,
-		};
-		menu_entries[++i] = (struct menu_ent) {
-			.opt_name = "Manage virtual disk images (VND)",
-			.opt_action = partman_vnd_manage,
-		};
-		menu_entries[++i] = (struct menu_ent) {
-			.opt_name = "Manage logical volumes (LVM) [WIP]",
-			.opt_action = partman_vnd_manage,
-		};
-		menu_entries[++i] = (struct menu_ent) {
-			.opt_name = "Manage software RAIDs",
-			.opt_action = partman_raid_manage,
-		};
-		menu_entries[++i] = (struct menu_ent) {
-			.opt_name = "Save changes",
-			.opt_action = partman_commit,
-		};
-
-		for (ii = 0; ii <= i; ii++) {
-			menu_entries[ii].opt_menu = OPT_NOMENU;
-			menu_entries[ii].opt_flags = OPT_EXIT;
-		}
-
+		menu_num_entries = partman_upddevlist(&((menudesc) {.opts = menu_entries}), args);
 		menu_no = new_menu("Partition manager. All disks, partitions, LVM, RAID displayed there.\nAt first add drive, then prepare partitions and go.",
-			menu_entries, i+1, 1, 1, 0, 0, MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
+			menu_entries, menu_num_entries+1, 1, 1, 0, 0,
+			MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
 			NULL, partman_menufmt, NULL, NULL, "Finish partitioning");
 		if (menu_no == -1)
 			args[0].retvalue = -1;
