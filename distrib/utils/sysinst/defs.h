@@ -415,6 +415,7 @@ int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char *bootxx_name(void);
 const char *fstype_name(int);
+void label_read(void);
 
 /* from partman.c */
 int	partman(void);

@@ -448,6 +448,9 @@ find_disks(const char *doingwhat)
 		if (pm->dlsize == 0)
 			pm->dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
 		if (pm->dlsize > UINT32_MAX) {
+			if (logfp)
+				fprintf(logfp, "Cannot process disk %s: too big size (%d)\n",
+					pm->diskdev, (int)pm->dlsize); // TODO: localize
 			if (partman_go)
 				continue;
 			msg_display(MSG_toobigdisklabel);
@@ -456,18 +459,12 @@ find_disks(const char *doingwhat)
 		}
 		pm->dlcylsize = pm->dlhead * pm->dlsec;
 
-		/* Get existing/default label */
-		memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
-		incorelabel(pm->diskdev, pm->oldlabel);
-
-		/* Set 'target' label to current label in case we don't change it */
-		memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
+		label_read();
 		if (partman_go) {
 			pm_i->next = pm_found;
 			pm_found = malloc(sizeof (pm_devs_t));
 			memset(pm_found, 0, sizeof *pm_found);
 			pm_found->next = NULL;
-			savenewlabel(pm->oldlabel, getmaxpartitions());
 		} else
 			/* We is not in partman and do not want to process all devices, exit */
 			break;
@@ -487,6 +484,17 @@ find_disks(const char *doingwhat)
 			}
 		}
 	return numdisks;
+}
+
+void
+label_read(void)
+{
+	/* Get existing/default label */
+	memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
+	incorelabel(pm->diskdev, pm->oldlabel);
+	/* Set 'target' label to current label in case we don't change it */
+	memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
+	savenewlabel(pm->oldlabel, getmaxpartitions());
 }
 
 void
