@@ -119,7 +119,9 @@ save_ptn(int ptn, daddr_t start, daddr_t size, int fstype, const char *mountpt)
 	p->pi_size = size;
 	set_ptype(p, fstype, mountpt ? PIF_NEWFS : 0);
 
-	if (mountpt != NULL) {
+	if (mountpt != NULL && ! strcmp(mountpt, "lvm"))
+		p->lvmpv = 1;
+	else if (mountpt != NULL) {
 		for (pp = 0; pp < maxptn; pp++) {
 			if (strcmp(pm->bsdlabel[pp].pi_mount, mountpt) == 0)
 				pm->bsdlabel[pp].pi_flags &= ~PIF_MOUNT;
@@ -218,7 +220,7 @@ set_ptn_size(menudesc *m, void *arg)
 		return 0;
 
 	if (p->mount[0] == 0) {
-		msg_prompt_win(partman_go?"Mountpoint or 'raid' or 'cgd'?":MSG_askfsmount,
+		msg_prompt_win(partman_go?"Mountpoint or 'raid' or 'cgd' or 'lvm'?":MSG_askfsmount,
 			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount);
 		if (p->mount[0] == 0)
 			return 0;
@@ -708,15 +710,19 @@ make_bsd_partitions(void)
 
 	if (layoutkind == LY_SETNEW)
 		get_ptn_sizes(partstart, ptend - partstart, no_swap);
-
-	if (layoutkind == LY_NEWRAID) {
+	
+	else if (layoutkind == LY_NEWRAID) {
 		set_ptype(&(pm->bsdlabel[PART_E]), FS_RAID, 0);
 		pm->bsdlabel[PART_E].pi_size = pm->ptsize;
 	}
-
-	if (layoutkind == LY_NEWCGD) {
+	else if (layoutkind == LY_NEWCGD) {
 		set_ptype(&(pm->bsdlabel[PART_E]), FS_CGD, 0);
 		pm->bsdlabel[PART_E].pi_size = pm->ptsize;
+	}
+	else if (layoutkind == LY_NEWLVM) {
+		set_ptype(&(pm->bsdlabel[PART_E]), FS_BSDFFS, 0);
+		pm->bsdlabel[PART_E].pi_size = pm->ptsize;
+		pm->bsdlabel[PART_E].lvmpv = 1;
 	}
 
 	/*

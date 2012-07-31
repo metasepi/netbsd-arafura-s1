@@ -519,8 +519,11 @@ menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
 	option "Set disk name",		exit, action { msg_prompt_win(MSG_packname, -1,
 								18,	0, 0, pm->bsddiskname, pm->bsddiskname,
 								sizeof pm->bsddiskname); };
-	option "RAID there",		exit, action { *(int *)arg = 1; pm->changed = 1;
+	option "Format as RAID",	exit, action { *(int *)arg = 1; pm->changed = 1;
 												layoutkind = LY_NEWRAID;
+												md_make_bsd_partitions(); };
+	option "Format as LVM PV",		exit, action { *(int *)arg = 1; pm->changed = 1;
+												layoutkind = LY_NEWLVM;
 												md_make_bsd_partitions(); };
 	option "Encrypt",			exit, action { *(int *)arg = 1; pm->changed = 1;
 												layoutkind = LY_NEWCGD;

@@ -85,10 +85,7 @@ deconst(const void *p)
 #define RUN_XFER_DIR	0x0200		/* cd to xfer_dir in child */
 
 /* for bsddisklabel.c */
-#define LY_SETNEW 1
-#define LY_NEWRAID 2
-#define LY_NEWCGD 3
-#define LY_USEEXIST 4
+enum { LY_SETNEW, LY_NEWRAID, LY_NEWCGD, LY_NEWLVM, LY_USEEXIST };
 
 /* Installation sets */
 enum {
@@ -217,6 +214,7 @@ typedef struct _partinfo {
 #define PIF_RESET	0x1000		/* internal - restore previous values */
     const char *mnt_opts;
     const char *fsname;
+    int lvmpv; /* should we use partition as LVM PV? */
 } partinfo;	/* Single partition from a disklabel */
 
 struct ptn_info {
