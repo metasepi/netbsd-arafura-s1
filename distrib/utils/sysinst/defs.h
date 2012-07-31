@@ -420,7 +420,7 @@ int	partman(void);
 int partman_mountmenu(void);
 int partman_shred(char *, int);
 int partman_unconfigure(void);
-int partman_cgd_edit_adddisk(int, pm_devs_t *);
+int partman_cgd_edit_adddisk(void *, pm_devs_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
