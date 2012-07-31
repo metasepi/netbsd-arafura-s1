@@ -1244,7 +1244,7 @@ partman_lvmlv_menufmt(menudesc *m, int opt, void *arg)
 	lv_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
 	if (dev_ptr->size > 0)
-		wprintw(m->mw, "   Logical volume '%s' (%dMB)", dev_ptr->name,
+		wprintw(m->mw, "      Logical volume %-35s %11uM", dev_ptr->name,
 			dev_ptr->size);
 	
 	return;
