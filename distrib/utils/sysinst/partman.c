@@ -71,6 +71,7 @@ typedef struct raids_t {
 	int pm_is_spare[MAX_IN_RAID];
 	int numRow, numCol, numSpare;
 	int sectPerSU, SUsPerParityUnit, SUsPerReconUnit, raid_level;
+	uint total_size;
 	pm_devs_t *pm[MAX_IN_RAID];
 } raids_t;
 raids_t raids[MAX_RAID];
@@ -135,6 +136,7 @@ typedef struct lvms_t {
 	int maxlogicalvolumes;
 	int maxphysicalvolumes;
 	int physicalextentsize;
+	uint total_size;
 	pv_t pv[MAX_LVM_PV];
 	lv_t lv[MAX_LVM_LV];
 } lvms_t;
@@ -156,7 +158,6 @@ typedef struct partman_upddevlist_adv_t {
 	struct partman_upddevlist_adv_t *sub;
 } partman_upddevlist_adv_t;
 
-void *manage_curdev;
 int manage_raid_spare_cur;
 
 enum { /* Raid menu enum */
@@ -183,7 +184,7 @@ enum { /* LVM menu enum */
 };
 
 enum { /* LVM submenu (logical volumes) enum */
-	PMLV_MENU_SIZE, PMLV_MENU_NAME, PMLV_MENU_READONLY, PMLV_MENU_CONTIGUOUS,
+	PMLV_MENU_NAME, PMLV_MENU_SIZE, PMLV_MENU_READONLY, PMLV_MENU_CONTIGUOUS,
 	PMLV_MENU_CHUNKSIZE, PMLV_MENU_EXTENTS, PMLV_MENU_MINOR, PMLV_MENU_MIRRORS,
 	PMLV_MENU_REGIONSIZE, PMLV_MENU_PERSISTENT, PMLV_MENU_READAHEAD,
 	PMLV_MENU_STRIPES, PMLV_MENU_STRIPESIZE, PMLV_MENU_ZERO, 
@@ -193,7 +194,7 @@ enum { /* LVM submenu (logical volumes) enum */
 part_entry_t partman_manage_getdev(int);
 static int partman_raid_disk_add(menudesc *, void *);
 static int partman_raid_disk_del(menudesc *, void *);
-static int partman_cgd_disk_set(part_entry_t *);
+static int partman_cgd_disk_set(cgds_t *, part_entry_t *);
 static void partman_select(pm_devs_t *);
 static int partman_mountall_sort(const void *, const void *);
 static int partman_mountall(void);
@@ -210,15 +211,15 @@ partman_manage_edit(uint menu_entries_count, void (*menu_fmt)(menudesc *, int, v
 	void (*entry_init)(void *, void *),	void* entry_init_arg,
 	void *dev_ptr, structinfo_t *s)
 {
-	int retvalue = 0, ok = 0;
+	int ok = 0;
 	uint i;
 
 	if (dev_ptr == NULL) {
 		/* We should create new device */
 		for (i = 0; i < s->max && !ok; i++)
 			if (*(int*)((char*)s->entry_enabled + s->entry_size * i) == 0) {
-				manage_curdev = (char*)s->entry_first + s->entry_size * i;
-				entry_init(manage_curdev, entry_init_arg);
+				dev_ptr = (char*)s->entry_first + s->entry_size * i;
+				entry_init(dev_ptr, entry_init_arg);
 				ok = 1;
 			}
 		if (!ok) {
@@ -233,7 +234,6 @@ partman_manage_edit(uint menu_entries_count, void (*menu_fmt)(menudesc *, int, v
 				msg_prompt_win("Invalid device!", -1, 18, 0, 0, NULL, NULL, 0);
 			return -2;
 		}
-		manage_curdev = dev_ptr;
 	}
 
 	menu_ent menu_entries[menu_entries_count];
@@ -246,11 +246,10 @@ partman_manage_edit(uint menu_entries_count, void (*menu_fmt)(menudesc *, int, v
 		-1, -1, 0, 40, MC_NOCLEAR | MC_SCROLL,
 		NULL, menu_fmt, NULL, NULL, MSG_DONE);
 	
-	process_menu(menu_no, &retvalue);
+	process_menu(menu_no, dev_ptr);
 	free_menu(menu_no);
 
-	check_fun(manage_curdev);
-	return retvalue;
+	return check_fun(dev_ptr);
 }
 
 /* Show filtered partitions menu */
@@ -283,7 +282,7 @@ partman_manage_getdev(int type)
 			}
 			if (ok) {
 				disk_entries[num_devs].dev_pm = pm_i;
-				disk_entries[num_devs].dev_num = 'a' + i;
+				disk_entries[num_devs].dev_num = i;
 				snprintf(disk_entries[num_devs].fullname, SSTRSIZE, "%s%c",
 						pm_i->diskdev, 'a' + i);
 				menu_entries[num_devs] = (struct menu_ent) {
@@ -317,18 +316,22 @@ static void
 partman_raid_menufmt(menudesc *m, int opt, void *arg)
 {
 	int i, ok = 0;
+	char buf[STRSIZE]; buf[0] = '\0';
 	raids_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
-	if (dev_ptr->enabled != 0) {
-		wprintw(m->mw, "   RAID%d - ", dev_ptr->raid_level);
-		for (i = 0; i < MAX_IN_RAID; i++)
-			if (dev_ptr->pm[i] != NULL) {
-				wprintw(m->mw, "%s ", dev_ptr->pm_name[i]);
-				ok = 1;
-			}
-		if (!ok)
-			wprintw(m->mw, "no components");
-	}
+	if (dev_ptr->enabled == 0)
+		return;
+	for (i = 0; i < MAX_IN_RAID; i++)
+		if (dev_ptr->pm[i] != NULL) {
+			strncat(buf, dev_ptr->pm_name[i], STRSIZE);
+			strncat(buf, " ", STRSIZE);
+			ok = 1;
+		}
+	if (ok)
+		wprintw(m->mw, "   RAID-%1d on %-43s %11uM", dev_ptr->raid_level, buf,
+			dev_ptr->total_size);
+	else
+		wprintw(m->mw, "   EMPTY RAID!");
 	return;
 }
 
@@ -336,42 +339,41 @@ static void
 partman_raid_edit_menufmt(menudesc *m, int opt, void *arg)
 {
 	int i;
-	char buf[STRSIZE];
-	buf[0] = '\0';
+	char buf[STRSIZE]; buf[0] = '\0';
 
 	switch (opt){
 		case PMR_MENU_DEVS:
 			for (i = 0; i < MAX_IN_RAID; i++)
-				if ( ((raids_t*)manage_curdev)->pm[i] != NULL && ((raids_t*)manage_curdev)->pm_is_spare[i] == 0)
-					snprintf(buf, STRSIZE, "%s %s", buf, ((raids_t*)manage_curdev)->pm_name[i]);
+				if ( ((raids_t*)arg)->pm[i] != NULL && ((raids_t*)arg)->pm_is_spare[i] == 0)
+					snprintf(buf, STRSIZE, "%s %s", buf, ((raids_t*)arg)->pm_name[i]);
 			wprintw(m->mw, "Disks: %33s", buf);
 			break;
 		case PMR_MENU_DEVSSPARE:
 			for (i = 0; i < MAX_IN_RAID; i++)
-				if (((raids_t*)manage_curdev)->pm[i] != NULL && ((raids_t*)manage_curdev)->pm_is_spare[i] != 0)
-					snprintf(buf, STRSIZE, "%s %s", buf, ((raids_t*)manage_curdev)->pm_name[i]);
+				if (((raids_t*)arg)->pm[i] != NULL && ((raids_t*)arg)->pm_is_spare[i] != 0)
+					snprintf(buf, STRSIZE, "%s %s", buf, ((raids_t*)arg)->pm_name[i]);
 			wprintw(m->mw, "Spares: %32s", buf);
 			break;
 		case PMR_MENU_RAIDLEVEL:
-			wprintw(m->mw, "RAID level:       %22d", ((raids_t*)manage_curdev)->raid_level);
+			wprintw(m->mw, "RAID level:       %22d", ((raids_t*)arg)->raid_level);
 			break;
 		case PMR_MENU_NUMROW:
-			wprintw(m->mw, "numRow:           %22d", ((raids_t*)manage_curdev)->numRow);
+			wprintw(m->mw, "numRow:           %22d", ((raids_t*)arg)->numRow);
 			break;
 		case PMR_MENU_NUMCOL:
-			wprintw(m->mw, "numCol:           %22d", ((raids_t*)manage_curdev)->numCol);
+			wprintw(m->mw, "numCol:           %22d", ((raids_t*)arg)->numCol);
 			break;
 		case PMR_MENU_NUMSPARE:
-			wprintw(m->mw, "numSpare:         %22d", ((raids_t*)manage_curdev)->numSpare);
+			wprintw(m->mw, "numSpare:         %22d", ((raids_t*)arg)->numSpare);
 			break;
 		case PMR_MENU_SECTPERSU:
-			wprintw(m->mw, "sectPerSU:        %22d", ((raids_t*)manage_curdev)->sectPerSU);
+			wprintw(m->mw, "sectPerSU:        %22d", ((raids_t*)arg)->sectPerSU);
 			break;
 		case PMR_MENU_SUSPERPARITYUNIT:
-			wprintw(m->mw, "SUsPerParityUnit: %22d", ((raids_t*)manage_curdev)->SUsPerParityUnit);
+			wprintw(m->mw, "SUsPerParityUnit: %22d", ((raids_t*)arg)->SUsPerParityUnit);
 			break;
 		case PMR_MENU_SUSPERRECONUNIT:
-			wprintw(m->mw, "SUsPerReconUnit:  %22d", ((raids_t*)manage_curdev)->SUsPerReconUnit);
+			wprintw(m->mw, "SUsPerReconUnit:  %22d", ((raids_t*)arg)->SUsPerReconUnit);
 			break;
 	}
 	return;
@@ -397,46 +399,46 @@ partman_raid_set_value(menudesc *m, void *arg)
 	switch (m->cursel) {
 		case PMR_MENU_DEVS:
 			manage_raid_spare_cur = 0;
-			process_menu(menu_disk_adddel, NULL);
+			process_menu(menu_disk_adddel, arg);
 			return 0;
 		case PMR_MENU_DEVSSPARE:
 			manage_raid_spare_cur = 1;
-			process_menu(menu_disk_adddel, NULL);
+			process_menu(menu_disk_adddel, arg);
 			return 0;
 		case PMR_MENU_RAIDLEVEL:
 			process_menu(MENU_raidlevel, &retvalue);
-			if (retvalue > 0)
-				((raids_t*)manage_curdev)->raid_level = retvalue;
+			if (retvalue >= 0)
+				((raids_t*)arg)->raid_level = retvalue;
 			return 0;
 		case PMR_MENU_NUMROW:
 			msg_prompt_win("Multi-dimensional arrays are NOT supported!",
 							-1, 18, 0, 0, NULL, NULL, 0);
 			return 0;
 			msg_to_show = "numRow?";
-			out_var = &(((raids_t*)manage_curdev)->numRow);
+			out_var = &(((raids_t*)arg)->numRow);
 			break;
 		case PMR_MENU_NUMCOL:
 			msg_to_show = "numCol?";
-			out_var = &(((raids_t*)manage_curdev)->numCol);
+			out_var = &(((raids_t*)arg)->numCol);
 			break;
 		case PMR_MENU_NUMSPARE:
 			msg_to_show = "numSpare?";
-			out_var = &(((raids_t*)manage_curdev)->numSpare);
+			out_var = &(((raids_t*)arg)->numSpare);
 			break;
 		case PMR_MENU_SECTPERSU:
 			msg_to_show = "sectPerSU?";
-			out_var = &(((raids_t*)manage_curdev)->sectPerSU);
+			out_var = &(((raids_t*)arg)->sectPerSU);
 			break;
 		case PMR_MENU_SUSPERPARITYUNIT:
 			msg_to_show = "SUsPerParityUnit?";
-			out_var = &(((raids_t*)manage_curdev)->SUsPerParityUnit);
+			out_var = &(((raids_t*)arg)->SUsPerParityUnit);
 			break;
 		case PMR_MENU_SUSPERRECONUNIT:
 			msg_to_show = "SUsPerReconUnit?";
-			out_var = &(((raids_t*)manage_curdev)->SUsPerReconUnit);
+			out_var = &(((raids_t*)arg)->SUsPerReconUnit);
 			break;
 		case PMR_MENU_REMOVE:
-			((raids_t*)manage_curdev)->enabled = 0;
+			((raids_t*)arg)->enabled = 0;
 			return 0;
 	}
 	if (out_var == NULL || msg_to_show == NULL)
@@ -452,7 +454,7 @@ static void
 partman_raid_new_init(void *dev_ptr, void *none)
 {
 	memset((raids_t*)dev_ptr, 0, sizeof *((raids_t*)dev_ptr));
-	*((raids_t*)manage_curdev) = (struct raids_t) {
+	*((raids_t*)dev_ptr) = (struct raids_t) {
 		.enabled = 1,
 		.sectPerSU = 32,
 		.SUsPerParityUnit = 1,
@@ -464,14 +466,30 @@ partman_raid_new_init(void *dev_ptr, void *none)
 static int
 partman_raid_check(void *dev_ptr)
 {
-	int ok = 0, i;
+	uint i, dev_num = 0, min_size = 0, cur_size = 0;
 	for (i = 0; i < MAX_IN_RAID; i++)
-		if (((raids_t*)dev_ptr)->pm[i] != NULL && 
-				((raids_t*)dev_ptr)->pm_is_spare[i] != 1) {
-			ok = 1;
-			break;
+		if (((raids_t*)dev_ptr)->pm[i] != NULL) {
+			cur_size = ((raids_t*)dev_ptr)->pm[i]->bsdlabel[((raids_t*)dev_ptr)->pm_part[i]].pi_size /
+						(MEG / ((raids_t*)dev_ptr)->pm[i]->sectorsize);
+			if (cur_size < min_size || dev_num == 0)
+				min_size = cur_size;
+			if (!((raids_t*)dev_ptr)->pm_is_spare[i])
+				dev_num++;
 		}
-	if (! ok)
+	if (dev_num > 0)
+		switch (((raids_t*)dev_ptr)->raid_level) {
+			case 0:
+				((raids_t*)dev_ptr)->total_size = min_size * dev_num;
+				break;
+			case 1:
+				((raids_t*)dev_ptr)->total_size = min_size;
+				break;
+			case 4:
+			case 5:
+				((raids_t*)dev_ptr)->total_size = min_size * (dev_num - 1);
+				break;
+		}
+	else
 		((raids_t*)dev_ptr)->enabled = 0;
 	return ((raids_t*)dev_ptr)->enabled;
 }
@@ -480,21 +498,21 @@ static int
 partman_raid_disk_add(menudesc *m, void *arg)
 {
 	int i;
-	part_entry_t disk_entries = partman_manage_getdev(PM_RAID_T);
-	if (disk_entries.retvalue < 0)
-		return disk_entries.retvalue;
+	part_entry_t disk_entrie = partman_manage_getdev(PM_RAID_T);
+	if (disk_entrie.retvalue < 0)
+		return disk_entrie.retvalue;
 
 	for (i = 0; i < MAX_IN_RAID; i++)
-		if (((raids_t*)manage_curdev)->pm[i] == NULL) {
-			((raids_t*)manage_curdev)->pm[i] = disk_entries.dev_pm;
-			((raids_t*)manage_curdev)->pm_part[i] = disk_entries.dev_num;
-			((raids_t*)manage_curdev)->pm_is_spare[i] = manage_raid_spare_cur;
-			strncpy(((raids_t*)manage_curdev)->pm_name[i], disk_entries.fullname, SSTRSIZE);
+		if (((raids_t*)arg)->pm[i] == NULL) {
+			((raids_t*)arg)->pm[i] = disk_entrie.dev_pm;
+			((raids_t*)arg)->pm_part[i] = disk_entrie.dev_num;
+			((raids_t*)arg)->pm_is_spare[i] = manage_raid_spare_cur;
+			strncpy(((raids_t*)arg)->pm_name[i], disk_entrie.fullname, SSTRSIZE);
 			if (manage_raid_spare_cur)
-				((raids_t*)manage_curdev)->numSpare++;
+				((raids_t*)arg)->numSpare++;
 			else
-				((raids_t*)manage_curdev)->numCol++;
-			((raids_t*)manage_curdev)->numRow = 1;
+				((raids_t*)arg)->numCol++;
+			((raids_t*)arg)->numRow = 1;
 			break;
 		}
 	return 0;
@@ -510,11 +528,11 @@ partman_raid_disk_del(menudesc *m, void *arg)
 	part_entry_t submenu_args[MAX_IN_RAID];
 
 	for (i = 0; i < MAX_IN_RAID; i++) {
-		if (((raids_t*)manage_curdev)->pm[i] == NULL ||
-			((raids_t*)manage_curdev)->pm_is_spare[i] != manage_raid_spare_cur)
+		if (((raids_t*)arg)->pm[i] == NULL ||
+			((raids_t*)arg)->pm_is_spare[i] != manage_raid_spare_cur)
 			continue;
 		menu_entries[num_devs] = (struct menu_ent) {
-			.opt_name = ((raids_t*)manage_curdev)->pm_name[i],
+			.opt_name = ((raids_t*)arg)->pm_name[i],
 			.opt_action = set_menu_select,
 			.opt_menu = OPT_NOMENU,
 			.opt_flags = OPT_EXIT,
@@ -536,12 +554,12 @@ partman_raid_disk_del(menudesc *m, void *arg)
 
 	pm_cur = submenu_args[retvalue].dev_num;
 
-	if (((raids_t*)manage_curdev)->pm_is_spare[pm_cur])
-		((raids_t*)manage_curdev)->numSpare--;
+	if (((raids_t*)arg)->pm_is_spare[pm_cur])
+		((raids_t*)arg)->numSpare--;
 	else
-		((raids_t*)manage_curdev)->numCol--;
-	((raids_t*)manage_curdev)->numRow = (((raids_t*)manage_curdev)->numCol)?1:0;
-	((raids_t*)manage_curdev)->pm[pm_cur] = NULL;
+		((raids_t*)arg)->numCol--;
+	((raids_t*)arg)->numRow = (((raids_t*)arg)->numCol)?1:0;
+	((raids_t*)arg)->pm[pm_cur] = NULL;
 
 	return 0;
 }
@@ -630,64 +648,64 @@ partman_vnd_menufmt(menudesc *m, int opt, void *arg)
 {
 	vnds_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
-	if (dev_ptr->enabled != 0) {
-		if (strlen(dev_ptr->filepath) < 1)
-			wprintw(m->mw, "   PATH NOT DEFINED!");
-		else if (dev_ptr->assign_pm)
-			wprintw(m->mw, "   %s (assign exist image)", dev_ptr->filepath);
-		else 
-			wprintw(m->mw, "   %s (%dMB)", dev_ptr->filepath, dev_ptr->size);
-	}
+	if (dev_ptr->enabled == 0)
+		return;
+	if (strlen(dev_ptr->filepath) < 1)
+		wprintw(m->mw, "   PATH NOT DEFINED!");
+	else if (dev_ptr->is_exist)
+		wprintw(m->mw, "   %-59s ASSIGN", dev_ptr->filepath);
+	else 
+		wprintw(m->mw, "   %-53s %11uM", dev_ptr->filepath, dev_ptr->size);
 	return;
 }
 
 static void
 partman_vnd_edit_menufmt(menudesc *m, int opt, void *arg)
 {
+	vnds_t *dev_ptr = arg;
 	char buf[SSTRSIZE];
 	strcpy(buf, "-");
 
 	switch (opt){
 		case PMV_MENU_FILEPATH:
-			wprintw(m->mw, "File path: %29s", ((vnds_t*)manage_curdev)->filepath);
+			wprintw(m->mw, "File path: %29s", dev_ptr->filepath);
 			break;
 		case PMV_MENU_EXIST:
-			wprintw(m->mw, "Assign exist image: %20s", ((vnds_t*)manage_curdev)->is_exist?"yes":"no");
+			wprintw(m->mw, "Assign exist image: %20s", dev_ptr->is_exist?"yes":"no");
 			break;
 		case PMV_MENU_SIZE:
-			if (!((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%d", ((vnds_t*)manage_curdev)->size);
+			if (!dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%d", dev_ptr->size);
 			wprintw(m->mw, "Size (MB):        %22s", buf);
 			break;
 		case PMV_MENU_RO:
-			wprintw(m->mw, "Read-only:        %22s", ((vnds_t*)manage_curdev)->readonly?"yes":"no");
+			wprintw(m->mw, "Read-only:        %22s", dev_ptr->readonly?"yes":"no");
 			break;
 		case PMV_MENU_MGEOM:
-			if (!((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%s", ((vnds_t*)manage_curdev)->manual_geom?"yes":"no");
+			if (!dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%s", dev_ptr->manual_geom?"yes":"no");
 			wprintw(m->mw, "Set geometry by hand: %18s", buf);
 			break;
 		case PMV_MENU_SECSIZE:
-			if (((vnds_t*)manage_curdev)->manual_geom && !((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%d", ((vnds_t*)manage_curdev)->secsize);
+			if (dev_ptr->manual_geom && !dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%d", dev_ptr->secsize);
 			wprintw(m->mw, "Bytes per Sector:     %18s", buf);
 			break;
 		case PMV_MENU_NSECTORS:
-			if (((vnds_t*)manage_curdev)->manual_geom && !((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%d", ((vnds_t*)manage_curdev)->nsectors);
+			if (dev_ptr->manual_geom && !dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%d", dev_ptr->nsectors);
 			wprintw(m->mw, "Sectors per Track:    %18s", buf);
 			break;
 		case PMV_MENU_NTRACKS:
-			if (((vnds_t*)manage_curdev)->manual_geom && !((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%d", ((vnds_t*)manage_curdev)->ntracks);
+			if (dev_ptr->manual_geom && !dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%d", dev_ptr->ntracks);
 			wprintw(m->mw, "Tracks per Cylinder:  %18s", buf);
 			break;
 		case PMV_MENU_NCYLINDERS:
-			if (((vnds_t*)manage_curdev)->manual_geom && !((vnds_t*)manage_curdev)->is_exist)
-				snprintf(buf, SSTRSIZE, "%d", ((vnds_t*)manage_curdev)->ncylinders);
+			if (dev_ptr->manual_geom && !dev_ptr->is_exist)
+				snprintf(buf, SSTRSIZE, "%d", dev_ptr->ncylinders);
 			wprintw(m->mw, "Cylinders:        %22s", buf);
 			break;
-
 	}
 	return;
 }
@@ -695,58 +713,59 @@ partman_vnd_edit_menufmt(menudesc *m, int opt, void *arg)
 static int
 partman_vnd_set_value(menudesc *m, void *arg)
 {
+	vnds_t *dev_ptr = arg;
 	char buf[SSTRSIZE];
 	const char *msg_to_show = NULL;
 	int *out_var = NULL;
 	
 	switch (m->cursel) {
 		case PMV_MENU_FILEPATH:
-			msg_prompt_win("File path?", -1, 18, 0, 0, ((vnds_t*)manage_curdev)->filepath,
-				((vnds_t*)manage_curdev)->filepath, STRSIZE);
+			msg_prompt_win("File path?", -1, 18, 0, 0, dev_ptr->filepath,
+				dev_ptr->filepath, STRSIZE);
 			return 0;
 		case PMV_MENU_EXIST:
-			((vnds_t*)manage_curdev)->is_exist = !((vnds_t*)manage_curdev)->is_exist;
+			dev_ptr->is_exist = !dev_ptr->is_exist;
 			return 0;
 		case PMV_MENU_SIZE:
-			if (((vnds_t*)manage_curdev)->is_exist)
+			if (dev_ptr->is_exist)
 				return 0;
 			msg_to_show = "Size (MB)";
-			out_var = &(((vnds_t*)manage_curdev)->size);
+			out_var = &(dev_ptr->size);
 			break;
 		case PMV_MENU_RO:
-			((vnds_t*)manage_curdev)->readonly = !((vnds_t*)manage_curdev)->readonly;
+			dev_ptr->readonly = !dev_ptr->readonly;
 			return 0;
 		case PMV_MENU_MGEOM:
-			if (((vnds_t*)manage_curdev)->is_exist)
+			if (dev_ptr->is_exist)
 				return 0;
-			((vnds_t*)manage_curdev)->manual_geom = !((vnds_t*)manage_curdev)->manual_geom;
+			dev_ptr->manual_geom = !dev_ptr->manual_geom;
 			return 0;
 		case PMV_MENU_SECSIZE:
-			if (!((vnds_t*)manage_curdev)->manual_geom || ((vnds_t*)manage_curdev)->is_exist)
+			if (!dev_ptr->manual_geom || dev_ptr->is_exist)
 				return 0;
 			msg_to_show = "Bytes per Sector";
-			out_var = &(((vnds_t*)manage_curdev)->secsize);
+			out_var = &(dev_ptr->secsize);
 			break;
 		case PMV_MENU_NSECTORS:
-			if (!((vnds_t*)manage_curdev)->manual_geom || ((vnds_t*)manage_curdev)->is_exist)
+			if (!dev_ptr->manual_geom || dev_ptr->is_exist)
 				return 0;
 			msg_to_show = "Sectors per Track";
-			out_var = &(((vnds_t*)manage_curdev)->nsectors);
+			out_var = &(dev_ptr->nsectors);
 			break;
 		case PMV_MENU_NTRACKS:
-			if (!((vnds_t*)manage_curdev)->manual_geom || ((vnds_t*)manage_curdev)->is_exist)
+			if (!dev_ptr->manual_geom || dev_ptr->is_exist)
 				return 0;
 			msg_to_show = "Tracks per Cylinder";
-			out_var = &(((vnds_t*)manage_curdev)->ntracks);
+			out_var = &(dev_ptr->ntracks);
 			break;
 		case PMV_MENU_NCYLINDERS:
-			if (!((vnds_t*)manage_curdev)->manual_geom || ((vnds_t*)manage_curdev)->is_exist)
+			if (!dev_ptr->manual_geom || dev_ptr->is_exist)
 				return 0;
 			msg_to_show = "Cylinders";
-			out_var = &(((vnds_t*)manage_curdev)->ncylinders);
+			out_var = &(dev_ptr->ncylinders);
 			break;
 		case PMV_MENU_REMOVE:
-			((vnds_t*)manage_curdev)->enabled = 0;
+			dev_ptr->enabled = 0;
 			return 0;
 	}
 	if (out_var == NULL || msg_to_show == NULL)
@@ -840,13 +859,17 @@ static void
 partman_cgd_menufmt(menudesc *m, int opt, void *arg)
 {
 	cgds_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
+	char enc_desc[STRSIZE];
 
-	if (dev_ptr->enabled != 0) {
-		if (dev_ptr->pm == NULL)
-			wprintw(m->mw, "   DISK NOT DEFINED!");
-		else
-			wprintw(m->mw, "   %s%c (%s-%d)", dev_ptr->pm->diskdev,
-				dev_ptr->pm_part, dev_ptr->enc_type, dev_ptr->key_size);
+	if (dev_ptr->enabled == 0)
+		return;
+	if (dev_ptr->pm == NULL)
+		wprintw(m->mw, "   DISK NOT DEFINED!");
+	else {
+		snprintf(enc_desc, STRSIZE, "%s-%d", dev_ptr->enc_type, dev_ptr->key_size);
+		wprintw(m->mw, "   %-30s %-22s %11uM", dev_ptr->pm_name, enc_desc,
+			dev_ptr->pm->bsdlabel[dev_ptr->pm_part].pi_size /
+							(MEG / dev_ptr->pm->sectorsize));
 	}
 	return;
 }
@@ -854,24 +877,25 @@ partman_cgd_menufmt(menudesc *m, int opt, void *arg)
 static void
 partman_cgd_edit_menufmt(menudesc *m, int opt, void *arg)
 {
+	cgds_t *dev_ptr = arg;
 	switch (opt){
 		case PMC_MENU_DEV:
-			wprintw(m->mw, "Base device:    %24s", ((cgds_t*)manage_curdev)->pm_name);
+			wprintw(m->mw, "Base device:    %24s", dev_ptr->pm_name);
 			break;
 		case PMC_MENU_ENCTYPE:
-			wprintw(m->mw, "Encyption:      %24s", ((cgds_t*)manage_curdev)->enc_type);
+			wprintw(m->mw, "Encyption:      %24s", dev_ptr->enc_type);
 			break;
 		case PMC_MENU_KEYSIZE:
-			wprintw(m->mw, "Key size:       %24d", ((cgds_t*)manage_curdev)->key_size);
+			wprintw(m->mw, "Key size:       %24d", dev_ptr->key_size);
 			break;
 		case PMC_MENU_IVTYPE:
-			wprintw(m->mw, "IV algorithm:   %24s", ((cgds_t*)manage_curdev)->iv_type);
+			wprintw(m->mw, "IV algorithm:   %24s", dev_ptr->iv_type);
 			break;
 		case PMC_MENU_KEYGENTYPE:
-			wprintw(m->mw, "Key generation: %24s", ((cgds_t*)manage_curdev)->keygen_type);
+			wprintw(m->mw, "Key generation: %24s", dev_ptr->keygen_type);
 			break;
 		case PMC_MENU_VERIFYTYPE:
-			wprintw(m->mw, "Verification method:   %17s", ((cgds_t*)manage_curdev)->verify_type);
+			wprintw(m->mw, "Verification method:   %17s", dev_ptr->verify_type);
 			break;
 	}
 	return;
@@ -881,42 +905,43 @@ static int
 partman_cgd_set_value(menudesc *m, void *arg)
 {
 	char *retstring;
+	cgds_t *dev_ptr = arg;
 
 	switch (m->cursel) {
 		case PMC_MENU_DEV:
-			partman_cgd_disk_set(NULL);
+			partman_cgd_disk_set(dev_ptr, NULL);
 			return 0;
 		case PMC_MENU_ENCTYPE:
 			process_menu(MENU_cgd_enctype, &retstring);
-			((cgds_t*)manage_curdev)->enc_type = retstring;
+			dev_ptr->enc_type = retstring;
 			if (! strcmp(retstring, "blowfish-cbc"))
-				((cgds_t*)manage_curdev)->key_size = 128;
+				dev_ptr->key_size = 128;
 			if (! strcmp(retstring, "3des-cbc"))
-				((cgds_t*)manage_curdev)->key_size = 192;
+				dev_ptr->key_size = 192;
 			return 0;
 		case PMC_MENU_KEYSIZE:
-			if (! strcmp(((cgds_t*)manage_curdev)->enc_type, "aes-cbc"))
-				((cgds_t*)manage_curdev)->key_size +=
-					(((cgds_t*)manage_curdev)->key_size < 256)? 64 : -128;
-			if (! strcmp(((cgds_t*)manage_curdev)->enc_type, "blowfish-cbc"))
-				((cgds_t*)manage_curdev)->key_size = 128;
-			if (! strcmp(((cgds_t*)manage_curdev)->enc_type, "3des-cbc"))
-				((cgds_t*)manage_curdev)->key_size = 192;
+			if (! strcmp(dev_ptr->enc_type, "aes-cbc"))
+				dev_ptr->key_size +=
+					(dev_ptr->key_size < 256)? 64 : -128;
+			if (! strcmp(dev_ptr->enc_type, "blowfish-cbc"))
+				dev_ptr->key_size = 128;
+			if (! strcmp(dev_ptr->enc_type, "3des-cbc"))
+				dev_ptr->key_size = 192;
 			return 0;
 		case PMC_MENU_IVTYPE:
 			process_menu(MENU_cgd_ivtype, &retstring);
-			((cgds_t*)manage_curdev)->iv_type = retstring;
+			dev_ptr->iv_type = retstring;
 			return 0;
 		case PMC_MENU_KEYGENTYPE:
 			process_menu(MENU_cgd_keygentype, &retstring);
-			((cgds_t*)manage_curdev)->keygen_type = retstring;
+			dev_ptr->keygen_type = retstring;
 			return 0;
 		case PMC_MENU_VERIFYTYPE:
 			process_menu(MENU_cgd_verifytype, &retstring);
-			((cgds_t*)manage_curdev)->verify_type = retstring;
+			dev_ptr->verify_type = retstring;
 			return 0;
 		case PMC_MENU_REMOVE:
-			((cgds_t*)manage_curdev)->enabled = 0;
+			dev_ptr->enabled = 0;
 			return 0;
 	}
 	return -1;
@@ -941,10 +966,10 @@ partman_cgd_new_init(void *dev_ptr, void *assign_pm)
 	};
 	if (assign_pm != NULL) {
 			disk_entrie.dev_pm = assign_pm;
-			disk_entrie.dev_num = 'a' + PART_E;
+			disk_entrie.dev_num = PART_E;
 			snprintf(disk_entrie.fullname, SSTRSIZE, "%s%c",
 				pm->diskdev, 'a' + PART_E);
-		partman_cgd_disk_set(&disk_entrie);
+		partman_cgd_disk_set(dev_ptr, &disk_entrie);
 	}
 	return;
 }
@@ -958,7 +983,7 @@ partman_cgd_check(void *dev_ptr)
 }
 
 static int
-partman_cgd_disk_set(part_entry_t *disk_entrie)
+partman_cgd_disk_set(cgds_t *dev_ptr, part_entry_t *disk_entrie)
 {
 	int alloc_disk_entrie = 0;
 	if (disk_entrie == NULL) {
@@ -972,9 +997,9 @@ partman_cgd_disk_set(part_entry_t *disk_entrie)
 			return -1;
 		}
 	}
-	((cgds_t*)manage_curdev)->pm = disk_entrie->dev_pm;
-	((cgds_t*)manage_curdev)->pm_part = disk_entrie->dev_num;
-	strncpy(((cgds_t*)manage_curdev)->pm_name, disk_entrie->fullname, SSTRSIZE);
+	dev_ptr->pm = disk_entrie->dev_pm;
+	dev_ptr->pm_part = disk_entrie->dev_num;
+	strncpy(dev_ptr->pm_name, disk_entrie->fullname, SSTRSIZE);
 
 	if (alloc_disk_entrie)
 		free(disk_entrie);
@@ -1002,21 +1027,24 @@ partman_cgd_edit(menudesc *m, void *arg)
 static int
 partman_cgd_commit(void)
 {
-	int i;
+	int i, error = 0;
 	for (i = 0; i < MAX_CGD; i++) {
 		if (! partman_cgd_check(&cgds[i]))
 			continue;
 		if (run_program(RUN_DISPLAY, "cgdconfig -g -i %s -k %s -o /tmp/%s %s %d",
 			cgds[i].iv_type, cgds[i].keygen_type, cgds[i].pm_name,
-			cgds[i].enc_type, cgds[i].key_size) != 0)
+			cgds[i].enc_type, cgds[i].key_size) != 0) {
+			error++;
 			continue;
+		}
 		if (run_program(RUN_DISPLAY, "cgdconfig -V re-enter cgd%d /dev/%s /tmp/%s",
-			i, cgds[i].pm_name, cgds[i].pm_name) != 0)
+			i, cgds[i].pm_name, cgds[i].pm_name) != 0) {
+			error++;
 			continue;
+		}
 		cgds[i].enabled = 0;
 	}
-
-	return 0;
+	return error;
 }
 
 /*** LVM ***/
@@ -1030,10 +1058,10 @@ partman_lvm_disk_add(menudesc *m, void *arg)
 		return disk_entries.retvalue;
 
 	for (i = 0; i < MAX_LVM_PV; i++)
-		if (((lvms_t*)manage_curdev)->pv[i].pm == NULL) {
-			((lvms_t*)manage_curdev)->pv[i].pm = disk_entries.dev_pm;
-			((lvms_t*)manage_curdev)->pv[i].pm_part = disk_entries.dev_num;
-			strncpy(((lvms_t*)manage_curdev)->pv[i].pm_name, disk_entries.fullname, SSTRSIZE);
+		if (((lvms_t*)arg)->pv[i].pm == NULL) {
+			((lvms_t*)arg)->pv[i].pm = disk_entries.dev_pm;
+			((lvms_t*)arg)->pv[i].pm_part = disk_entries.dev_num;
+			strncpy(((lvms_t*)arg)->pv[i].pm_name, disk_entries.fullname, SSTRSIZE);
 			break;
 		}
 	return 0;
@@ -1048,10 +1076,10 @@ partman_lvm_disk_del(menudesc *m, void *arg)
 	part_entry_t submenu_args[MAX_LVM_PV];
 
 	for (i = 0; i < MAX_LVM_PV; i++) {
-		if (((lvms_t*)manage_curdev)->pv[i].pm == NULL)
+		if (((lvms_t*)arg)->pv[i].pm == NULL)
 			continue;
 		menu_entries[num_devs] = (struct menu_ent) {
-			.opt_name = ((lvms_t*)manage_curdev)->pv[i].pm_name,
+			.opt_name = ((lvms_t*)arg)->pv[i].pm_name,
 			.opt_action = set_menu_select,
 			.opt_menu = OPT_NOMENU,
 			.opt_flags = OPT_EXIT,
@@ -1071,7 +1099,7 @@ partman_lvm_disk_del(menudesc *m, void *arg)
 	if (retvalue < 0 || retvalue >= num_devs)
 		return -1;
 
-	((lvms_t*)manage_curdev)->pv[submenu_args[retvalue].dev_num].pm = NULL;
+	((lvms_t*)arg)->pv[submenu_args[retvalue].dev_num].pm = NULL;
 
 	return 0;
 }
@@ -1080,18 +1108,23 @@ static void
 partman_lvm_menufmt(menudesc *m, int opt, void *arg)
 {
 	int i, ok = 0;
+	char buf[STRSIZE]; buf[0] = '\0';
 	lvms_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
-	if (dev_ptr->enabled != 0) {
-		wprintw(m->mw, "   Volume Group '%s' - ", dev_ptr->name);
-		for (i = 0; i < MAX_LVM_PV; i++)
-			if (dev_ptr->pv[i].pm != NULL) {
-				wprintw(m->mw, "%s ", dev_ptr->pv[i].pm_name);
-				ok = 1;
-			}
-		if (!ok)
-			wprintw(m->mw, "no components");
-	}
+	if (dev_ptr->enabled == 0)
+		return;
+	snprintf(buf, STRSIZE, "VG '%s' on ", dev_ptr->name);
+	for (i = 0; i < MAX_LVM_PV; i++)
+		if (dev_ptr->pv[i].pm != NULL) {
+			strncat(buf, dev_ptr->pv[i].pm_name, STRSIZE);
+			strncat(buf, " ", STRSIZE);
+			ok = 1;
+		}
+	if (ok)
+		wprintw(m->mw, "   %-53s %11uM", buf,
+			dev_ptr->total_size);
+	else
+		wprintw(m->mw, "   EMPTY VG!");
 	return;
 }
 
@@ -1105,21 +1138,21 @@ partman_lvm_edit_menufmt(menudesc *m, int opt, void *arg)
 	switch (opt){
 		case PML_MENU_PV:
 			for (i = 0; i < MAX_LVM_PV; i++)
-				if (((lvms_t*)manage_curdev)->pv[i].pm != NULL)
-					snprintf(buf, STRSIZE, "%s %s", buf, ((lvms_t*)manage_curdev)->pv[i].pm_name);
+				if (((lvms_t*)arg)->pv[i].pm != NULL)
+					snprintf(buf, STRSIZE, "%s %s", buf, ((lvms_t*)arg)->pv[i].pm_name);
 			wprintw(m->mw, "PV's: %34s", buf);
 			break;
 		case PML_MENU_NAME:
-			wprintw(m->mw, "Name: %34s", ((lvms_t*)manage_curdev)->name);
+			wprintw(m->mw, "Name: %34s", ((lvms_t*)arg)->name);
 			break;
 		case PML_MENU_MAXLOGICALVOLUMES:
-			wprintw(m->mw, "MaxLogicalVolumes:  %20d", ((lvms_t*)manage_curdev)->maxlogicalvolumes);
+			wprintw(m->mw, "MaxLogicalVolumes:  %20d", ((lvms_t*)arg)->maxlogicalvolumes);
 			break;
 		case PML_MENU_MAXPHYSICALVOLUMES:
-			wprintw(m->mw, "MaxPhysicalVolumes: %20d", ((lvms_t*)manage_curdev)->maxphysicalvolumes);
+			wprintw(m->mw, "MaxPhysicalVolumes: %20d", ((lvms_t*)arg)->maxphysicalvolumes);
 			break;
 		case PML_MENU_PHYSICALEXTENTSIZE:
-			wprintw(m->mw, "PhysicalExtentSize: %18dMB", ((lvms_t*)manage_curdev)->physicalextentsize);
+			wprintw(m->mw, "PhysicalExtentSize: %18dMB", ((lvms_t*)arg)->physicalextentsize);
 			break;
 	}
 	return;
@@ -1141,14 +1174,14 @@ partman_lvm_set_value(menudesc *m, void *arg)
 	switch (m->cursel) {
 		case PML_MENU_PV:
 			manage_raid_spare_cur = 0;
-			process_menu(menu_disk_adddel, NULL);
+			process_menu(menu_disk_adddel, arg);
 			return 0;
 		case PML_MENU_NAME:
-			msg_prompt_win("Name?", -1, 18, 0, 0, ((lvms_t*)manage_curdev)->name,
-				((lvms_t*)manage_curdev)->name, SSTRSIZE);
+			msg_prompt_win("Name?", -1, 18, 0, 0, ((lvms_t*)arg)->name,
+				((lvms_t*)arg)->name, SSTRSIZE);
 			return 0;
 		case PML_MENU_REMOVE:
-			((lvms_t*)manage_curdev)->enabled = 0;
+			((lvms_t*)arg)->enabled = 0;
 			return 0;
 		case PML_MENU_MAXLOGICALVOLUMES:
 			// TODO: fsdgf
@@ -1173,18 +1206,22 @@ partman_lvm_new_init(void *dev_ptr, void* none)
 		.maxphysicalvolumes = MAX_LVM_LV,
 		.physicalextentsize = 4,
 	};
-	sprintf(((lvms_t*)manage_curdev)->name, "vg%.2d", rand());
+	sprintf(((lvms_t*)dev_ptr)->name, "vg%.2d", rand()%100);
 	return;
 }
 
 static int
 partman_lvm_check(void *dev_ptr)
 {
-	int ok = 0, i;
+	int i, ok = 0;
+	((lvms_t*)dev_ptr)->total_size = 0;
+
 	for (i = 0; i < MAX_LVM_PV; i++)
 		if (((lvms_t*)dev_ptr)->pv[i].pm != NULL) {
 			ok = 1;
-			break;
+			((lvms_t*)dev_ptr)->total_size += ((lvms_t*)dev_ptr)->pv[i].pm->
+						bsdlabel[((lvms_t*)dev_ptr)->pv[i].pm_part].pi_size /
+						(MEG / ((lvms_t*)dev_ptr)->pv[i].pm->sectorsize);
 		}
 	if (! ok)
 		((lvms_t*)dev_ptr)->enabled = 0;
@@ -1204,12 +1241,11 @@ partman_lvm_edit(menudesc *m, void *arg)
 static void
 partman_lvmlv_menufmt(menudesc *m, int opt, void *arg)
 {
-	int num, ok = 0;
+	lv_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
-	num = ((part_entry_t *)arg)[opt].dev_num;
-
-		if (!ok)
-			wprintw(m->mw, "no components");
+	if (dev_ptr->size > 0)
+		wprintw(m->mw, "   Logical volume '%s' (%dMB)", dev_ptr->name,
+			dev_ptr->size);
 	
 	return;
 }
@@ -1219,7 +1255,46 @@ partman_lvmlv_edit_menufmt(menudesc *m, int opt, void *arg)
 {
 	switch (opt){
 		case PMLV_MENU_NAME:
-			wprintw(m->mw, "Name: %34s", ((lv_t*)manage_curdev)->name);
+			wprintw(m->mw, "Name: %34s", ((lv_t*)arg)->name);
+			break;
+		case PMLV_MENU_SIZE:
+			wprintw(m->mw, "Size: %34d", ((lv_t*)arg)->size);
+			break;
+		case PMLV_MENU_READONLY:
+			wprintw(m->mw, "Read-only:   %27s", ((lv_t*)arg)->readonly?"yes":"no");
+			break;
+		case PMLV_MENU_CONTIGUOUS:
+			wprintw(m->mw, "Contiguous:  %27s", ((lv_t*)arg)->contiguous?"yes":"no");
+			break;
+		case PMLV_MENU_CHUNKSIZE:
+			wprintw(m->mw, "ChunkSize:   %27d", ((lv_t*)arg)->chunksize);
+			break;
+		case PMLV_MENU_EXTENTS:
+			wprintw(m->mw, "LogicalExtentsNumber: %18s", ((lv_t*)arg)->extents);
+			break;
+		case PMLV_MENU_MINOR:
+			wprintw(m->mw, "Minor number: %26d", ((lv_t*)arg)->minor);
+			break;
+		case PMLV_MENU_MIRRORS:
+			wprintw(m->mw, "Mirrors:     %27d", ((lv_t*)arg)->mirrors);
+			break;
+		case PMLV_MENU_REGIONSIZE:
+			wprintw(m->mw, "MirrorLogRegionSize:  %18d", ((lv_t*)arg)->regionsize);
+			break;
+		case PMLV_MENU_PERSISTENT:
+			wprintw(m->mw, "Persistent:  %27s", ((lv_t*)arg)->persistent?"yes":"no");
+			break;
+		case PMLV_MENU_READAHEAD:
+			wprintw(m->mw, "ReadAheadSectors:     %18d", ((lv_t*)arg)->readahead);
+			break;
+		case PMLV_MENU_STRIPES:
+			wprintw(m->mw, "Stripes:     %27d", ((lv_t*)arg)->stripes);
+			break;
+		case PMLV_MENU_STRIPESIZE:
+			wprintw(m->mw, "StripeSize:  %27d", ((lv_t*)arg)->stripesize);
+			break;
+		case PMLV_MENU_ZERO:
+			wprintw(m->mw, "Zero: %34s", ((lv_t*)arg)->zero?"yes":"no");
 			break;
 	}
 	return;
@@ -1230,7 +1305,7 @@ partman_lvmlv_set_value(menudesc *m, void *arg)
 {
 	switch (m->cursel) {
 		case PMLV_MENU_REMOVE:
-			((lv_t*)manage_curdev)->size = 0;
+			((lv_t*)arg)->size = 0;
 			return 0;
 			break;
 	}
@@ -1244,17 +1319,20 @@ partman_lvmlv_new_init(void *dev_ptr, void *none)
 	*((lv_t*)dev_ptr) = (struct lv_t) {
 		.size = 1024,
 	};
+	sprintf(((lvms_t*)dev_ptr)->name, "lvol%.2d", rand()%100);
 	return;
 }
 
 static int
 partman_lvmlv_check(void *dev_ptr)
 {
-	if (((lv_t*)manage_curdev)->size > 0 ||
-		strlen(((lv_t*)manage_curdev)->name) > 0)
+	if (((lv_t*)dev_ptr)->size > 0 &&
+		strlen(((lv_t*)dev_ptr)->name) > 0)
 		return 1;
-	else
+	else {
+		((lv_t*)dev_ptr)->size = 0;
 		return 0;
+	}
 }
 
 static int
@@ -1586,7 +1664,7 @@ partman_upddevlist_adv(void *arg, menudesc *m, int *i,
 {
 	uint ii;
 	if (d->create_msg != NULL) {
-		/* We want menu entrie for to create new device */
+		/* We want menu entrie for creating new device */
 		((part_entry_t *)arg)[*i].dev_ptr = NULL;
 		m->opts[(*i)++] = (struct menu_ent) {
 			.opt_name = d->create_msg,
