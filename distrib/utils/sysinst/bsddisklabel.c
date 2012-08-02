@@ -52,8 +52,6 @@
 #include "msg_defs.h"
 #include "menu_defs.h"
 
-static int check_partitions(void);
-
 /* For the current state of this file blame abs@NetBSD.org */
 /* Even though he wasn't the last to hack it, but he did admit doing so :-) */
 
@@ -348,6 +346,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	int sm;				/* sectors in 1MB */
 	struct ptn_size *p;
 	daddr_t size;
+	static int swap_created = 0, root_created = 0;
 
 	if (pm->pi.menu_no < 0)
 	pm->pi = (struct ptn_info) { -1, {
@@ -384,7 +383,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 
 	if (pm->pi.menu_no < 0) {
 		/* If there is a swap partition elsewhere, don't add one here.*/
-		if (no_swap) {
+		if (no_swap || swap_created) {
 			pm->pi.ptn_sizes[PI_SWAP].size = 0;
 		} else {
 #if DEFSWAPSIZE == -1
@@ -451,6 +450,11 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 		if (pm->pi.free_space > i) {
 			pm->pi.ptn_sizes[PI_ROOT].size += i;
 			pm->pi.free_space -= i;
+		}
+
+		if (root_created) {
+			pm->pi.ptn_sizes[PI_ROOT].size = 0;
+			pm->pi.pool_part = 0;
 		}
 
 		/* Ensure all of / is readable by the system boot code */
@@ -521,7 +525,11 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 		}
 		if (size == 0)
 			continue;
+		if (i == PART_ROOT && size > 0)
+			root_created = 1;
 		if (i == PART_SWAP) {
+			if (size > 0)
+				swap_created = 1;
 			save_ptn(i, part_start, size, FS_SWAP, NULL);
 			continue;
 		}
@@ -752,7 +760,7 @@ make_bsd_partitions(void)
 /*
  * check that there is at least a / somewhere.
  */
-static int
+int
 check_partitions(void)
 {
 #ifdef HAVE_BOOTXX_xFS

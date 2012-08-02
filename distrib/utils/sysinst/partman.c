@@ -44,7 +44,7 @@
 #include "msg_defs.h"
 #include "menu_defs.h"
 
-
+#define MAX_ENTRIES 96
 typedef struct {
 	int retvalue;
 	int dev_num;
@@ -55,7 +55,7 @@ typedef struct {
 		PM_LVM_T, PM_LVMLV_T} type;
 } part_entry_t;
 
-#define MNTS_MAX 96
+#define MNTS_MAX 48
 struct {
     const char *diskdev, *mnt_opts, *fsname;
     char *pi_mount;
@@ -66,6 +66,7 @@ struct {
 #define MAX_IN_RAID 48
 typedef struct raids_t {
 	int enabled;
+	int node;
 	char pm_name[MAX_IN_RAID][SSTRSIZE];
 	int pm_part[MAX_IN_RAID];
 	int pm_is_spare[MAX_IN_RAID];
@@ -79,6 +80,7 @@ raids_t raids[MAX_RAID];
 #define MAX_VND 4
 typedef struct vnds_t {
 	int enabled;
+	int node;
 	char filepath[STRSIZE];
 	int size;
 	int readonly;
@@ -91,6 +93,7 @@ vnds_t vnds[MAX_VND];
 #define MAX_CGD 4
 typedef struct cgds_t {
 	int enabled;
+	int node;
 	pm_devs_t *pm;
 	char pm_name[SSTRSIZE];
 	int pm_part;
@@ -143,10 +146,11 @@ typedef struct lvms_t {
 lvms_t lvms[MAX_LVM_VG];
 
 typedef struct structinfo_t {
-	uint max;
+	int max;
 	uint entry_size;
 	void *entry_first;
 	void *entry_enabled;
+	void *entry_node;
 } structinfo_t;
 structinfo_t raids_t_info, vnds_t_info, cgds_t_info, lvms_t_info;
 
@@ -158,7 +162,8 @@ typedef struct partman_upddevlist_adv_t {
 	struct partman_upddevlist_adv_t *sub;
 } partman_upddevlist_adv_t;
 
-int manage_raid_spare_cur;
+int changed; /* flag indicating that we have unsaved changes */
+int manage_raid_spare_cur; // TODO: replace by true way
 
 enum { /* Raid menu enum */
 	PMR_MENU_DEVS, PMR_MENU_DEVSSPARE, PMR_MENU_RAIDLEVEL, PMR_MENU_NUMROW,
@@ -195,24 +200,17 @@ part_entry_t partman_manage_getdev(int);
 static int partman_raid_disk_add(menudesc *, void *);
 static int partman_raid_disk_del(menudesc *, void *);
 static int partman_cgd_disk_set(cgds_t *, part_entry_t *);
-static void partman_select(pm_devs_t *);
-static int partman_mountall_sort(const void *, const void *);
-static int partman_mountall(void);
 static int partman_upddevlist(menudesc *, void *);
-static int partman_commit(menudesc *, void *);
-static int partman_submenu(menudesc *, void *);
-static void partman_menufmt(menudesc *, int, void *);
 
 
 /* Menu for RAID/VND/CGD/LVM entry edit */
 static int
-partman_manage_edit(uint menu_entries_count, void (*menu_fmt)(menudesc *, int, void *),
+partman_manage_edit(int menu_entries_count, void (*menu_fmt)(menudesc *, int, void *),
 	int (*action)(menudesc *, void *), int (*check_fun)(void *),
 	void (*entry_init)(void *, void *),	void* entry_init_arg,
 	void *dev_ptr, structinfo_t *s)
 {
-	int ok = 0;
-	uint i;
+	int i, ok = 0;
 
 	if (dev_ptr == NULL) {
 		/* We should create new device */
@@ -310,6 +308,40 @@ partman_manage_getdev(int type)
 	return disk_entries[dev_num];
 }
 
+static int
+partman_manage_getfreenode(void *node, const char *d, structinfo_t *s)
+{
+	int i, ii, ok;
+	char buf[SSTRSIZE];
+	pm_devs_t *pm_i;
+
+	*(int*)node = -1;
+	for (i = 0; i < s->max; i++) {
+		ok = 1;
+		/* Check that node is not already reserved */
+		for (ii = 0; ii < s->max; ii++)
+			if (*(int*)((char*)s->entry_node + s->entry_size * ii) == i) {
+				ok = 0;
+				break;
+			}
+		if (! ok)
+			continue;
+		/* Check that node is not in the device list */
+		snprintf(buf, SSTRSIZE, "%s%d", d, i);
+		for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+			if (! strcmp(pm_i->diskdev, buf)) {
+				ok = 0;
+				break;
+			}
+		if (ok) {
+			*(int*)node = i;
+			return i;
+		}
+	}
+	msg_prompt_win("Cannot allocate device node!", -1, 18, 0, 0, NULL, NULL, 0);
+	return -1;
+}
+
 /*** RAIDs ***/
 
 static void
@@ -328,8 +360,8 @@ partman_raid_menufmt(menudesc *m, int opt, void *arg)
 			ok = 1;
 		}
 	if (ok)
-		wprintw(m->mw, "   RAID-%1d on %-43s %11uM", dev_ptr->raid_level, buf,
-			dev_ptr->total_size);
+		wprintw(m->mw, "   raid%d (level %1d) on %-34s %11uM", dev_ptr->node,
+			dev_ptr->raid_level, buf, dev_ptr->total_size);
 	else
 		wprintw(m->mw, "   EMPTY RAID!");
 	return;
@@ -466,7 +498,7 @@ partman_raid_new_init(void *dev_ptr, void *none)
 static int
 partman_raid_check(void *dev_ptr)
 {
-	uint i, dev_num = 0, min_size = 0, cur_size = 0;
+	int i, dev_num = 0, min_size = 0, cur_size = 0;
 	for (i = 0; i < MAX_IN_RAID; i++)
 		if (((raids_t*)dev_ptr)->pm[i] != NULL) {
 			cur_size = ((raids_t*)dev_ptr)->pm[i]->bsdlabel[((raids_t*)dev_ptr)->pm_part[i]].pi_size /
@@ -476,7 +508,7 @@ partman_raid_check(void *dev_ptr)
 			if (!((raids_t*)dev_ptr)->pm_is_spare[i])
 				dev_num++;
 		}
-	if (dev_num > 0)
+	if (dev_num > 0) {
 		switch (((raids_t*)dev_ptr)->raid_level) {
 			case 0:
 				((raids_t*)dev_ptr)->total_size = min_size * dev_num;
@@ -489,6 +521,10 @@ partman_raid_check(void *dev_ptr)
 				((raids_t*)dev_ptr)->total_size = min_size * (dev_num - 1);
 				break;
 		}
+		partman_manage_getfreenode(&(((raids_t*)dev_ptr)->node), "raid", &raids_t_info);
+		if (((raids_t*)dev_ptr)->node < 0)
+			((raids_t*)dev_ptr)->enabled = 0;
+	}
 	else
 		((raids_t*)dev_ptr)->enabled = 0;
 	return ((raids_t*)dev_ptr)->enabled;
@@ -577,22 +613,16 @@ partman_raid_edit(menudesc *m, void *arg)
 static int
 partman_raid_commit(void)
 {
-	int i, ii, raid_devnum;
+	int i, ii;
 	FILE *f;
 	char f_name[STRSIZE];
 
-	for (raid_devnum = 0, i = 0; raid_devnum < MAX_RAID && i < MAX_RAID;
-			raid_devnum++, i++) {
+	for (i = 0; i < MAX_RAID; i++) {
 		if (! partman_raid_check(&raids[i]))
 			continue;
 
-		/* Trying to detect free raid device (yes, ugly way) */
-		while (run_program(RUN_SILENT | RUN_ERROR_OK, "raidctl -G raid%d",
-				raid_devnum) == 0)
-			raid_devnum++;
-
 		/* Generating configure file for our raid */
-		snprintf(f_name, SSTRSIZE, "/tmp/raid.%d.conf", raid_devnum);
+		snprintf(f_name, SSTRSIZE, "/tmp/raid.%d.conf", raids[i].node);
 		f = fopen(f_name, "w");
 		if (f == NULL) {
 			endwin();
@@ -628,12 +658,14 @@ partman_raid_commit(void)
 
 		/* Raid initialization */
 		if (
-			run_program(RUN_DISPLAY, "raidctl -C %s raid%d",
-							f_name, raid_devnum) == 0 &&
-			run_program(RUN_DISPLAY, "raidctl -I %d raid%d",
-							rand(), raid_devnum) == 0 &&
-			run_program(RUN_DISPLAY, "raidctl -vi raid%d",
-							raid_devnum) == 0
+			run_program(0, "raidctl -C %s raid%d",
+							f_name, raids[i].node) == 0 &&
+			run_program(0, "raidctl -I %d raid%d",
+							rand(), raids[i].node) == 0 &&
+			run_program(0, "raidctl -vi raid%d",
+							raids[i].node) == 0 &&
+			run_program(0, "raidctl -v -A yes raid%d",
+							raids[i].node) == 0
 			)
 			raids[i].enabled = 0; /* RAID creation done, remove it from list to 
 									 prevent it's repeated reinitialization */
@@ -653,9 +685,9 @@ partman_vnd_menufmt(menudesc *m, int opt, void *arg)
 	if (strlen(dev_ptr->filepath) < 1)
 		wprintw(m->mw, "   PATH NOT DEFINED!");
 	else if (dev_ptr->is_exist)
-		wprintw(m->mw, "   %-59s ASSIGN", dev_ptr->filepath);
+		wprintw(m->mw, "   vnd%1d on %-51s ASSIGN", dev_ptr->node, dev_ptr->filepath);
 	else 
-		wprintw(m->mw, "   %-53s %11uM", dev_ptr->filepath, dev_ptr->size);
+		wprintw(m->mw, "   vnd%1d on %-45s %11uM", dev_ptr->node, dev_ptr->filepath, dev_ptr->size);
 	return;
 }
 
@@ -802,6 +834,11 @@ partman_vnd_check(void *dev_ptr)
 	if (strlen(((vnds_t*)dev_ptr)->filepath) < 1 ||
 			((vnds_t*)dev_ptr)->size < 1)
 		((vnds_t*)dev_ptr)->enabled = 0;
+	else {
+		partman_manage_getfreenode(&(((vnds_t*)dev_ptr)->node), "vnd", &vnds_t_info);
+		if (((vnds_t*)dev_ptr)->node < 0)
+			((vnds_t*)dev_ptr)->enabled = 0;
+	}
 	return ((vnds_t*)dev_ptr)->enabled;
 }
 
@@ -815,7 +852,6 @@ partman_vnd_edit(menudesc *m, void *arg)
 		NULL, ((part_entry_t *)arg)[m->cursel].dev_ptr, &vnds_t_info);
 }
 
-/* TODO: should use only unallocated devices */
 /* TODO: vnconfig always return 0? */
 static int
 partman_vnd_commit(void)
@@ -839,7 +875,7 @@ partman_vnd_commit(void)
 		/* If this is a new image with manual geometry */
 		if (!vnds[i].is_exist && vnds[i].manual_geom)
 			not_ok += run_program(RUN_DISPLAY,
-						"vnconfig %s vnd%d %s %d %d %d %d", r_o, i,
+						"vnconfig %s vnd%d %s %d %d %d %d", r_o, vnds[i].node,
 						target_expand(vnds[i].filepath), vnds[i].secsize,
 						vnds[i].nsectors, vnds[i].ntracks,	vnds[i].ncylinders);
 		/* If this is a existent image or image without manual geometry */
@@ -859,15 +895,16 @@ static void
 partman_cgd_menufmt(menudesc *m, int opt, void *arg)
 {
 	cgds_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
-	char enc_desc[STRSIZE];
+	char desc[STRSIZE];
 
 	if (dev_ptr->enabled == 0)
 		return;
 	if (dev_ptr->pm == NULL)
 		wprintw(m->mw, "   DISK NOT DEFINED!");
 	else {
-		snprintf(enc_desc, STRSIZE, "%s-%d", dev_ptr->enc_type, dev_ptr->key_size);
-		wprintw(m->mw, "   %-30s %-22s %11uM", dev_ptr->pm_name, enc_desc,
+		snprintf(desc, STRSIZE, "(%s-%d) on %s", dev_ptr->enc_type,
+			dev_ptr->key_size, dev_ptr->pm_name);
+		wprintw(m->mw, "   cgd%1d %-48s %11uM", dev_ptr->node, desc,
 			dev_ptr->pm->bsdlabel[dev_ptr->pm_part].pi_size /
 							(MEG / dev_ptr->pm->sectorsize));
 	}
@@ -979,6 +1016,10 @@ partman_cgd_check(void *dev_ptr)
 {
 	if (((cgds_t*)dev_ptr)->pm == NULL)
 		((cgds_t*)dev_ptr)->enabled = 0;
+	else
+		partman_manage_getfreenode(&(((cgds_t*)dev_ptr)->node), "cgd", &cgds_t_info);
+		if (((cgds_t*)dev_ptr)->node < 0)
+			((cgds_t*)dev_ptr)->enabled = 0;
 	return ((cgds_t*)dev_ptr)->enabled;
 }
 
@@ -1023,7 +1064,6 @@ partman_cgd_edit(menudesc *m, void *arg)
 	return partman_cgd_edit_adddisk(((part_entry_t *)arg)[m->cursel].dev_ptr, NULL);
 }
 
-/* TODO: should use only unallocated devices */
 static int
 partman_cgd_commit(void)
 {
@@ -1038,7 +1078,7 @@ partman_cgd_commit(void)
 			continue;
 		}
 		if (run_program(RUN_DISPLAY, "cgdconfig -V re-enter cgd%d /dev/%s /tmp/%s",
-			i, cgds[i].pm_name, cgds[i].pm_name) != 0) {
+			cgds[i].node, cgds[i].pm_name, cgds[i].pm_name) != 0) {
 			error++;
 			continue;
 		}
@@ -1452,79 +1492,58 @@ partman_mountall(void)
 	return 0;
 }
 
-static void
-partman_mountmenu_menufmt(menudesc *m, int opt, void *arg)
+int
+partman_mount(pm_devs_t *pm_cur, int part_num)
 {
-	int num = ((part_entry_t *)arg)[opt].dev_num;
-
-	if (pm->bsdlabel[num].pi_flags & PIF_MOUNT && pm->bsdlabel[num].mnt_opts != NULL)
-		wprintw(m->mw, "%s%c at %s", pm->diskdev, 'a' + num, pm->bsdlabel[num].pi_mount);
-
-	return;
-}
-
-static int
-partman_mount(menudesc *m, void *arg)
-{
-	int num = ((part_entry_t *)arg)[m->cursel].dev_num;
-
-	if (pm->bsdlabel[num].pi_flags & PIF_MOUNT && pm->bsdlabel[num].mnt_opts != NULL)
-		return target_mount(pm->bsdlabel[num].mnt_opts, pm->diskdev, num,
-					pm->bsdlabel[num].pi_mount);
-	return -1;
-}
-
-int // TODO: rewrite
-partman_mountmenu(void)
-{
-	int i, num_devs = 0;
-	int menu_no;
-	menu_ent menu_entries[MAXPARTITIONS];
-	part_entry_t args[MAXPARTITIONS];
-
-	for (i = 0; i < MAXPARTITIONS; i++) {
-		if (pm->bsdlabel[i].pi_flags & PIF_MOUNT &&
-				pm->bsdlabel[i].mnt_opts != NULL) {
-			menu_entries[num_devs] = (menu_ent) {
-				.opt_name = NULL,
-				.opt_action = partman_mount,
-				.opt_menu = OPT_NOMENU,
-				.opt_flags = OPT_EXIT,
-			};
-			args[num_devs].dev_num = i;
-			num_devs++;
-		}
+	int error = 0;
+	if (pm_cur->bsdlabel[part_num].mounted) {
+		if ((error = run_program(RUN_DISPLAY, "umount /dev/%s%c",
+				pm_cur->diskdev, part_num + 'a')) == 0) {
+			pm_cur->bsdlabel[part_num].mounted = 0;
+			return 0;
+		} else
+			return error;
 	}
-	menu_no = new_menu(NULL, menu_entries, num_devs, 50, 5, num_devs+3, 0,
-		MC_ALWAYS_SCROLL | MC_NOCLEAR, NULL, partman_mountmenu_menufmt,
-		NULL, NULL, NULL);
-	if (menu_no == -1)
-		return -1;
-	process_menu(menu_no, &args);
-	free_menu(menu_no);
-	return 0;
+	else
+		if (pm->bsdlabel[part_num].pi_flags & PIF_MOUNT &&
+			pm->bsdlabel[part_num].mnt_opts != NULL) {
+			make_target_dir(pm->bsdlabel[part_num].pi_mount);
+			if ((error = target_mount(pm->bsdlabel[part_num].mnt_opts, pm->diskdev,
+				part_num, pm->bsdlabel[part_num].pi_mount)) == 0) {
+				pm_cur->bsdlabel[part_num].mounted = 1;
+				return 0;
+			} else
+				return error;
+		}
+	return -1;
 }
 
 /* Safe erase of disk */
 int
-partman_shred(char *dev, int shredtype)
+partman_shred(char *dev, char part, int shredtype)
 {
 	int error = 0;
+	part += 'a';
+	if (part < 'a' || part > 'a' + MAXPARTITIONS)
+		part = 'd';
+
 	switch(shredtype) {
 		case SHRED_NONE:
 			return 0;
 		case SHRED_ZEROS:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-				"dd of=/dev/r%sd if=/dev/zero bs=1m progress=100 msgfmt=human", dev);
+				"dd of=/dev/r%s%c if=/dev/zero bs=1m progress=100 msgfmt=human",
+				dev, part);
 			return error; 
 		case SHRED_RANDOM:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-				"dd of=/dev/r%sd if=/dev/urandom bs=1m progress=100 msgfmt=human", dev);
+				"dd of=/dev/r%s%c if=/dev/urandom bs=1m progress=100 msgfmt=human",
+				dev, part);
 			return error;
 		case SHRED_CRYPTO:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-				"sh -c 'cgdconfig -s cgd0 /dev/%sd aes-cbc 128 < /dev/urandom'",
-				dev);
+				"sh -c 'cgdconfig -s cgd0 /dev/%s%c aes-cbc 128 < /dev/urandom'",
+				dev, part); // TODO: cgd0?!
 			if (! error) {
 				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 					"dd of=/dev/rcgd0d if=/dev/urandom bs=1m progress=100 msgfmt=human");
@@ -1542,26 +1561,35 @@ partman_commit(menudesc *m, void *arg)
 {
 	int retcode;
 	pm_devs_t *pm_i;
-	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+	if (m != NULL && arg != NULL)
+		((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
 	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
 		if (! pm_i->changed)
 			continue;
 		partman_select(pm_i);
 		if (
-				md_pre_disklabel() != 0  || /* Write partition table */
 				write_disklabel() != 0   || /* Write slices table (disklabel) */
 				md_post_disklabel() != 0 || /* Enable swap and check badblock */
 				make_filesystems()          /* Create filesystems by newfs */
-			) { /* If something fails... */
+			) {
+			/* Oops, something fails... */
 			if (logfp)
-				fprintf(logfp, "Disk preparing error\n");
-			return -1;
-		} else
-			pm_i->changed = 0;
+				fprintf(logfp, "Disk preparing error %s\n", pm_i->diskdev);
+			continue;
+		}	
 		/* Write bootsector if needed */
-		if (pm_i->bootable && md_post_newfs() != 0)
-			return -1;
+		if (pm_i->bootable) {
+			if (! strncmp("raid", pm_i->diskdev, 4))
+				run_program(0, "raidctl -v -A root %s", pm_i->diskdev);
+		 	if (check_partitions() == 0 || md_post_newfs() != 0) {
+		 		if (logfp)
+					fprintf(logfp, "Boot disk preparing error: %s\n", pm_i->diskdev);
+				continue;
+			}
+		}
+		pm_i->changed = 0;
+	
 	}
 	/* Call all functions that may create new devices */
 	if ((retcode = partman_raid_commit()) != 0) {
@@ -1584,27 +1612,61 @@ partman_commit(menudesc *m, void *arg)
 			fprintf(logfp, "LVM configuring error #%d\n", retcode);
 		return -1;
 	}
-	partman_upddevlist(m, arg);
+	if (m != NULL && arg != NULL)
+		partman_upddevlist(m, arg);
 	if (logfp)
 		fflush (logfp);
     return 0;
 }
 
+/* Is there some unsaved changes? */
+static int
+partman_needsave(void)
+{
+	pm_devs_t *pm_i;
+
+	for (pm_i = pm_head->next; !changed && pm_i != NULL; pm_i = pm_i->next)
+		if (pm_i->changed)
+			changed = 1;
+	if (changed) {
+		/* Oops, we have unsaved changes */
+		msg_display("Save changes before finishing?");
+		process_menu(MENU_yesno, NULL);
+		return (yesno);
+	}
+	return 0;
+}
+
+/* Last check before leaving partition manager */
+static int
+partman_lastcheck(void)
+{
+	int error = 0;
+	FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
+	if (file_tmp == NULL)
+		error = 1;
+	else
+		fclose(file_tmp);
+	return error;
+}
+
 /* Function for 'Enter'-menu */
 static int
-partman_submenu(menudesc *m, void *arg)
+partman_disk_edit(menudesc *m, void *arg)
 {
 	pm_devs_t *pm_i = ((part_entry_t *)arg)[m->cursel].dev_pm;;
-	int we_need_updlist = 0;
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
+	int part_num = -1;
 
 	if (pm_i == NULL) 
 		return -1;
 	partman_select(pm_i);
 
-	process_menu(MENU_pmentry, &we_need_updlist);
-	if (we_need_updlist)
-		partman_upddevlist(m, arg);
+	if (((part_entry_t *)arg)[m->cursel].type == PM_PART_T) {
+		part_num = ((part_entry_t *)arg)[m->cursel].dev_num;	
+		process_menu(MENU_pmpartentry, &part_num);
+	} else
+		process_menu(MENU_pmdiskentry, &part_num);
 
 	return 0;
 }
@@ -1614,6 +1676,7 @@ static void
 partman_menufmt(menudesc *m, int opt, void *arg)
 {
 	const char *dev_status = "";
+	char buf[STRSIZE];
 	int part_num = ((part_entry_t *)arg)[opt].dev_num;
 	pm_devs_t *pm_i = ((part_entry_t *)arg)[opt].dev_pm;
 
@@ -1628,11 +1691,10 @@ partman_menufmt(menudesc *m, int opt, void *arg)
 			wprintw(m->mw, "%-33s Name:%-20s %9s", pm_i->diskdev_descr, pm_i->bsddiskname, dev_status);
 			break;
 		case PM_PART_T:
+			snprintf(buf, STRSIZE, "%s %s", pm_i->bsdlabel[part_num].pi_mount,
+				(pm_i->bsdlabel[part_num].mounted) ? "(mounted)" : "");
 			wprintw(m->mw, "   part %c: %-22s %-22s %11uM",
-				'a' + part_num,
-				(pm_i->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
-					pm_i->bsdlabel[part_num].pi_mount :
-					"",
+				'a' + part_num, buf,
 				(pm_i->bsdlabel[part_num].lvmpv) ? 
 					"LVM PV" :
 					fstype_name(pm_i->bsdlabel[part_num].pi_fstype),
@@ -1662,7 +1724,7 @@ static void
 partman_upddevlist_adv(void *arg, menudesc *m, int *i,
 	partman_upddevlist_adv_t *d)
 {
-	uint ii;
+	int ii;
 	if (d->create_msg != NULL) {
 		/* We want menu entrie for creating new device */
 		((part_entry_t *)arg)[*i].dev_ptr = NULL;
@@ -1674,6 +1736,8 @@ partman_upddevlist_adv(void *arg, menudesc *m, int *i,
 	for (ii = 0; ii < d->s->max; ii++) {
 		if (*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii) == 0)
 			continue;
+		/* We have entry for saving */
+		changed = 1;
 		m->opts[*i] = (struct menu_ent) {
 			.opt_name = NULL,
 			.opt_action = d->action,
@@ -1696,13 +1760,14 @@ partman_upddevlist(menudesc *m, void *arg)
 	if (arg != NULL)
 		((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
+	changed = 0;
 	find_disks("partman");
 
 	if (m != NULL && arg != NULL) {
 		for (pm_i = pm_head->next, i = 0; pm_i != NULL;
 				pm_i = pm_i->next, i++) {
 			m->opts[i].opt_name = NULL;
-			m->opts[i].opt_action = partman_submenu;
+			m->opts[i].opt_action = partman_disk_edit;
 			((part_entry_t *)arg)[i].dev_pm = pm_i;
 			((part_entry_t *)arg)[i].dev_num = -1;
 			((part_entry_t *)arg)[i].type = PM_DISK_T;
@@ -1710,6 +1775,7 @@ partman_upddevlist(menudesc *m, void *arg)
 				if (
 						(pm_i->bsdlabel[ii].pi_flags & PIF_MOUNT &&
 							pm_i->bsdlabel[ii].pi_fstype != FS_UNUSED) ||
+						pm_i->bsdlabel[ii].pi_fstype == FS_SWAP ||
 						pm_i->bsdlabel[ii].pi_fstype == FS_RAID ||
 						pm_i->bsdlabel[ii].pi_fstype == FS_CGD ||
 						(pm_i->bsdlabel[ii].pi_fstype == FS_BSDFFS &&
@@ -1717,7 +1783,7 @@ partman_upddevlist(menudesc *m, void *arg)
 					) {
 					i++;
 					m->opts[i].opt_name = NULL;
-					m->opts[i].opt_action = partman_submenu;
+					m->opts[i].opt_action = partman_disk_edit;
 					((part_entry_t *)arg)[i].dev_pm = pm_i;
 					((part_entry_t *)arg)[i].dev_num = ii;
 					((part_entry_t *)arg)[i].type = PM_PART_T;
@@ -1764,23 +1830,22 @@ partman_upddevlist(menudesc *m, void *arg)
 int
 partman(void)
 {
-	int menu_no;
-	int menu_num_entries;
-	menu_ent menu_entries[MAX_DISKS+6];
-	part_entry_t args[MAX_DISKS];
+	int menu_no, menu_num_entries;
+	menu_ent menu_entries[MAX_ENTRIES+6];
+	part_entry_t args[MAX_ENTRIES];
 
 	raids_t_info = (structinfo_t) {
-		.max = MAX_RAID, .entry_size = sizeof raids[0],
-		 .entry_first = &raids[0], .entry_enabled = &(raids[0].enabled), };
+		.max = MAX_RAID, .entry_size = sizeof raids[0], .entry_first = &raids[0],
+		.entry_enabled = &(raids[0].enabled), .entry_node = &(raids[0].node), };
 	vnds_t_info = (structinfo_t) {
-		.max = MAX_VND, .entry_size = sizeof vnds[0],
-		 .entry_first = &vnds[0], .entry_enabled = &(vnds[0].enabled), };
+		.max = MAX_VND, .entry_size = sizeof vnds[0], .entry_first = &vnds[0],
+		.entry_enabled = &(vnds[0].enabled), .entry_node = &(vnds[0].node), };
 	cgds_t_info = (structinfo_t) {
-		.max = MAX_CGD, .entry_size = sizeof cgds[0],
-		 .entry_first = &cgds[0], .entry_enabled = &(cgds[0].enabled), };
+		.max = MAX_CGD, .entry_size = sizeof cgds[0], .entry_first = &cgds[0],
+		.entry_enabled = &(cgds[0].enabled), .entry_node = &(cgds[0].node), };
 	lvms_t_info = (structinfo_t) {
-		.max = MAX_LVM_VG, .entry_size = sizeof lvms[0],
-		 .entry_first = &lvms[0], .entry_enabled = &(lvms[0].enabled), };
+		.max = MAX_LVM_VG, .entry_size = sizeof lvms[0], .entry_first = &lvms[0],
+		.entry_enabled = &(lvms[0].enabled), .entry_node = NULL, };
 
 	do {
 		clear();
@@ -1798,21 +1863,15 @@ partman(void)
 			free_menu(menu_no);
 		}
 
-		// TODO: check_partitions()
-		/* Check that fstab on target device is readable - if so then we can go */
 		if (args[0].retvalue == 0) {
-			unwind_mounts();
+			if (partman_needsave())
+				partman_commit(NULL, NULL);
 			if (partman_mountall() != 0 ||
-				make_fstab() != 0) {
+				make_fstab() != 0 ||
+				partman_lastcheck() != 0) {
 					msg_display("Do you want to try?");
 					process_menu(MENU_yesno, NULL);
 					args[0].retvalue = (yesno) ? 1:-1;
-			} else {
-				FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
-				if (file_tmp == NULL)
-					args[0].retvalue = -1;
-				else
-					fclose(file_tmp);
 			}
 		}
 	} while (args[0].retvalue > 0);

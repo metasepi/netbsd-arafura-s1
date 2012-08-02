@@ -67,7 +67,7 @@ savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 		while (pm_i != pm && !strcmp(pm_i->bsddiskname, pm->bsddiskname))
 			pm->bsddiskname[strlen(pm->bsddiskname)-1] = rand() % ('z' - 'a') + 'a';
 
-	snprintf(f_name, STRSIZE, "/tmp/disktab.%s", pm->bsddiskname); // TODO: test
+	snprintf(f_name, STRSIZE, "/tmp/disktab.%s", pm->bsddiskname);
 
 	/*
 	  N.B. disklabels only support up to 2TB (32-bit field for sectors).

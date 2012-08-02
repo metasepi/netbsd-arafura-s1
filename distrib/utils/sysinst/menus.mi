@@ -506,10 +506,10 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 		};
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
-menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
-	option "Prepare MBR",		exit, action { pm->changed = 1; md_get_info(); };
-	option "Prepare GPT [WIP]",	exit, action { pm->changed = 1; };
-	option "Edit BSD partitions", exit, action { *(int *)arg = 1; pm->changed = 1;
+menu pmdiskentry, x=50, y=5, exit, default exit; /* TODO: localize */
+	option "Edit and save MBR",		exit, action { md_get_info(); md_pre_disklabel(); };
+	option "Edit and save GPT [WIP]",	exit, action { pm->changed = 1; };
+	option "Edit BSD partitions", exit, action { pm->changed = 1;
 								layoutkind = LY_SETNEW;
 								md_make_bsd_partitions();
 								if (pm->bsdlabel[pm->rootpart].pi_flags & PIF_MOUNT)
@@ -519,13 +519,13 @@ menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
 	option "Set disk name",		exit, action { msg_prompt_win(MSG_packname, -1,
 								18,	0, 0, pm->bsddiskname, pm->bsddiskname,
 								sizeof pm->bsddiskname); };
-	option "Format as RAID",	exit, action { *(int *)arg = 1; pm->changed = 1;
+	option "Format as RAID",	exit, action { pm->changed = 1;
 												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
-	option "Format as LVM PV",		exit, action { *(int *)arg = 1; pm->changed = 1;
+	option "Format as LVM PV",		exit, action { pm->changed = 1;
 												layoutkind = LY_NEWLVM;
 												md_make_bsd_partitions(); };
-	option "Encrypt",			exit, action { *(int *)arg = 1; pm->changed = 1;
+	option "Encrypt",			exit, action { pm->changed = 1;
 												layoutkind = LY_NEWCGD;
 												md_make_bsd_partitions();
 												partman_cgd_edit_adddisk(0, pm); };
@@ -533,17 +533,20 @@ menu pmentry, x=50, y=5, exit, default exit; /* TODO: localize */
 												pm->bootable = !pm->bootable; };
 	option "Safe erase",		next menu shred_modes;
 	option "Undo changes",		exit, action { label_read(); pm->changed = 0; };
-	option "Mount...",			exit, action { partman_mountmenu(); };
-	option "Umount/Unconfigure", exit, action { *(int *)arg = 1;
-												partman_unconfigure(); };
+	option "Umount/Unconfigure", exit, action { partman_unconfigure(); };
+
+menu pmpartentry, x=50, y=5, exit, default exit; /* TODO: localize */
+	option "Safe erase",		next menu shred_modes;
+	option "(U)Mount",			exit, action { partman_mount(pm, *(int*)arg); };
+	option "Delete",			exit;
 
 menu shred_modes, x=50, y=5, exit, default exit;
 	option "Fill by zeros",			exit, action { partman_shred(pm->diskdev,
-													SHRED_ZEROS); };
+													*(int*)arg, SHRED_ZEROS); };
 	option "Fill by random data",	exit, action { partman_shred(pm->diskdev,
-													SHRED_RANDOM); };
+													*(int*)arg, SHRED_RANDOM); };
 	option "Fill by crypto data",	exit, action { partman_shred(pm->diskdev,
-													SHRED_CRYPTO); };
+													*(int*)arg, SHRED_CRYPTO); };
 
 menu raidlevel;
 	option "0 - No parity, only simple striping.", exit,

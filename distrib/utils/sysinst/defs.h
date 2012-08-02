@@ -51,7 +51,6 @@ deconst(const void *p)
 
 #include "msg_defs.h"
 #include "menu_defs.h"
-#include "mbr.h" // TODO: sss
 
 #define min(a,b)	((a) < (b) ? (a) : (b))
 #define max(a,b)	((a) > (b) ? (a) : (b))
@@ -214,6 +213,7 @@ typedef struct _partinfo {
 #define PIF_RESET	0x1000		/* internal - restore previous values */
     const char *mnt_opts;
     const char *fsname;
+    int mounted;
     int lvmpv; /* should we use partition as LVM PV? */
 } partinfo;	/* Single partition from a disklabel */
 
@@ -279,7 +279,7 @@ typedef struct pm_devs_t {
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
-    mbr_info_t mbr;
+    void *mbr; /* TODO: switch to pm->mbr? */
     int no_mbr; /* set for raid (etc) */
     int use_gpt;
     int rootpart; /* partition we install into */
@@ -417,8 +417,8 @@ void label_read(void);
 
 /* from partman.c */
 int	partman(void);
-int partman_mountmenu(void);
-int partman_shred(char *, int);
+int partman_mount(pm_devs_t *, int);
+int partman_shred(char *, char, int);
 int partman_unconfigure(void);
 int partman_cgd_edit_adddisk(void *, pm_devs_t *);
 
@@ -548,6 +548,7 @@ void	set_ptn_titles(menudesc *, int, void *);
 void	set_ptn_menu(struct ptn_info *);
 int	set_ptn_size(menudesc *, void *);
 void	get_ptn_sizes(daddr_t, daddr_t, int);
+int check_partitions(void);
 
 /* from aout2elf.c */
 int move_aout_libs(void);
