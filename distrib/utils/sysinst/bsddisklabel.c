@@ -347,6 +347,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	struct ptn_size *p;
 	daddr_t size;
 	static int swap_created = 0, root_created = 0;
+	char buf[MOUNTLEN];
 
 	if (pm->pi.menu_no < 0)
 	pm->pi = (struct ptn_info) { -1, {
@@ -539,6 +540,10 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 		} else if (!strcmp(p->mount, "cgd")) {
 			save_ptn(i, part_start, size, FS_CGD, NULL);
 			continue;						
+		}
+		if (p->mount[0] != '/') {
+			strncpy(buf, p->mount, MOUNTLEN);
+			snprintf(p->mount, MOUNTLEN, "/%s", buf);
 		}
 		save_ptn(i, part_start, size, FS_BSDFFS, p->mount);
 	}

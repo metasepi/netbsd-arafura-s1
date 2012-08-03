@@ -187,6 +187,7 @@ typedef struct distinfo {
 	const char	*marker_file;	/* set assumed installed if exists */
 } distinfo;
 
+#define MOUNTLEN 20
 typedef struct _partinfo {
 	struct partition pi_partition;
 #define pi_size		pi_partition.p_size
@@ -195,7 +196,7 @@ typedef struct _partinfo {
 #define pi_fstype	pi_partition.p_fstype
 #define pi_frag		pi_partition.p_frag
 #define pi_cpg		pi_partition.p_cpg
-	char	pi_mount[20];
+	char	pi_mount[MOUNTLEN];
 	uint	pi_isize;		/* bytes per inode (for # inodes) */
 	uint	pi_flags;
 #define PIF_NEWFS	0x0001		/* need to 'newfs' partition */
@@ -213,7 +214,7 @@ typedef struct _partinfo {
 #define PIF_RESET	0x1000		/* internal - restore previous values */
     const char *mnt_opts;
     const char *fsname;
-    int mounted;
+    char mounted[MOUNTLEN];
     int lvmpv; /* should we use partition as LVM PV? */
 } partinfo;	/* Single partition from a disklabel */
 
@@ -221,7 +222,7 @@ struct ptn_info {
 	int		menu_no;
 	struct ptn_size {
 		int	ptn_id;
-		char	mount[20];
+		char	mount[MOUNTLEN];
 		daddr_t	dflt_size;
 		daddr_t	size;
 		int	limit;
@@ -266,14 +267,16 @@ daddr_t tmp_ramdisk_size;
 
 unsigned int root_limit;    /* BIOS (etc) read limit */
 
-/* All information that is unique for each drive */
 enum SHRED_T { SHRED_NONE=0, SHRED_ZEROS, SHRED_RANDOM, SHRED_CRYPTO };
+
+/* All information that is unique for each drive */
 typedef struct pm_devs_t {
     int changed; /* Flag indicating to partman that device need saving */
     int found; /* Flag to delete unplugged and unconfigured devices */
+    int blocked; /* Device is busy and cannot be changed */
+    int refdev; /* If device is blocked thats is a refer to a parent dev */
     char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
-    char id_dk[SSTRSIZE];
     int bootable;
 #define DISKNAME_SIZE 16
     char bsddiskname[DISKNAME_SIZE];
@@ -281,7 +284,6 @@ typedef struct pm_devs_t {
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
     void *mbr; /* TODO: switch to pm->mbr? */
     int no_mbr; /* set for raid (etc) */
-    int use_gpt;
     int rootpart; /* partition we install into */
     const char *disktype; /* ST506, SCSI, ... */
     const char *doessf;
@@ -292,8 +294,8 @@ typedef struct pm_devs_t {
     daddr_t ptstart, ptsize;
     /* If we have an MBR boot partition, start and size in sectors */
     int bootstart, bootsize;
-    struct ptn_info pi;
     struct pm_devs_t *next;
+    struct ptn_info pi;
 } pm_devs_t;
 pm_devs_t *pm; /* Pointer to currend device with which we work */
 pm_devs_t *pm_head; /* Pointer to head of list with all devices */
@@ -417,9 +419,12 @@ void label_read(void);
 
 /* from partman.c */
 int	partman(void);
-int partman_mount(pm_devs_t *, int);
+int partman_getrefdev(pm_devs_t *);
+void partman_rename(pm_devs_t *);
 int partman_shred(char *, char, int);
-int partman_unconfigure(void);
+void partman_umount(pm_devs_t *, int);
+int partman_unconfigure(pm_devs_t *);
+void partman_unconfigureall(void);
 int partman_cgd_edit_adddisk(void *, pm_devs_t *);
 
 /* from disks_lfs.c */

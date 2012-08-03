@@ -55,6 +55,7 @@ void
 do_upgrade(void)
 {
 	int retcode = 0;
+	partman_go = 0;
 
 	msg_display(MSG_upgradeusure);
 	process_menu(MENU_noyes, NULL);

@@ -32,11 +32,12 @@
 
 /* partman.c - extended partitioning */
 
+#include <fcntl.h>
+#include <libgen.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <util.h>
 
 #include "defs.h"
@@ -62,10 +63,12 @@ struct {
     int pm_part;
 } mnts[MNTS_MAX];
 
-#define MAX_RAID 16 // TODO: replace by true way
+// TODO: replace all MAX_ defince with depeding on kernel settings vars
+#define MAX_RAID 16 
 #define MAX_IN_RAID 48
 typedef struct raids_t {
 	int enabled;
+	int blocked;
 	int node;
 	char pm_name[MAX_IN_RAID][SSTRSIZE];
 	int pm_part[MAX_IN_RAID];
@@ -80,6 +83,7 @@ raids_t raids[MAX_RAID];
 #define MAX_VND 4
 typedef struct vnds_t {
 	int enabled;
+	int blocked;
 	int node;
 	char filepath[STRSIZE];
 	int size;
@@ -87,12 +91,15 @@ typedef struct vnds_t {
 	int is_exist;
 	int manual_geom;
 	int secsize, nsectors, ntracks, ncylinders;
+	int pm_part;    /* Used only for */
+	pm_devs_t *pm;  /* reffering device */
 } vnds_t;
 vnds_t vnds[MAX_VND];
 
 #define MAX_CGD 4
 typedef struct cgds_t {
 	int enabled;
+	int blocked;
 	int node;
 	pm_devs_t *pm;
 	char pm_name[SSTRSIZE];
@@ -150,6 +157,7 @@ typedef struct structinfo_t {
 	uint entry_size;
 	void *entry_first;
 	void *entry_enabled;
+	void *entry_blocked;
 	void *entry_node;
 } structinfo_t;
 structinfo_t raids_t_info, vnds_t_info, cgds_t_info, lvms_t_info;
@@ -200,6 +208,7 @@ part_entry_t partman_manage_getdev(int);
 static int partman_raid_disk_add(menudesc *, void *);
 static int partman_raid_disk_del(menudesc *, void *);
 static int partman_cgd_disk_set(cgds_t *, part_entry_t *);
+static int partman_mount(pm_devs_t *, int);
 static int partman_upddevlist(menudesc *, void *);
 
 
@@ -488,6 +497,7 @@ partman_raid_new_init(void *dev_ptr, void *none)
 	memset((raids_t*)dev_ptr, 0, sizeof *((raids_t*)dev_ptr));
 	*((raids_t*)dev_ptr) = (struct raids_t) {
 		.enabled = 1,
+		.blocked = 0,
 		.sectPerSU = 32,
 		.SUsPerParityUnit = 1,
 		.SUsPerReconUnit = 1,
@@ -499,6 +509,8 @@ static int
 partman_raid_check(void *dev_ptr)
 {
 	int i, dev_num = 0, min_size = 0, cur_size = 0;
+	if (((raids_t*)dev_ptr)->blocked)
+		return 0;
 	for (i = 0; i < MAX_IN_RAID; i++)
 		if (((raids_t*)dev_ptr)->pm[i] != NULL) {
 			cur_size = ((raids_t*)dev_ptr)->pm[i]->bsdlabel[((raids_t*)dev_ptr)->pm_part[i]].pi_size /
@@ -658,17 +670,21 @@ partman_raid_commit(void)
 
 		/* Raid initialization */
 		if (
-			run_program(0, "raidctl -C %s raid%d",
+			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -C %s raid%d",
 							f_name, raids[i].node) == 0 &&
-			run_program(0, "raidctl -I %d raid%d",
+			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -I %d raid%d",
 							rand(), raids[i].node) == 0 &&
-			run_program(0, "raidctl -vi raid%d",
+			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -vi raid%d",
 							raids[i].node) == 0 &&
-			run_program(0, "raidctl -v -A yes raid%d",
+			run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A yes raid%d",
 							raids[i].node) == 0
-			)
-			raids[i].enabled = 0; /* RAID creation done, remove it from list to 
+			) {
+			raids[i].blocked = 1; /* RAID creation done, remove it from list to 
 									 prevent it's repeated reinitialization */
+			for (ii = 0; ii < MAX_IN_RAID; ii++)
+				if (raids[i].pm[ii] != NULL)
+					raids[i].pm[ii]->blocked++;
+		}
 	}
 	return 0;
 }
@@ -746,7 +762,7 @@ static int
 partman_vnd_set_value(menudesc *m, void *arg)
 {
 	vnds_t *dev_ptr = arg;
-	char buf[SSTRSIZE];
+	char buf[STRSIZE];
 	const char *msg_to_show = NULL;
 	int *out_var = NULL;
 	
@@ -754,6 +770,12 @@ partman_vnd_set_value(menudesc *m, void *arg)
 		case PMV_MENU_FILEPATH:
 			msg_prompt_win("File path?", -1, 18, 0, 0, dev_ptr->filepath,
 				dev_ptr->filepath, STRSIZE);
+			if (dev_ptr->filepath[0] != '/') {
+				strncpy(buf, dev_ptr->filepath, MOUNTLEN);
+				snprintf(dev_ptr->filepath, MOUNTLEN, "/%s", buf);
+			}
+			if (dev_ptr->filepath[strlen(dev_ptr->filepath) - 1] == '/')
+				dev_ptr->filepath[strlen(dev_ptr->filepath) - 1] = '\0';
 			return 0;
 		case PMV_MENU_EXIST:
 			dev_ptr->is_exist = !dev_ptr->is_exist;
@@ -815,6 +837,7 @@ partman_vnd_new_init(void *dev_ptr, void *none)
 	memset(((vnds_t*)dev_ptr), 0, sizeof *((vnds_t*)dev_ptr));
 	*((vnds_t*)dev_ptr) = (struct vnds_t) {
 		.enabled = 1,
+		.blocked = 0,
 		.filepath[0] = '\0',
 		.is_exist = 0,
 		.size = 1024,
@@ -831,6 +854,8 @@ partman_vnd_new_init(void *dev_ptr, void *none)
 static int
 partman_vnd_check(void *dev_ptr)
 {
+	if (((vnds_t*)dev_ptr)->blocked)
+		return 0;
 	if (strlen(((vnds_t*)dev_ptr)->filepath) < 1 ||
 			((vnds_t*)dev_ptr)->size < 1)
 		((vnds_t*)dev_ptr)->enabled = 0;
@@ -856,35 +881,68 @@ partman_vnd_edit(menudesc *m, void *arg)
 static int
 partman_vnd_commit(void)
 {
-	int i, not_ok;
-	char r_o[3];
+	int i, ii, error, part_suit;
+	char r_o[3], buf[MOUNTLEN+3], resultpath[STRSIZE]; 
+	pm_devs_t *pm_i, *pm_suit = NULL;
 
 	for (i = 0; i < MAX_VND; i++) {
-		not_ok = 0;
+		error = 0;
 		if (! partman_vnd_check(&vnds[i]))
 			continue;
+
+		/* Trying to assign target device */
+		for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+			for (ii = 0; ii < 6; ii++) {
+				strcpy(buf, pm_i->bsdlabel[ii].pi_mount);
+				if (buf[strlen(buf)-1] != '/')
+					sprintf(buf,"%s/", buf);
+				printf("%s\n",buf);
+				if (strstr(vnds[i].filepath, buf) == vnds[i].filepath)
+					if (part_suit < 0 || pm_suit == NULL ||
+						strlen(buf) > strlen(pm_suit->bsdlabel[part_suit].pi_mount)) {
+						part_suit = ii;
+						pm_suit = pm_i;
+					}
+			}
+		if (part_suit < 0 || pm_suit == NULL || 
+			pm_suit->bsdlabel[part_suit].mnt_opts == NULL ||
+			! (pm_suit->bsdlabel[part_suit].pi_flags & PIF_MOUNT))
+			continue;
+		
+		/* Mounting assigned partition and try to get real file path*/
+		if (partman_mount(pm_suit, part_suit) != 0)
+			continue;
+		snprintf(resultpath, STRSIZE, "%s/%s",
+			pm_suit->bsdlabel[part_suit].mounted,
+			&(vnds[i].filepath[strlen(pm_suit->bsdlabel[part_suit].pi_mount)]));
+
 		strcpy(r_o, vnds[i].readonly?"-r":"");
 		/* If this is a new image */
-		if (!vnds[i].is_exist)
-			not_ok += run_program(RUN_DISPLAY,
+		if (!vnds[i].is_exist) {
+			run_program(RUN_DISPLAY | RUN_PROGRESS, "mkdir -p %s ", dirname(resultpath));
+			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 						"dd if=/dev/zero of=%s bs=1m count=%d progress=100 msgfmt=human",
-						target_expand(vnds[i].filepath), vnds[i].size);
-		if (not_ok)
+						resultpath, vnds[i].size);
+		}
+		if (error)
 			continue;
-
 		/* If this is a new image with manual geometry */
 		if (!vnds[i].is_exist && vnds[i].manual_geom)
-			not_ok += run_program(RUN_DISPLAY,
+			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 						"vnconfig %s vnd%d %s %d %d %d %d", r_o, vnds[i].node,
-						target_expand(vnds[i].filepath), vnds[i].secsize,
-						vnds[i].nsectors, vnds[i].ntracks,	vnds[i].ncylinders);
+						resultpath, vnds[i].secsize, vnds[i].nsectors,
+						vnds[i].ntracks, vnds[i].ncylinders);
 		/* If this is a existent image or image without manual geometry */
 		else
-			not_ok += run_program(RUN_DISPLAY, "vnconfig %s vnd%d %s",
-						r_o, i, target_expand(vnds[i].filepath));
+			error += run_program(RUN_DISPLAY | RUN_PROGRESS, "vnconfig %s vnd%d %s",
+						r_o, vnds[i].node, resultpath);
 
-		if (! not_ok)
-			vnds[i].enabled = 0;
+		if (! error) {
+			vnds[i].blocked = 1;
+			vnds[i].pm_part = part_suit;
+			vnds[i].pm = pm_suit;
+			vnds[i].pm->blocked++;
+		}
 	}
 	return 0;
 }
@@ -992,6 +1050,7 @@ partman_cgd_new_init(void *dev_ptr, void *assign_pm)
 	memset((cgds_t*)dev_ptr, 0, sizeof *((cgds_t*)dev_ptr));
 	*((cgds_t*)dev_ptr) = (struct cgds_t) {
 		.enabled = 1,
+		.blocked = 0,
 		.pm = NULL,
 		.pm_name[0] = '\0',
 		.pm_part = 0,
@@ -1014,6 +1073,8 @@ partman_cgd_new_init(void *dev_ptr, void *assign_pm)
 static int
 partman_cgd_check(void *dev_ptr)
 {
+	if (((cgds_t*)dev_ptr)->blocked)
+		return 0;
 	if (((cgds_t*)dev_ptr)->pm == NULL)
 		((cgds_t*)dev_ptr)->enabled = 0;
 	else
@@ -1071,18 +1132,21 @@ partman_cgd_commit(void)
 	for (i = 0; i < MAX_CGD; i++) {
 		if (! partman_cgd_check(&cgds[i]))
 			continue;
-		if (run_program(RUN_DISPLAY, "cgdconfig -g -i %s -k %s -o /tmp/%s %s %d",
-			cgds[i].iv_type, cgds[i].keygen_type, cgds[i].pm_name,
+		if (run_program(RUN_DISPLAY | RUN_PROGRESS,
+			"cgdconfig -g -i %s -k %s -o /tmp/cgd.%d.conf %s %d",
+			cgds[i].iv_type, cgds[i].keygen_type, cgds[i].node,
 			cgds[i].enc_type, cgds[i].key_size) != 0) {
 			error++;
 			continue;
 		}
-		if (run_program(RUN_DISPLAY, "cgdconfig -V re-enter cgd%d /dev/%s /tmp/%s",
-			cgds[i].node, cgds[i].pm_name, cgds[i].pm_name) != 0) {
+		if (run_program(RUN_DISPLAY | RUN_PROGRESS,
+			"cgdconfig -V re-enter cgd%d /dev/%s /tmp/cgd.%d.conf",
+			cgds[i].node, cgds[i].pm_name, cgds[i].node) != 0) {
 			error++;
 			continue;
 		}
-		cgds[i].enabled = 0;
+		cgds[i].pm->blocked++;
+		cgds[i].blocked = 1;
 	}
 	return error;
 }
@@ -1390,19 +1454,21 @@ partman_lvmlv_edit(menudesc *m, void *arg)
 static int
 partman_lvm_commit(void)
 {
-	int i, ii, not_ok;
+	int i, ii, error;
 	for (i = 0; i < MAX_LVM_VG; i++) {
 		if (! partman_lvm_check(&lvms[i]))
 			continue;
-		not_ok = 0;
-		for (ii = 0; ii < MAX_LVM_PV && ! not_ok; ii++)
+		error = 0;
+		for (ii = 0; ii < MAX_LVM_PV && ! error; ii++)
 			if (lvms[i].pv[ii].pm != NULL) {
-				not_ok += run_program(RUN_DISPLAY, "lvcreate pvcreate -y /dev/%s",
+				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
+										"lvcreate pvcreate -y /dev/%s",
 										(char*)lvms[i].pv[ii].pm_name);
-				not_ok += run_program(RUN_DISPLAY, "lvcreate vgcreate %s /dev/%s",
+				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
+										"lvcreate vgcreate %s /dev/%s",
 										lvms[i].name, (char*)lvms[i].pv[ii].pm_name);
 			}
-		for (ii = 0; ii < MAX_LVM_LV && ! not_ok; ii++);
+		for (ii = 0; ii < MAX_LVM_LV && ! error; ii++);
 
 		lvms[i].enabled = 0;
 	}
@@ -1412,14 +1478,52 @@ partman_lvm_commit(void)
 
 /*** Partman generic functions ***/
 
-int 	// TODO: rewrite
-partman_unconfigure(void)
+int
+partman_getrefdev(pm_devs_t *pm_cur)
 {
- 	run_program(RUN_SILENT | RUN_ERROR_OK, "cgdconfig -u %s", pm->diskdev);
-	run_program(RUN_SILENT | RUN_ERROR_OK, "vnconfig -u %s", pm->diskdev);
-	run_program(RUN_SILENT | RUN_ERROR_OK, "raidctl -u %s", pm->diskdev);
-	run_program(RUN_SILENT | RUN_ERROR_OK, "umount /dev/%s*", pm->diskdev);
-	return 0;
+	int i, ii, dev_num, num_devs, num_devs_s;
+	pm_cur->refdev = -1;
+	if (! strncmp(pm_cur->diskdev, "cgd", 3)) {
+		dev_num = pm_cur->diskdev[3] - '0';
+		for (i = 0; i < MAX_CGD; i++)
+			if (cgds[i].blocked && cgds[i].node == dev_num) {
+				pm_cur->refdev = i;
+				snprintf(pm_cur->diskdev_descr, STRSIZE, "%s (%s%c, %s-%d)",
+					pm_cur->diskdev_descr, cgds[i].pm->diskdev,
+					cgds[i].pm_part + 'a', cgds[i].enc_type, cgds[i].key_size);
+				break;
+			}
+ 	} else if (! strncmp(pm_cur->diskdev, "vnd", 3)) {
+ 		dev_num = pm_cur->diskdev[3] - '0';
+ 		for (i = 0; i < MAX_VND; i++)
+			if (vnds[i].blocked && vnds[i].node == dev_num) {
+				pm_cur->refdev = i;
+				snprintf(pm_cur->diskdev_descr, STRSIZE, "%s (%s%c, %s)",
+					pm_cur->diskdev_descr, vnds[i].pm->diskdev,
+					vnds[i].pm_part + 'a', vnds[i].filepath);
+				break;
+			}
+	} else if (! strncmp(pm_cur->diskdev, "raid", 4)) {
+		dev_num = pm_cur->diskdev[4] - '0';
+ 		for (i = 0; i < MAX_RAID; i++)
+			if (raids[i].blocked && raids[i].node == dev_num) {
+				pm_cur->refdev = i;
+				num_devs = 0; num_devs_s = 0;
+				for (ii = 0; ii < MAX_IN_RAID; ii++)
+					if (raids[i].pm[ii] != NULL) {
+						if(! raids[i].pm_is_spare[ii])
+							num_devs++;
+						else
+							num_devs_s++;
+					}
+				snprintf(pm_cur->diskdev_descr, STRSIZE,
+					"%s (%d disks, %d spare, lvl %d)",
+					pm_cur->diskdev_descr, num_devs, num_devs_s,
+					raids[i].raid_level);
+				break;
+			}
+	}
+	return pm_cur->refdev;
 }
 
 static void
@@ -1430,6 +1534,16 @@ partman_select(pm_devs_t *pm_devs_in)
 		(void)fprintf(logfp,"Partman device: %s\n", pm->diskdev);
 	return;
 
+}
+
+void
+partman_rename(pm_devs_t *pm_cur)
+{
+	partman_select(pm_cur);
+	msg_prompt_win(MSG_packname, -1, 18,	0, 0, pm_cur->bsddiskname,
+		pm_cur->bsddiskname, sizeof pm_cur->bsddiskname);
+	(void) savenewlabel(pm_cur->bsdlabel, MAXPARTITIONS);
+	return;
 }
 
 static int
@@ -1461,8 +1575,7 @@ partman_mountall(void)
 				mnts[num_devs].fsname   = pm_i->bsdlabel[i].fsname;
 				mnts[num_devs].pi_mount = pm_i->bsdlabel[i].pi_mount;
 				if (strcmp(pm_i->bsdlabel[i].pi_mount, "/") == 0)
-					strlcpy(diskdev_with_root, pm_i->bsdlabel[i].pi_mount, 
-						sizeof diskdev_with_root);
+					strlcpy(diskdev_with_root, pm_i->diskdev, sizeof diskdev_with_root);
 				num_devs++;
 				ok = 1;
 			}
@@ -1492,30 +1605,88 @@ partman_mountall(void)
 	return 0;
 }
 
-int
+/* Mount partition bypassing ordinary order */
+static int
 partman_mount(pm_devs_t *pm_cur, int part_num)
 {
 	int error = 0;
-	if (pm_cur->bsdlabel[part_num].mounted) {
-		if ((error = run_program(RUN_DISPLAY, "umount /dev/%s%c",
-				pm_cur->diskdev, part_num + 'a')) == 0) {
-			pm_cur->bsdlabel[part_num].mounted = 0;
-			return 0;
-		} else
-			return error;
+	char buf[MOUNTLEN];
+
+	if (strlen(pm_cur->bsdlabel[part_num].mounted) > 0)
+		return 0;
+
+	snprintf(buf, MOUNTLEN, "/tmp/%s%c", pm_cur->diskdev, part_num + 'a');
+	if (! dir_exists_p(buf))
+		run_program(RUN_DISPLAY | RUN_PROGRESS, "/bin/mkdir -p %s", buf);
+	if (pm_cur->bsdlabel[part_num].pi_flags & PIF_MOUNT &&
+		pm_cur->bsdlabel[part_num].mnt_opts != NULL &&
+		strlen(pm_cur->bsdlabel[part_num].mounted) < 1)
+		error += run_program(RUN_DISPLAY | RUN_PROGRESS, "/sbin/mount %s /dev/%s%c %s",
+				pm_cur->bsdlabel[part_num].mnt_opts,
+				pm_cur->diskdev, part_num + 'a', buf);
+
+	if (error)
+		pm_cur->bsdlabel[part_num].mounted[0] = '\0';
+	else {
+		strncpy(pm_cur->bsdlabel[part_num].mounted, buf, MOUNTLEN);
+		pm_cur->blocked++;
+	}
+	return error;
+}
+
+void
+partman_umount(pm_devs_t *pm_cur, int part_num)
+{
+	if (run_program(RUN_DISPLAY | RUN_PROGRESS,
+			"umount -f /dev/%s%c", pm_cur->diskdev, part_num + 'a') == 0)
+		pm_cur->bsdlabel[part_num].mounted[0] = '\0';
+	return;
+}
+
+int
+partman_unconfigure(pm_devs_t *pm_cur)
+{
+	int i, error = 0;
+	if (! strncmp(pm_cur->diskdev, "cgd", 3)) {
+ 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "cgdconfig -u %s", pm_cur->diskdev);
+ 		if (! error && pm->refdev >= 0) {
+			cgds[pm_cur->refdev].pm->blocked--;
+			cgds[pm_cur->refdev].blocked = 0;
+ 		}
+ 	} else if (! strncmp(pm_cur->diskdev, "vnd", 3)) {
+		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "vnconfig -u %s", pm_cur->diskdev);
+ 		if (! error && pm_cur->refdev >= 0) {
+			vnds[pm_cur->refdev].pm->blocked--;
+			vnds[pm_cur->refdev].blocked = 0;
+ 		}
+	} else if (! strncmp(pm_cur->diskdev, "raid", 4)) {
+		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -u %s", pm_cur->diskdev);
+		if (! error && pm_cur->refdev >= 0) {
+			raids[pm_cur->refdev].blocked = 0;
+			for (i = 0; i < MAX_IN_RAID; i++)
+				if (raids[pm_cur->refdev].pm[i] != NULL)
+					raids[pm_cur->refdev].pm[i]->blocked--;
+		}
 	}
 	else
-		if (pm->bsdlabel[part_num].pi_flags & PIF_MOUNT &&
-			pm->bsdlabel[part_num].mnt_opts != NULL) {
-			make_target_dir(pm->bsdlabel[part_num].pi_mount);
-			if ((error = target_mount(pm->bsdlabel[part_num].mnt_opts, pm->diskdev,
-				part_num, pm->bsdlabel[part_num].pi_mount)) == 0) {
-				pm_cur->bsdlabel[part_num].mounted = 1;
-				return 0;
-			} else
-				return error;
-		}
-	return -1;
+		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%s", pm_cur->diskdev);
+	return error;
+}
+
+/* unconfigure and unmount all devices */
+void
+partman_unconfigureall(void)
+{
+	int i;
+	pm_devs_t *pm_i;
+	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
+		for (i = 0; i < MAXPARTITIONS; i++)
+			if (strlen(pm_i->bsdlabel[i].mounted) > 0)
+				if (run_program (0, "unmount %s", pm_i->bsdlabel[i].mounted) == 0)
+					pm_i->bsdlabel[i].mounted[0] = '\0';
+		partman_unconfigure(pm_i);
+	}
+	return;
 }
 
 /* Safe erase of disk */
@@ -1581,7 +1752,7 @@ partman_commit(menudesc *m, void *arg)
 		/* Write bootsector if needed */
 		if (pm_i->bootable) {
 			if (! strncmp("raid", pm_i->diskdev, 4))
-				run_program(0, "raidctl -v -A root %s", pm_i->diskdev);
+				run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A root %s", pm_i->diskdev);
 		 	if (check_partitions() == 0 || md_post_newfs() != 0) {
 		 		if (logfp)
 					fprintf(logfp, "Boot disk preparing error: %s\n", pm_i->diskdev);
@@ -1660,6 +1831,13 @@ partman_disk_edit(menudesc *m, void *arg)
 
 	if (pm_i == NULL) 
 		return -1;
+	if (pm_i->blocked) {
+		msg_display("Device is blocked. Do you want to force unblock it and continue?");
+		process_menu(MENU_noyes, NULL);
+		if (!yesno)
+			return -2;
+		pm_i->blocked = 0;
+	}
 	partman_select(pm_i);
 
 	if (((part_entry_t *)arg)[m->cursel].type == PM_PART_T) {
@@ -1682,7 +1860,9 @@ partman_menufmt(menudesc *m, int opt, void *arg)
 
 	switch (((part_entry_t *)arg)[opt].type) {
 		case PM_DISK_T:
-			if (! pm_i->changed)
+			if (pm_i->blocked)
+				dev_status = "BLOCKED";
+			else if (! pm_i->changed)
 				dev_status = "UNCHANGED";
 			else if (pm_i->bootable)
 				dev_status = "BOOT";
@@ -1692,7 +1872,7 @@ partman_menufmt(menudesc *m, int opt, void *arg)
 			break;
 		case PM_PART_T:
 			snprintf(buf, STRSIZE, "%s %s", pm_i->bsdlabel[part_num].pi_mount,
-				(pm_i->bsdlabel[part_num].mounted) ? "(mounted)" : "");
+				(strlen(pm_i->bsdlabel[part_num].mounted) > 0) ? "(mounted)" : "");
 			wprintw(m->mw, "   part %c: %-22s %-22s %11uM",
 				'a' + part_num, buf,
 				(pm_i->bsdlabel[part_num].lvmpv) ? 
@@ -1734,7 +1914,8 @@ partman_upddevlist_adv(void *arg, menudesc *m, int *i,
 		};
 	}
 	for (ii = 0; ii < d->s->max; ii++) {
-		if (*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii) == 0)
+		if (*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii) == 0 ||
+			*(int*)((char*)d->s->entry_blocked + d->s->entry_size * ii) != 0)
 			continue;
 		/* We have entry for saving */
 		changed = 1;
@@ -1836,13 +2017,16 @@ partman(void)
 
 	raids_t_info = (structinfo_t) {
 		.max = MAX_RAID, .entry_size = sizeof raids[0], .entry_first = &raids[0],
-		.entry_enabled = &(raids[0].enabled), .entry_node = &(raids[0].node), };
+		.entry_enabled = &(raids[0].enabled), .entry_blocked = &(raids[0].blocked),
+		.entry_node = &(raids[0].node), };
 	vnds_t_info = (structinfo_t) {
 		.max = MAX_VND, .entry_size = sizeof vnds[0], .entry_first = &vnds[0],
-		.entry_enabled = &(vnds[0].enabled), .entry_node = &(vnds[0].node), };
+		.entry_enabled = &(vnds[0].enabled), .entry_blocked = &(vnds[0].blocked),
+		.entry_node = &(vnds[0].node), };
 	cgds_t_info = (structinfo_t) {
 		.max = MAX_CGD, .entry_size = sizeof cgds[0], .entry_first = &cgds[0],
-		.entry_enabled = &(cgds[0].enabled), .entry_node = &(cgds[0].node), };
+		.entry_enabled = &(cgds[0].enabled), .entry_blocked = &(cgds[0].blocked),
+		.entry_node = &(cgds[0].node), };
 	lvms_t_info = (structinfo_t) {
 		.max = MAX_LVM_VG, .entry_size = sizeof lvms[0], .entry_first = &lvms[0],
 		.entry_enabled = &(lvms[0].enabled), .entry_node = NULL, };

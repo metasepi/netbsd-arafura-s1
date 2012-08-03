@@ -369,7 +369,10 @@ find_disks(const char *doingwhat)
 	/* Kill typeahead, it won't be what the user had in mind */
 	fpurge(stdin);
 
-	if (! partman_go) {
+	/* partman_go: <0 - we want to see menu with extended partitioning
+				  ==0 - we want to see simple select disk menu
+				   >0 - we do not want to see any menus, just detect all disks */
+	if (partman_go <= 0) {
 		if (numdisks == 0) {
 			/* No disks found! */
 			msg_display(MSG_nodisk);
@@ -384,14 +387,14 @@ find_disks(const char *doingwhat)
 				dsk_menu[i].opt_flags = OPT_EXIT;
 				dsk_menu[i].opt_action = set_menu_select;
 			}
-			
-			dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
-			dsk_menu[i].opt_menu = OPT_NOMENU;
-			dsk_menu[i].opt_flags = OPT_EXIT;
-			dsk_menu[i].opt_action = set_menu_select;
-
+			if (partman_go < 0) {
+				dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
+				dsk_menu[i].opt_menu = OPT_NOMENU;
+				dsk_menu[i].opt_flags = OPT_EXIT;
+				dsk_menu[i].opt_action = set_menu_select;
+			}
 			menu_no = new_menu(MSG_Available_disks,
-				dsk_menu, numdisks + 1, -1, 4, 0, 0, MC_SCROLL,
+				dsk_menu, numdisks + ((partman_go<0)?1:0), -1, 4, 0, 0, MC_SCROLL,
 				NULL, NULL, NULL, NULL, NULL);
 			if (menu_no == -1)
 				return -1;
@@ -399,10 +402,11 @@ find_disks(const char *doingwhat)
 			process_menu(menu_no, &selected_disk);
 			free_menu(menu_no);
 		}
-		if (selected_disk == numdisks) {
+		if (partman_go < 0 && selected_disk == numdisks) {
 			partman_go = 1;
 	    	return -2;
-		}
+		} else
+			partman_go = 0;
 		if (selected_disk < 0 || selected_disk >= numdisks)
 	    	return -1;
 	}
@@ -461,6 +465,7 @@ find_disks(const char *doingwhat)
 
 		label_read();
 		if (partman_go) {
+			partman_getrefdev(pm_found);
 			pm_i->next = pm_found;
 			pm_found = malloc(sizeof (pm_devs_t));
 			memset(pm_found, 0, sizeof *pm_found);
@@ -1028,7 +1033,7 @@ mount_disks(void)
 	else {
 		error = mount_root();
 		if (error != 0 && error != EBUSY)
-			return 0;
+			return error;
 	}
 
 	/* Check the target /etc/fstab exists before trying to parse it. */
@@ -1036,7 +1041,7 @@ mount_disks(void)
 	    target_file_exists_p("/etc/fstab") == 0) {
 		msg_display(MSG_noetcfstab, pm->diskdev);
 		process_menu(MENU_ok, NULL);
-		return 0;
+		return -1;
 	}
 
 
@@ -1046,7 +1051,7 @@ mount_disks(void)
 		/* error ! */
 		msg_display(MSG_badetcfstab, pm->diskdev);
 		process_menu(MENU_ok, NULL);
-		return 0;
+		return -2;
 	}
 	error = walk(fstab, (size_t)fstabsize, fstabbuf, numfstabbuf);
 	free(fstab);

@@ -47,7 +47,7 @@ do_install(void)
 {
 	int find_disks_ret;
 	int retcode = 0;
-	partman_go = 0;
+	partman_go = -1;
 	fstab_prepared = 0;
 
 #ifndef DEBUG
@@ -66,11 +66,12 @@ do_install(void)
 			msg_display(MSG_abort);
 			process_menu(MENU_ok, NULL);
 			return;
-		}		
+		}
 	} else if (find_disks_ret < 0)
 		return;
 	else {
 	/* Classical partitioning wizard */
+		partman_go = 0;
 		clear();
 		refresh();
 

@@ -179,6 +179,7 @@ menu utility, title MSG_NetBSD_VERSION_Utilities, exit,
 		};
 	option MSG_Partition_a_disk, action { partman_go = 1; partman(); };
 	option MSG_Logging_functions, action { do_logging(); };
+	option "View log", action (endwin) { system("less /tmp/sysinst.log"); };
 	option MSG_Color_scheme, sub menu colors;
 	option MSG_Halt_the_system, exit,
 		action (endwin) { system("/sbin/halt -q"); };
@@ -516,9 +517,7 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* TODO: localize */
 									pm->bootable = 1;
 								else
 									pm->bootable = 0; };
-	option "Set disk name",		exit, action { msg_prompt_win(MSG_packname, -1,
-								18,	0, 0, pm->bsddiskname, pm->bsddiskname,
-								sizeof pm->bsddiskname); };
+	option "Set disk name",		exit, action { pm->changed = 1; partman_rename(pm); };
 	option "Format as RAID",	exit, action { pm->changed = 1;
 												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
@@ -533,12 +532,12 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* TODO: localize */
 												pm->bootable = !pm->bootable; };
 	option "Safe erase",		next menu shred_modes;
 	option "Undo changes",		exit, action { label_read(); pm->changed = 0; };
-	option "Umount/Unconfigure", exit, action { partman_unconfigure(); };
+	option "Unconfigure",		exit, action { partman_unconfigure(pm); };
 
-menu pmpartentry, x=50, y=5, exit, default exit; /* TODO: localize */
+menu pmpartentry, x=50, y=5, exit, default exit;
 	option "Safe erase",		next menu shred_modes;
-	option "(U)Mount",			exit, action { partman_mount(pm, *(int*)arg); };
-	option "Delete",			exit;
+	option "Force umount",		exit, action { partman_umount(pm, *(int*)arg); };
+	option "Delete",			exit, action { pm->bsdlabel[*(int*)arg].pi_flags = 0; };
 
 menu shred_modes, x=50, y=5, exit, default exit;
 	option "Fill by zeros",			exit, action { partman_shred(pm->diskdev,
