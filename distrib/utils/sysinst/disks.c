@@ -465,7 +465,7 @@ find_disks(const char *doingwhat)
 
 		label_read();
 		if (partman_go) {
-			partman_getrefdev(pm_found);
+			pm_getrefdev(pm_found);
 			pm_i->next = pm_found;
 			pm_found = malloc(sizeof (pm_devs_t));
 			memset(pm_found, 0, sizeof *pm_found);

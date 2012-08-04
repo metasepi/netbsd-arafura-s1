@@ -431,14 +431,14 @@ void label_read(void);
 
 /* from partman.c */
 int	partman(void);
-int partman_getrefdev(pm_devs_t *);
-void partman_setfstype(pm_devs_t *, int, int);
-void partman_rename(pm_devs_t *);
-int partman_shred(char *, char, int);
-void partman_umount(pm_devs_t *, int);
-int partman_unconfigure(pm_devs_t *);
-void partman_unconfigureall(void);
-int partman_cgd_edit_adddisk(void *, part_entry_t *);
+int pm_getrefdev(pm_devs_t *);
+void pm_setfstype(pm_devs_t *, int, int);
+void pm_rename(pm_devs_t *);
+int pm_shred(char *, char, int);
+void pm_umount(pm_devs_t *, int);
+int pm_unconfigure(pm_devs_t *);
+void pm_unconfigureall(void);
+int pm_cgd_edit_adddisk(void *, part_entry_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
