@@ -525,9 +525,11 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* TODO: localize */
 												layoutkind = LY_NEWLVM;
 												md_make_bsd_partitions(); };
 	option "Encrypt",			exit, action { pm->changed = 1;
-												layoutkind = LY_NEWCGD;
-												md_make_bsd_partitions();
-												partman_cgd_edit_adddisk(0, pm); };
+								layoutkind = LY_NEWCGD;
+								md_make_bsd_partitions();
+								partman_cgd_edit_adddisk(0,
+									&((part_entry_t){.dev_pm = pm, .dev_num = PART_E})
+								); };
 	option "Bootable flag",		exit, action { pm->changed = 1;
 												pm->bootable = !pm->bootable; };
 	option "Safe erase",		next menu shred_modes;
@@ -535,9 +537,20 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* TODO: localize */
 	option "Unconfigure",		exit, action { partman_unconfigure(pm); };
 
 menu pmpartentry, x=50, y=5, exit, default exit;
+	option "Format as RAID",	exit, action { pm->changed = 1;
+									partman_setfstype(pm, *(int*)arg, FS_RAID); };
+	option "Format as LVM PV",		exit, action { pm->changed = 1;
+									partman_setfstype(pm, *(int*)arg, FS_BSDFFS);
+								    pm->bsdlabel[*(int*)arg].lvmpv = 1; };
+	option "Encrypt",			exit, action { pm->changed = 1;
+									partman_setfstype(pm, *(int*)arg, FS_CGD);
+									partman_cgd_edit_adddisk(0,
+										&((part_entry_t){.dev_pm = pm, .dev_num = *(int*)arg})
+									); };
 	option "Safe erase",		next menu shred_modes;
 	option "Force umount",		exit, action { partman_umount(pm, *(int*)arg); };
-	option "Delete",			exit, action { pm->bsdlabel[*(int*)arg].pi_flags = 0; };
+	option "Delete",			exit, action { pm->changed = 1;
+									pm->bsdlabel[*(int*)arg].pi_fstype = FS_UNUSED; };
 
 menu shred_modes, x=50, y=5, exit, default exit;
 	option "Fill by zeros",			exit, action { partman_shred(pm->diskdev,

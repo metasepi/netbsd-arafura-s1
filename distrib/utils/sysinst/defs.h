@@ -301,6 +301,18 @@ pm_devs_t *pm; /* Pointer to currend device with which we work */
 pm_devs_t *pm_head; /* Pointer to head of list with all devices */
 pm_devs_t *pm_found; /* Pointer for next allocating device in find_disks() */
 
+/* Generic structure for partman */
+typedef struct {
+    int retvalue;
+    int dev_num;
+    pm_devs_t *dev_pm;
+    void *dev_ptr;
+    int dev_ptr_delta;
+    char fullname[SSTRSIZE];
+    enum {PM_DISK_T, PM_PART_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
+        PM_LVM_T, PM_LVMLV_T} type;
+} part_entry_t;
+
 /* Relative file name for storing a distribution. */
 char xfer_dir[STRSIZE];
 int  clean_xfer_dir;
@@ -420,12 +432,13 @@ void label_read(void);
 /* from partman.c */
 int	partman(void);
 int partman_getrefdev(pm_devs_t *);
+void partman_setfstype(pm_devs_t *, int, int);
 void partman_rename(pm_devs_t *);
 int partman_shred(char *, char, int);
 void partman_umount(pm_devs_t *, int);
 int partman_unconfigure(pm_devs_t *);
 void partman_unconfigureall(void);
-int partman_cgd_edit_adddisk(void *, pm_devs_t *);
+int partman_cgd_edit_adddisk(void *, part_entry_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

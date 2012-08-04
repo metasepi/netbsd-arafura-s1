@@ -769,7 +769,7 @@ int
 check_partitions(void)
 {
 #ifdef HAVE_BOOTXX_xFS
-	int rv;
+	int rv = 1;
 	char *bootxx;
 #endif
 #ifndef HAVE_UFS2_BOOT
