@@ -120,7 +120,6 @@ typedef struct lv_t {
 	char name[SSTRSIZE];
 	int readonly;
 	int contiguous;
-	int chunksize;
 	char extents[SSTRSIZE];
 	int minor;
 	int mirrors;
@@ -192,7 +191,7 @@ enum { /* LVM menu enum */
 
 enum { /* LVM submenu (logical volumes) enum */
 	PMLV_MENU_NAME, PMLV_MENU_SIZE, PMLV_MENU_READONLY, PMLV_MENU_CONTIGUOUS,
-	PMLV_MENU_CHUNKSIZE, PMLV_MENU_EXTENTS, PMLV_MENU_MINOR, PMLV_MENU_PERSISTENT,
+	PMLV_MENU_EXTENTS, PMLV_MENU_MINOR, PMLV_MENU_PERSISTENT,
 	PMLV_MENU_MIRRORS, PMLV_MENU_REGIONSIZE, PMLV_MENU_READAHEAD,
 	PMLV_MENU_STRIPES, PMLV_MENU_STRIPESIZE, PMLV_MENU_ZERO, 
 	PMLV_MENU_REMOVE, PMLV_MENU_END
@@ -297,8 +296,8 @@ pm_manage_getdev(int type)
 		}
 
 	menu_no = new_menu("Available disks:",
-		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13, MC_SCROLL | MC_NOCLEAR,
-		NULL, NULL , NULL, NULL, NULL);
+		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13,
+		MC_SCROLL | MC_NOCLEAR, NULL, NULL, NULL, NULL, NULL);
 	if (menu_no == -1)
 		return (part_entry_t) { .retvalue = -1, };
 	process_menu(menu_no, &dev_num);
@@ -1202,23 +1201,27 @@ pm_lvm_disk_del(menudesc *m, void *arg)
 static void
 pm_lvm_menufmt(menudesc *m, int opt, void *arg)
 {
-	int i, ok = 0;
-	char buf[STRSIZE]; buf[0] = '\0';
+	int i, ok = 0, used_size = 0;
+	char buf1[STRSIZE]; buf1[0] = '\0';
+	char buf2[STRSIZE]; buf2[0] = '\0';
 	lvms_t *dev_ptr = ((part_entry_t *)arg)[opt].dev_ptr;
 
 	if (dev_ptr->enabled == 0)
 		return;
-	snprintf(buf, STRSIZE, "VG '%s' on ", dev_ptr->name);
+	snprintf(buf1, STRSIZE, "VG '%s' on ", dev_ptr->name);
 	for (i = 0; i < MAX_LVM_PV; i++)
 		if (dev_ptr->pv[i].pm != NULL) {
-			strncat(buf, dev_ptr->pv[i].pm_name, STRSIZE);
-			strncat(buf, " ", STRSIZE);
+			strncat(buf1, dev_ptr->pv[i].pm_name, STRSIZE);
+			strncat(buf1, " ", STRSIZE);
 			ok = 1;
 		}
-	if (ok)
-		wprintw(m->mw, "   %-53s %11uM", buf,
-			dev_ptr->total_size);
-	else
+	for (i = 0; i < MAX_LVM_LV; i++)
+		used_size += dev_ptr->lv[i].size;
+	if (ok) {
+		snprintf(buf2, STRSIZE, "%d/%u",
+			dev_ptr->total_size - used_size, dev_ptr->total_size);
+		wprintw(m->mw, "   %-44s %20sM", buf1, buf2);
+	} else
 		wprintw(m->mw, "   EMPTY VG!");
 	return;
 }
@@ -1228,26 +1231,34 @@ pm_lvm_edit_menufmt(menudesc *m, int opt, void *arg)
 {
 	int i;
 	char buf[STRSIZE];
-	buf[0] = '\0';
+	lvms_t *dev_ptr = arg;
+	strncpy(buf, "auto", STRSIZE);
 
 	switch (opt) {
 		case PML_MENU_PV:
+			buf[0] = '\0';
 			for (i = 0; i < MAX_LVM_PV; i++)
 				if (((lvms_t*)arg)->pv[i].pm != NULL)
-					snprintf(buf, STRSIZE, "%s %s", buf, ((lvms_t*)arg)->pv[i].pm_name);
+					snprintf(buf, STRSIZE, "%s %s", buf, dev_ptr->pv[i].pm_name);
 			wprintw(m->mw, "PV's: %34s", buf);
 			break;
 		case PML_MENU_NAME:
-			wprintw(m->mw, "Name: %34s", ((lvms_t*)arg)->name);
+			wprintw(m->mw, "Name: %34s", dev_ptr->name);
 			break;
 		case PML_MENU_MAXLOGICALVOLUMES:
-			wprintw(m->mw, "MaxLogicalVolumes:  %20d", ((lvms_t*)arg)->maxlogicalvolumes);
+			if (dev_ptr->maxlogicalvolumes > 0)
+				snprintf(buf, STRSIZE, "%d", dev_ptr->maxlogicalvolumes);
+			wprintw(m->mw, "MaxLogicalVolumes:  %20s", buf);
 			break;
 		case PML_MENU_MAXPHYSICALVOLUMES:
-			wprintw(m->mw, "MaxPhysicalVolumes: %20d", ((lvms_t*)arg)->maxphysicalvolumes);
+			if (dev_ptr->maxphysicalvolumes > 0)
+				snprintf(buf, STRSIZE, "%d", dev_ptr->maxphysicalvolumes);
+			wprintw(m->mw, "MaxPhysicalVolumes: %20s", buf);
 			break;
 		case PML_MENU_PHYSICALEXTENTSIZE:
-			wprintw(m->mw, "PhysicalExtentSize: %19dM", ((lvms_t*)arg)->physicalextentsize);
+			if (dev_ptr->physicalextentsize > 0)
+				snprintf(buf, STRSIZE, "%dM", dev_ptr->physicalextentsize);
+			wprintw(m->mw, "PhysicalExtentSize: %20s", buf);
 			break;
 	}
 	return;
@@ -1313,7 +1324,7 @@ pm_lvm_new_init(void *dev_ptr, void* none)
 		.blocked = 0,
 		.maxlogicalvolumes = MAX_LVM_PV,
 		.maxphysicalvolumes = MAX_LVM_LV,
-		.physicalextentsize = 4,
+		.physicalextentsize = -1,
 	};
 	sprintf(((lvms_t*)dev_ptr)->name, "vg%.2d", rand()%100);
 	return;
@@ -1363,7 +1374,11 @@ pm_lvmlv_menufmt(menudesc *m, int opt, void *arg)
 static void
 pm_lvmlv_edit_menufmt(menudesc *m, int opt, void *arg)
 {
+
 	lv_t *dev_ptr = arg;
+	char buf[STRSIZE];
+	strncpy(buf, "auto", STRSIZE);
+
 	switch (opt) {
 		case PMLV_MENU_NAME:
 			wprintw(m->mw, "Name: %34s", dev_ptr->name);
@@ -1377,32 +1392,40 @@ pm_lvmlv_edit_menufmt(menudesc *m, int opt, void *arg)
 		case PMLV_MENU_CONTIGUOUS:
 			wprintw(m->mw, "Contiguous:  %27s", dev_ptr->contiguous?"yes":"no");
 			break;
-		case PMLV_MENU_CHUNKSIZE:
-			wprintw(m->mw, "ChunkSize:   %26dK", dev_ptr->chunksize);
-			break;
 		case PMLV_MENU_EXTENTS:
-			wprintw(m->mw, "LogicalExtentsNumber: %18s", dev_ptr->extents);
+			wprintw(m->mw, "LogicalExtentsNumber: %18s",
+				(strlen(dev_ptr->extents) > 0)? dev_ptr->extents : "auto");
 			break;
 		case PMLV_MENU_MINOR:
-			wprintw(m->mw, "Minor number: %26d", dev_ptr->minor);
+			if (dev_ptr->minor > 0)
+				snprintf(buf, STRSIZE, "%dK", dev_ptr->minor);
+			wprintw(m->mw, "Minor number: %26s", buf);
 			break;
 		case PMLV_MENU_MIRRORS:
 			wprintw(m->mw, "Mirrors:     %27d", dev_ptr->mirrors);
 			break;
 		case PMLV_MENU_REGIONSIZE:
-			wprintw(m->mw, "MirrorLogRegionSize:  %17dM", dev_ptr->regionsize);
+			if (dev_ptr->regionsize > 0)
+				snprintf(buf, STRSIZE, "%dM", dev_ptr->regionsize);
+			wprintw(m->mw, "MirrorLogRegionSize:  %18s", buf);
 			break;
 		case PMLV_MENU_PERSISTENT:
 			wprintw(m->mw, "Persistent minor number?:  %13s", dev_ptr->persistent?"yes":"no");
 			break;
 		case PMLV_MENU_READAHEAD:
-			wprintw(m->mw, "ReadAheadSectors:     %18d", dev_ptr->readahead);
+			if (dev_ptr->readahead > 0)
+				snprintf(buf, STRSIZE, "%d", dev_ptr->readahead);
+			wprintw(m->mw, "ReadAheadSectors:     %18s", buf);
 			break;
 		case PMLV_MENU_STRIPES:
-			wprintw(m->mw, "Stripes:     %27d", dev_ptr->stripes);
+			if (dev_ptr->stripes > 0)
+				snprintf(buf, STRSIZE, "%d", dev_ptr->stripes);
+			wprintw(m->mw, "Stripes:     %27s", buf);
 			break;
 		case PMLV_MENU_STRIPESIZE:
-			wprintw(m->mw, "StripeSize:  %26dK", dev_ptr->stripesize);
+			if (dev_ptr->stripesize > 0)
+				snprintf(buf, STRSIZE, "%dK", dev_ptr->stripesize);
+			wprintw(m->mw, "StripeSize:  %27s", buf);
 			break;
 		case PMLV_MENU_ZERO:
 			wprintw(m->mw, "Zeroing of the first KB:   %13s", dev_ptr->zero?"yes":"no");
@@ -1433,12 +1456,6 @@ pm_lvmlv_set_value(menudesc *m, void *arg)
 			return 0;
 		case PMLV_MENU_CONTIGUOUS:
 			dev_ptr->contiguous = !dev_ptr->contiguous;
-			return 0;
-		case PMLV_MENU_CHUNKSIZE:
-			if (dev_ptr->chunksize << 1 > 512)
-				dev_ptr->chunksize = 4;	
-			else
-				dev_ptr->chunksize <<= 1;
 			return 0;
 		case PMLV_MENU_EXTENTS:
 			msg_prompt_win("LogicalExtentsNumber?", -1, 18, 0, 0,
@@ -1495,7 +1512,6 @@ pm_lvmlv_new_init(void *dev_ptr, void *none)
 	memset((lv_t*)dev_ptr, 0, sizeof *((lv_t*)dev_ptr));
 	*((lv_t*)dev_ptr) = (struct lv_t) {
 		.size = 1024,
-		.chunksize = 64,
 		.stripesize = 64,
 	};
 	sprintf(((lvms_t*)dev_ptr)->name, "lvol%.2d", rand()%100);
@@ -1529,22 +1545,82 @@ static int
 pm_lvm_commit(void)
 {
 	int i, ii, error;
+	uint used_size = 0;
+	char params[STRSIZE*3];
+	char devs[STRSIZE*3];
+
 	for (i = 0; i < MAX_LVM_VG; i++) {
+		/* Stage 0: checks */
 		if (! pm_lvm_check(&lvms[i]))
 			continue;
+		for (ii = 0; ii < MAX_LVM_LV; ii++)
+			used_size += lvms[i].lv[ii].size;
+		if (used_size > lvms[i].total_size)
+			continue;
+
+		params[0] = '\0';
+		devs[0] = '\0';
 		error = 0;
+		/* Stage 1: creating Physical Volumes (PV's) */
 		for (ii = 0; ii < MAX_LVM_PV && ! error; ii++)
 			if (lvms[i].pv[ii].pm != NULL) {
-				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-										"lvcreate pvcreate -y /dev/%s",
+				run_program(RUN_SILENT | RUN_ERROR_OK, 
+										"lvm pvremove -fy /dev/r%s",
 										(char*)lvms[i].pv[ii].pm_name);
 				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-										"lvcreate vgcreate %s /dev/%s",
-										lvms[i].name, (char*)lvms[i].pv[ii].pm_name);
+										"lvm pvcreate -fy /dev/r%s",
+										(char*)lvms[i].pv[ii].pm_name);
+				if (error)
+					break;
+				snprintf(devs, STRSIZE*3, "%s /dev/r%s", devs, (char*)lvms[i].pv[ii].pm_name);
 			}
-		for (ii = 0; ii < MAX_LVM_LV && ! error; ii++);
+		if (error)
+			continue;
+		/* Stage 2: creating Volume Groups (VG's) */
+		if (lvms[i].maxlogicalvolumes > 0)
+			snprintf(params, STRSIZE*3, "%s -l %d", params, lvms[i].maxlogicalvolumes);
+		if (lvms[i].maxphysicalvolumes > 0)
+			snprintf(params, STRSIZE*3, "%s -p %d", params, lvms[i].maxphysicalvolumes);
+		if (lvms[i].physicalextentsize > 0)
+			snprintf(params, STRSIZE*3, "%s -s %d", params, lvms[i].physicalextentsize);
+		error += run_program(RUN_DISPLAY | RUN_PROGRESS, "lvm vgcreate %s %s %s",
+							params, lvms[i].name, devs);
+		if (error)
+			continue;
+		/* Stage 3: creating Logical Volumes (LV's) */
+		for (ii = 0; ii < MAX_LVM_LV; ii++) {
+			if (lvms[i].lv[ii].size <= 0)
+				continue;
 
-		lvms[i].enabled = 0;
+			params[0] = '\0';
+			snprintf(params, STRSIZE*3, "%s -C %c", params, lvms[i].lv[ii].contiguous?'y':'n');
+			snprintf(params, STRSIZE*3, "%s -M %c", params, lvms[i].lv[ii].persistent?'y':'n');
+			snprintf(params, STRSIZE*3, "%s -p %s", params, lvms[i].lv[ii].readonly?"r":"rw");
+			snprintf(params, STRSIZE*3, "%s -Z %c", params, lvms[i].lv[ii].zero?'y':'n');
+			if (strlen(lvms[i].lv[ii].name) > 0)
+				snprintf(params, STRSIZE*3, "%s -n %s", params, lvms[i].lv[ii].name);
+			if (strlen(lvms[i].lv[ii].extents) > 0)
+				snprintf(params, STRSIZE*3, "%s -l %s", params, lvms[i].lv[ii].extents);
+			if (lvms[i].lv[ii].minor > 0)
+				snprintf(params, STRSIZE*3, "%s --minor %d", params, lvms[i].lv[ii].minor);
+			if (lvms[i].lv[ii].mirrors > 0) {
+				snprintf(params, STRSIZE*3, "%s -m %d", params, lvms[i].lv[ii].mirrors);
+				if (lvms[i].lv[ii].regionsize > 0)
+					snprintf(params, STRSIZE*3, "%s -R %d", params, lvms[i].lv[ii].regionsize);
+			}
+			if (lvms[i].lv[ii].readahead > 0)
+				snprintf(params, STRSIZE*3, "%s -r %d", params, lvms[i].lv[ii].readahead);
+			if (lvms[i].lv[ii].stripes > 0) {
+				snprintf(params, STRSIZE*3, "%s -i %d", params, lvms[i].lv[ii].stripes);
+				if (lvms[i].lv[ii].stripesize > 0)
+					snprintf(params, STRSIZE*3, "%s -I %d", params, lvms[i].lv[ii].stripesize);
+			}
+			snprintf(params, STRSIZE*3, "%s -L %uM", params, lvms[i].lv[ii].size);
+			error += run_program(RUN_DISPLAY | RUN_PROGRESS, "lvm lvcreate %s %s",
+									params, lvms[i].name);
+		}
+		if (! error)
+			lvms[i].enabled = 0;
 	}
 
 	return 0;
@@ -1631,8 +1707,7 @@ pm_rename(pm_devs_t *pm_cur)
 static int
 pm_mountall_sort(const void *a, const void *b)
 {
-	return strcmp(mnts[*(const int *)a].pi_mount,
-		      mnts[*(const int *)b].pi_mount);
+	return strcmp(mnts[*(const int *)a].pi_mount, mnts[*(const int *)b].pi_mount);
 }
 
 /* Mount all available partitions */
@@ -1677,7 +1752,8 @@ pm_mountall(void)
 	for (i = 0; i < num_devs; i++) {
 		ii = mnts_order[i];
 		make_target_dir(mnts[ii].pi_mount);
-		error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev, mnts[ii].pm_part, mnts[ii].pi_mount);
+		error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev,
+			mnts[ii].pm_part, mnts[ii].pi_mount);
 		if (error) {
 			return error;
 		}
@@ -1751,7 +1827,8 @@ pm_unconfigure(pm_devs_t *pm_cur)
 		}
 	} //TODO: lvm
 	else
-		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%s", pm_cur->diskdev);
+		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%s",
+			pm_cur->diskdev);
 	return error;
 }
 
@@ -1950,12 +2027,15 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 				dev_status = "BOOT";
 			else
 				dev_status = "USED";
-			wprintw(m->mw, "%-33s Name:%-20s %9s", pm_i->diskdev_descr, pm_i->bsddiskname, dev_status);
+			wprintw(m->mw, "%-33s Name:%-20s %9s", pm_i->diskdev_descr,
+				pm_i->bsddiskname, dev_status);
 			break;
 		case PM_PART_T:
 			snprintf(buf, STRSIZE, "%s %s", pm_i->bsdlabel[part_num].pi_mount,
 				(strlen(pm_i->bsdlabel[part_num].mounted) > 0) ? "(mounted)" : 
-				(part_num == PART_B || pm_i->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
+				(part_num == PART_B ||
+					strlen (pm_i->bsdlabel[part_num].pi_mount ) < 1 ||
+					pm_i->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
 					"" : "(unused)");
 			wprintw(m->mw, "   part %c: %-22s %-22s %11uM",
 				'a' + part_num, buf,
@@ -1999,9 +2079,12 @@ pm_upddevlist_adv(menudesc *m, void *arg, int *i,
 		};
 	}
 	for (ii = 0; ii < d->s->max; ii++) {
-		if (d->s->entry_enabled == NULL || d->s->entry_blocked == NULL ||
-			*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii + d->s->parent_size * d->sub_num) == 0 ||
-			*(int*)((char*)d->s->entry_blocked + d->s->entry_size * ii + d->s->parent_size * d->sub_num) != 0)
+		if (d->s->entry_enabled == NULL ||
+			d->s->entry_blocked == NULL ||
+			*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii +
+				d->s->parent_size * d->sub_num) == 0 ||
+			*(int*)((char*)d->s->entry_blocked + d->s->entry_size * ii +
+				d->s->parent_size * d->sub_num) != 0)
 			continue;
 		/* We have entry for displaying */
 		changed = 1;
