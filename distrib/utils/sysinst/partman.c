@@ -1876,7 +1876,7 @@ pm_unconfigure(pm_devs_t *pm_cur)
 		}
 	} //TODO: lvm
 	else
-		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%s",
+		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%sd",
 			pm_cur->diskdev);
 	return error;
 }
@@ -1956,16 +1956,6 @@ pm_commit(menudesc *m, void *arg)
 			if (logfp)
 				fprintf(logfp, "Disk preparing error %s\n", pm_i->diskdev);
 			continue;
-		}	
-		/* Write bootsector if needed */
-		if (pm_i->bootable) {
-			if (! strncmp("raid", pm_i->diskdev, 4))
-				run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A root %s", pm_i->diskdev);
-		 	if (check_partitions() == 0 || md_post_newfs() != 0) {
-		 		if (logfp)
-					fprintf(logfp, "Boot disk preparing error: %s\n", pm_i->diskdev);
-				continue;
-			}
 		}
 		pm_i->changed = 0;
 	
@@ -1998,6 +1988,38 @@ pm_commit(menudesc *m, void *arg)
     return 0;
 }
 
+/* Last checks before leaving partition manager */
+static int
+pm_lastcheck(void)
+{
+	int error = 0;
+	FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
+	if (file_tmp == NULL)
+		error = 1;
+	else
+		fclose(file_tmp);
+	return error;
+}
+
+static int
+pm_savebootsector(void)
+{
+	pm_devs_t *pm_i;
+
+	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+		if (pm_i->bootable) {
+			if (! strncmp("raid", pm_i->diskdev, 4))
+				run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A root %s",
+					pm_i->diskdev);
+		 	if (check_partitions() == 0 || md_post_newfs() != 0) {
+		 		if (logfp)
+					fprintf(logfp, "Boot disk preparing error: %s\n", pm_i->diskdev);
+				continue;
+			}
+		}
+	return 0;
+}
+
 /* Is there some unsaved changes? */
 static int
 pm_needsave(void)
@@ -2014,19 +2036,6 @@ pm_needsave(void)
 		return (yesno);
 	}
 	return 0;
-}
-
-/* Last checks before leaving partition manager */
-static int
-pm_lastcheck(void)
-{
-	int error = 0;
-	FILE *file_tmp = fopen(concat_paths(targetroot_mnt, "/etc/fstab"), "r");
-	if (file_tmp == NULL)
-		error = 1;
-	else
-		fclose(file_tmp);
-	return error;
 }
 
 /* Function for 'Enter'-menu */
@@ -2271,7 +2280,8 @@ partman(void)
 				pm_commit(NULL, NULL);
 			if (pm_mountall() != 0 ||
 				make_fstab() != 0 ||
-				pm_lastcheck() != 0) {
+				pm_lastcheck() != 0 ||
+				pm_savebootsector() != 0) {
 					msg_display("Do you want to try?");
 					process_menu(MENU_yesno, NULL);
 					args[0].retvalue = (yesno) ? 1:-1;
