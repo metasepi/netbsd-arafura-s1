@@ -89,6 +89,7 @@ save_ptn(int ptn, daddr_t start, daddr_t size, int fstype, const char *mountpt)
 	static int maxptn;
 	partinfo *p;
 	int pp;
+	char *buf;
 
 	if (maxptn == 0)
 		maxptn = getmaxpartitions();
@@ -117,14 +118,20 @@ save_ptn(int ptn, daddr_t start, daddr_t size, int fstype, const char *mountpt)
 	p->pi_size = size;
 	set_ptype(p, fstype, mountpt ? PIF_NEWFS : 0);
 
-	if (mountpt != NULL && ! strcmp(mountpt, "lvm"))
+	/* Hack because we does not have something like FS_LVMPV */
+	p->lvmpv = 0;
+	if (mountpt != NULL && strcmp(mountpt, "lvm") == 0)
 		p->lvmpv = 1;
 	else if (mountpt != NULL) {
 		for (pp = 0; pp < maxptn; pp++) {
 			if (strcmp(pm->bsdlabel[pp].pi_mount, mountpt) == 0)
 				pm->bsdlabel[pp].pi_flags &= ~PIF_MOUNT;
 		}
-		strlcpy(p->pi_mount, mountpt, sizeof p->pi_mount);
+		if (mountpt[0] != '/')
+			asprintf(&buf, "/%s", mountpt);
+		else
+			asprintf(&buf, "%s", mountpt);
+		strlcpy(p->pi_mount, buf, sizeof p->pi_mount);
 		p->pi_flags |= PIF_MOUNT;
 		/* Default to logging, UFS2. */
 		if (p->pi_fstype == FS_BSDFFS) {
@@ -136,6 +143,7 @@ save_ptn(int ptn, daddr_t start, daddr_t size, int fstype, const char *mountpt)
 				p->pi_flags |= PIF_FFSv2;
 #endif
 		}
+		free(buf);
 	}
 
 	return ptn;
@@ -219,7 +227,7 @@ set_ptn_size(menudesc *m, void *arg)
 
 	if (p->mount[0] == 0) {
 		msg_prompt_win(partman_go?"Mountpoint or 'raid' or 'cgd' or 'lvm'?":MSG_askfsmount,
-			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount);
+			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount); // XXX: localize
 		if (p->mount[0] == 0)
 			return 0;
 	}
@@ -347,7 +355,6 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 	struct ptn_size *p;
 	daddr_t size;
 	static int swap_created = 0, root_created = 0;
-	char buf[MOUNTLEN];
 
 	if (pm->pi.menu_no < 0)
 	pm->pi = (struct ptn_info) { -1, {
@@ -539,11 +546,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 			continue;			
 		} else if (!strcmp(p->mount, "cgd")) {
 			save_ptn(i, part_start, size, FS_CGD, NULL);
-			continue;						
-		}
-		if (p->mount[0] != '/') {
-			strncpy(buf, p->mount, MOUNTLEN);
-			snprintf(p->mount, MOUNTLEN, "/%s", buf);
+			continue;
 		}
 		save_ptn(i, part_start, size, FS_BSDFFS, p->mount);
 	}

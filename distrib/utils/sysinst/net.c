@@ -1003,7 +1003,7 @@ do_ftp_fetch(const char *set_name, struct ftpinfo *f)
 }
 
 
-// TODO: check MSG_netnotup_continueanyway and MSG_netnotup
+// XXX: check MSG_netnotup_continueanyway and MSG_netnotup
 
 int
 get_pkgsrc(void)

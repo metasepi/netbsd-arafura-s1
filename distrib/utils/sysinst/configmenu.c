@@ -95,7 +95,7 @@ configinfo config_list[] = {
 	{"Enable XDM", CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
 	{"Enable CGD", CONFIGOPT_XDM, "cgd", toggle_rcvar, NULL},
 	{NULL,		CONFIGOPT_LAST,	NULL, NULL, NULL}
-}; // TODO: XDM
+}; // XXX: XDM
 
 static void
 config_list_init(void)

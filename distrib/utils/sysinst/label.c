@@ -343,7 +343,7 @@ static void set_ptn_header(menudesc *m, void *arg);
 static void set_ptn_label(menudesc *m, int opt, void *arg);
 int all_fstype_menu = -1;
 
-static int
+int
 edit_ptn(menudesc *menu, void *arg)
 {
 	static menu_ent fs_fields[] = {

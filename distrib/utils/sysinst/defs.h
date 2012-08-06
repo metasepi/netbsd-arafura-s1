@@ -274,6 +274,7 @@ typedef struct pm_devs_t {
     int found; /* Flag to delete unplugged and unconfigured devices */
     int blocked; /* Device is busy and cannot be changed */
     int refdev; /* If device is blocked thats is a refer to a parent dev */
+    int isspecial; /* LVM LV or DK device that doesnot accept disklabel */
     char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
     int bootable;
@@ -307,7 +308,7 @@ typedef struct {
     void *dev_ptr;
     int dev_ptr_delta;
     char fullname[SSTRSIZE];
-    enum {PM_DISK_T, PM_PART_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
+    enum {PM_DISK_T=1, PM_PART_T, PM_SPEC_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
         PM_LVM_T, PM_LVMLV_T} type;
 } part_entry_t;
 
@@ -424,20 +425,7 @@ int	mount_disks(void);
 int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char *bootxx_name(void);
-const char *fstype_name(int);
 void label_read(void);
-
-/* from partman.c */
-int	partman(void);
-int pm_checkpartitions(pm_devs_t *, int, int);
-int pm_getrefdev(pm_devs_t *);
-void pm_setfstype(pm_devs_t *, int, int);
-void pm_rename(pm_devs_t *);
-int pm_shred(char *, char, int);
-void pm_umount(pm_devs_t *, int);
-int pm_unconfigure(pm_devs_t *);
-void pm_unconfigureall(void);
-int pm_cgd_edit_adddisk(void *, part_entry_t *);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
@@ -450,6 +438,7 @@ int	edit_and_check_label(partinfo *, int, int, int);
 void	set_bsize(partinfo *, int);
 void	set_fsize(partinfo *, int);
 void	set_ptype(partinfo *, int, int);
+int edit_ptn(menudesc *, void *);
 
 /* from install.c */
 void	do_install(void);
@@ -558,6 +547,19 @@ int	target_file_exists_p(const char *);
 int	target_symlink_exists_p(const char *);
 void	unwind_mounts(void);
 int	target_mounted(void);
+
+/* from partman.c */
+int partman(void);
+int pm_checkpartitions(pm_devs_t *, int, int);
+int pm_getrefdev(pm_devs_t *);
+void pm_setfstype(pm_devs_t *, int, int);
+void pm_rename(pm_devs_t *);
+int pm_shred(char *, char, int);
+void pm_umount(pm_devs_t *, int);
+int pm_unconfigure(pm_devs_t *);
+void pm_unconfigureall(void);
+int pm_cgd_edit_adddisk(void *, part_entry_t *);
+int pm_clean(void);
 
 /* from bsddisklabel.c */
 int	make_bsd_partitions(void);

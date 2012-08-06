@@ -296,7 +296,7 @@ get_descr(struct disk_desc *dd)
 	/* try SCSI */
 	if (get_descr_scsi(dd, fd))
 		goto done;
-	/* TODO: get description from raid, cgd, vnd... */
+	/* XXX: get description from raid, cgd, vnd... */
 
 done:
 	if (fd >= 0)
@@ -355,7 +355,7 @@ find_disks(const char *doingwhat)
 	struct disk_desc disks[MAX_DISKS];
 	menu_ent dsk_menu[nelem(disks) + 1]; // + 1 for extended partitioning entry
 	struct disk_desc *disk;
-	pm_devs_t *pm_i, *pm_swap;
+	pm_devs_t *pm_i;
 	int i, already_found;
 	int numdisks, selected_disk = -1;
 	int menu_no;
@@ -388,7 +388,7 @@ find_disks(const char *doingwhat)
 				dsk_menu[i].opt_action = set_menu_select;
 			}
 			if (partman_go < 0) {
-				dsk_menu[i].opt_name = "Extended partitioning"; // TODO: localize
+				dsk_menu[i].opt_name = "Extended partitioning"; // XXX: localize
 				dsk_menu[i].opt_menu = OPT_NOMENU;
 				dsk_menu[i].opt_flags = OPT_EXIT;
 				dsk_menu[i].opt_action = set_menu_select;
@@ -411,10 +411,6 @@ find_disks(const char *doingwhat)
 	    	return -1;
 	}
 
-	/* Mark all devicec as not found */
-	for (pm_i = pm_head->next; partman_go && pm_i != NULL;
-		 pm_i = pm_i->next)
-			pm_i->found = 0;
 	/* Fill pm struct with device(s) info */
 	for (i = 0; i < numdisks; i++) {
 		if (! partman_go)
@@ -454,7 +450,7 @@ find_disks(const char *doingwhat)
 		if (pm->dlsize > UINT32_MAX) {
 			if (logfp)
 				fprintf(logfp, "Cannot process disk %s: too big size (%d)\n",
-					pm->diskdev, (int)pm->dlsize); // TODO: localize
+					pm->diskdev, (int)pm->dlsize); // XXX: localize
 			if (partman_go)
 				continue;
 			msg_display(MSG_toobigdisklabel);
@@ -474,20 +470,7 @@ find_disks(const char *doingwhat)
 			/* We is not in partman and do not want to process all devices, exit */
 			break;
 	}
-	for (pm_i = pm_head; partman_go && pm_i->next != NULL;
-			pm_i = pm_i->next)
-		if (! pm_i->next->found) {
-			/* If device not found then delete it */
-			if (pm_i->next->next == NULL) {
-				free(pm_i->next);
-				pm_i->next = NULL;
-				break;
-			} else {
-				pm_swap = pm_i->next->next;
-				free(pm_i->next);
-				pm_i->next = pm_swap;
-			}
-		}
+
 	return numdisks;
 }
 
@@ -588,7 +571,7 @@ make_filesystems(void)
 	int ptn_order[nelem(pm->bsdlabel)];
 	int error = 0;
 	unsigned int maxpart = getmaxpartitions();
-	char *newfs;
+	char *newfs = NULL, *dev = NULL;
 	partinfo *lbl;
 
 	if (maxpart > nelem(pm->bsdlabel))
@@ -616,6 +599,13 @@ make_filesystems(void)
 		if (*lbl->pi_mount == 0)
 			/* No mount point */
 			continue;
+
+		if (pm->isspecial)
+			asprintf(&dev, "%s", pm->diskdev);
+		else
+			asprintf(&dev, "%s%c", pm->diskdev, 'a' + ptn);
+		if (dev == NULL)
+			return (ENOMEM);
 
 		newfs = NULL;
 		lbl->mnt_opts = NULL;
@@ -672,12 +662,11 @@ make_filesystems(void)
 			if (lbl->pi_fstype == FS_MSDOS) {
 			        /* newfs only if mount fails */
 			        if (run_program(RUN_SILENT | RUN_ERROR_OK,
-				    "mount -rt msdos /dev/%s%c /mnt2",
-				    pm->diskdev, 'a' + ptn) != 0)
+				    "mount -rt msdos /dev/%s /mnt2", dev) != 0)
 					error = run_program(
 					    RUN_DISPLAY | RUN_PROGRESS,
-					    "%s /dev/r%s%c",
-					    newfs, pm->diskdev, 'a' + ptn);
+					    "%s /dev/r%s",
+					    newfs, dev);
 				else {
 			        	run_program(RUN_SILENT | RUN_ERROR_OK,
 					    "umount /mnt2");
@@ -686,7 +675,7 @@ make_filesystems(void)
 			} else
 #endif
 			error = run_program(RUN_DISPLAY | RUN_PROGRESS,
-			    "%s /dev/r%s%c", newfs, pm->diskdev, 'a' + ptn);
+			    "%s /dev/r%s", newfs, dev);
 		} else {
 			/* We'd better check it isn't dirty */
 			error = fsck_preen(pm->diskdev, ptn, lbl->fsname);
@@ -700,15 +689,14 @@ make_filesystems(void)
 		if (partman_go == 0 && lbl->pi_flags & PIF_MOUNT &&
 				lbl->mnt_opts != NULL) {
 			make_target_dir(lbl->pi_mount);
-			error = target_mount(lbl->mnt_opts, pm->diskdev, ptn,
-					    lbl->pi_mount);
+			error = target_mount_do(lbl->mnt_opts, dev, lbl->pi_mount);
 			if (error) {
-				msg_display(MSG_mountfail,
-					    pm->diskdev, 'a' + ptn, lbl->pi_mount);
+				msg_display(MSG_mountfail, dev, ' ', lbl->pi_mount);
 				process_menu(MENU_ok, NULL);
 				return error;
 			}
 		}
+		free(dev);
 	}
 	return 0;
 }
@@ -719,6 +707,7 @@ make_fstab(void)
 	FILE *f;
 	int i, swap_dev = -1;
 	const char *dump_dev;
+	char *dev = NULL;
 	pm_devs_t *pm_i, *pm_with_swap;
 
 	/* Create the fstab. */
@@ -754,6 +743,15 @@ make_fstab(void)
 			const char *mp = pm_i->bsdlabel[i].pi_mount;
 			const char *fstype = "ffs";
 			int fsck_pass = 0, dump_freq = 0;
+			
+			if (dev != NULL)
+				free(dev);
+			if (pm_i->isspecial)
+				asprintf(&dev, "%s", pm_i->diskdev);
+			else
+				asprintf(&dev, "%s%c", pm_i->diskdev, 'a' + i);
+			if (dev == NULL)
+				return (ENOMEM);
 
 			if (!*mp) {
 				/*
@@ -784,15 +782,17 @@ make_fstab(void)
 				fstype = "msdos";
 				break;
 			case FS_SWAP:
+				if (pm_i->isspecial)
+					continue;
 				if (swap_dev == -1) {
 					swap_dev = i;
 					dump_dev = ",dp";
 					pm_with_swap = pm_i;
 				} else {
-					dump_dev ="";
+					dump_dev = "";
 				}
-				scripting_fprintf(f, "/dev/%s%c\t\tnone\tswap\tsw%s\t\t 0 0\n",
-					pm_i->diskdev, 'a' + i, dump_dev);
+				scripting_fprintf(f, "/dev/%s\t\tnone\tswap\tsw%s\t\t 0 0\n",
+					dev, dump_dev);
 				continue;
 #ifdef USE_SYSVBFS
 			case FS_SYSVBFS:
@@ -810,8 +810,8 @@ make_fstab(void)
 				s = "# ";
 
 	 		scripting_fprintf(f,
-			  "%s/dev/%s%c\t\t%s\t%s\trw%s%s%s%s%s%s%s%s\t\t %d %d\n",
-			   s, pm_i->diskdev, 'a' + i, mp, fstype,
+			  "%s/dev/%s\t\t%s\t%s\trw%s%s%s%s%s%s%s%s\t\t %d %d\n",
+			   s, dev, mp, fstype,
 			   pm_i->bsdlabel[i].pi_flags & PIF_LOG ? ",log" : "",
 			   pm_i->bsdlabel[i].pi_flags & PIF_MOUNT ? "" : ",noauto",
 			   pm_i->bsdlabel[i].pi_flags & PIF_ASYNC ? ",async" : "",
@@ -855,6 +855,8 @@ make_fstab(void)
 
 	scripting_fprintf(NULL, "EOF\n");
 
+	if (dev != NULL)
+		free(dev);
 	fclose(f);
 	fflush(NULL);
 	return 0;
@@ -1184,31 +1186,3 @@ bootxx_name(void)
 	return bootxx;
 }
 #endif
-
-const char *
-fstype_name(int fstype)
-{
-	switch (fstype) {
-		case FS_BSDFFS:
-			return "FFS";
-		case FS_BSDLFS:
-			return "LFS";
-		case FS_SWAP:
-			return "SWAP";
-		case FS_EX2FS:
-			return "EXT2";
-		case FS_MSDOS:
-			return "FAT";
-		case FS_APPLEUFS:
-			return "APPLEUFS";
-		case FS_SYSVBFS:
-			return "SYSVB";
-		case FS_RAID:
-			return "RAID";
-		case FS_CGD:
-			return "CGD";
-		case FS_UNUSED:
-			return "none";
-	}
-	return "???";
-}

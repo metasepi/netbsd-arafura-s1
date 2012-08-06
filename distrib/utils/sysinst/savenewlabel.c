@@ -55,7 +55,7 @@ __RCSID("$NetBSD: savenewlabel.c,v 1.12 2012/01/05 22:18:36 christos Exp $");
 
 int
 /*ARGSUSED*/
-savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
+savenewlabel(partinfo *lp, int nparts)
 {
 	FILE *f;
 	char *f_name = malloc(STRSIZE * sizeof(char));
@@ -102,15 +102,15 @@ savenewlabel(partinfo *lp, int nparts) /* TODO: what does lp there? */
 	}
 	for (i = 0; i < nparts; i++) {
 		scripting_fprintf(f, "\t:p%c#%" PRIu32 ":o%c#%" PRIu32
-		    ":t%c=%s:", 'a'+i, (uint32_t)pm->bsdlabel[i].pi_size,
-		    'a'+i, (uint32_t)pm->bsdlabel[i].pi_offset, 'a'+i,
-		    getfslabelname(pm->bsdlabel[i].pi_fstype));
-		if (PI_ISBSDFS(&pm->bsdlabel[i]))
+		    ":t%c=%s:", 'a'+i, (uint32_t)lp[i].pi_size,
+		    'a'+i, (uint32_t)lp[i].pi_offset, 'a'+i,
+		    getfslabelname(lp[i].pi_fstype));
+		if (PI_ISBSDFS(&lp[i]))
 			scripting_fprintf (f, "b%c#%" PRIu32 ":f%c#%" PRIu32
 			    ":", 'a'+i,
-			    (uint32_t)(pm->bsdlabel[i].pi_fsize *
-			    pm->bsdlabel[i].pi_frag),
-			    'a'+i, (uint32_t)pm->bsdlabel[i].pi_fsize);
+			    (uint32_t)(lp[i].pi_fsize *
+			    lp[i].pi_frag),
+			    'a'+i, (uint32_t)lp[i].pi_fsize);
 	
 		if (i < nparts - 1)
 			scripting_fprintf(f, "\\\n");
