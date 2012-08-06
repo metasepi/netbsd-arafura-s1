@@ -384,7 +384,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 
 	if (pm->pi.menu_no < 0) {
 		/* If there is a swap partition elsewhere, don't add one here.*/
-		if (no_swap || swap_created) {
+		if (no_swap || (swap_created && partman_go)) {
 			pm->pi.ptn_sizes[PI_SWAP].size = 0;
 		} else {
 #if DEFSWAPSIZE == -1
@@ -453,7 +453,7 @@ get_ptn_sizes(daddr_t part_start, daddr_t sectors, int no_swap)
 			pm->pi.free_space -= i;
 		}
 
-		if (root_created) {
+		if (root_created && partman_go) {
 			pm->pi.ptn_sizes[PI_ROOT].size = 0;
 			pm->pi.pool_part = 0;
 		}

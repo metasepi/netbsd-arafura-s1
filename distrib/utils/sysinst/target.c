@@ -395,7 +395,7 @@ target_fopen(const char *filename, const char *type)
  * NB: does not prefix mount-from, which probably breaks nullfs mounts.
  */
 int
-target_mount(const char *opts, const char *from, int ptn, const char *on)
+target_mount_do(const char *opts, const char *from, const char *on)
 {
 	struct unwind_mount *m;
 	int error;
@@ -414,8 +414,8 @@ target_mount(const char *opts, const char *from, int ptn, const char *on)
 	backtowin();
 #endif
 
-	error = run_program(0, "/sbin/mount %s /dev/%s%c %s%s",
-			opts, from, 'a' + ptn, target_prefix(), on);
+	error = run_program(0, "/sbin/mount %s %s %s%s",
+			opts, from, target_prefix(), on);
 	if (error) {
 		free(m);
 		return error;
@@ -423,6 +423,19 @@ target_mount(const char *opts, const char *from, int ptn, const char *on)
 	m->um_prev = unwind_mountlist;
 	unwind_mountlist = m;
 	return 0;
+}
+
+int
+target_mount(const char *opts, const char *from, int ptn, const char *on)
+{
+	int error;
+	char *frompath;
+	asprintf (&frompath, "/dev/%s%c", from, 'a' + ptn);
+	if (frompath == 0)
+		return (ENOMEM);
+	error = target_mount_do(opts, frompath, on);
+	free(frompath);
+	return error;
 }
 
 /*

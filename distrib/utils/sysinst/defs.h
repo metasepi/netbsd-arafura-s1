@@ -250,7 +250,6 @@ int layoutkind;
 int sizemult;
 const char *multname;
 int partman_go; /* run extended partition manager */
-int fstab_prepared; /* Should we create new /etc/fstab or append old? */
 
 /* logging variables */
 
@@ -282,7 +281,6 @@ typedef struct pm_devs_t {
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
-    void *mbr; /* TODO: switch to pm->mbr? */
     int no_mbr; /* set for raid (etc) */
     int rootpart; /* partition we install into */
     const char *disktype; /* ST506, SCSI, ... */
@@ -431,6 +429,7 @@ void label_read(void);
 
 /* from partman.c */
 int	partman(void);
+int pm_checkpartitions(pm_devs_t *, int, int);
 int pm_getrefdev(pm_devs_t *);
 void pm_setfstype(pm_devs_t *, int, int);
 void pm_rename(pm_devs_t *);
@@ -552,6 +551,7 @@ void	dup_file_into_target(const char *);
 void	mv_within_target_or_die(const char *, const char *);
 int	cp_within_target(const char *, const char *, int);
 int	target_mount(const char *, const char *, int, const char *);
+int target_mount_do(const char *, const char *, const char *);
 int	target_test(unsigned int, const char *);
 int	target_dir_exists_p(const char *);
 int	target_file_exists_p(const char *);

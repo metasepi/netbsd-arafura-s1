@@ -719,16 +719,13 @@ make_fstab(void)
 	FILE *f;
 	int i, swap_dev = -1;
 	const char *dump_dev;
+	pm_devs_t *pm_i, *pm_with_swap;
 
 	/* Create the fstab. */
-	if (fstab_prepared == 0) {
-		make_target_dir("/etc");
-		f = target_fopen("/etc/fstab", "w");
-		scripting_fprintf(NULL, "cat <<EOF >%s/etc/fstab\n", target_prefix());
-	} else {
-		f = target_fopen("/etc/fstab", "a");
-		scripting_fprintf(NULL, "cat <<EOF >>%s/etc/fstab\n", target_prefix());
-	}
+	make_target_dir("/etc");
+	f = target_fopen("/etc/fstab", "w");
+	scripting_fprintf(NULL, "cat <<EOF >%s/etc/fstab\n", target_prefix());
+
 	if (logfp)
 		(void)fprintf(logfp,
 		    "Making %s/etc/fstab (%s).\n", target_prefix(), pm->diskdev);
@@ -744,112 +741,120 @@ make_fstab(void)
 		f = stdout;
 #endif
 	}
-	if (!fstab_prepared)
-		scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
+
+	scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
 			"fstab/ for more examples.\n", target_prefix());
-	for (i = 0; i < getmaxpartitions(); i++) {
-		const char *s = "";
-		const char *mp = pm->bsdlabel[i].pi_mount;
-		const char *fstype = "ffs";
-		int fsck_pass = 0, dump_freq = 0;
+	if (partman_go)
+		pm_i = pm_head->next; /* We want to process multiple disks... */
+	else
+		pm_i = pm;            /* ... or only one? */
+	for (; pm_i != NULL; pm_i = pm_i->next) {
+		for (i = 0; i < getmaxpartitions(); i++) {
+			const char *s = "";
+			const char *mp = pm_i->bsdlabel[i].pi_mount;
+			const char *fstype = "ffs";
+			int fsck_pass = 0, dump_freq = 0;
 
-		if (!*mp) {
-			/*
-			 * No mount point specified, comment out line and
-			 * use /mnt as a placeholder for the mount point.
-			 */
-			s = "# ";
-			mp = "/mnt";
-		}
-
-		switch (pm->bsdlabel[i].pi_fstype) {
-		case FS_UNUSED:
-			continue;
-		case FS_BSDLFS:
-			/* If there is no LFS, just comment it out. */
-			if (!check_lfs_progs())
+			if (!*mp) {
+				/*
+				 * No mount point specified, comment out line and
+				 * use /mnt as a placeholder for the mount point.
+				 */
 				s = "# ";
-			fstype = "lfs";
-			/* XXX fsck_lfs considered harmfull */
-			fsck_pass = 0;
-			dump_freq = 1;
-			break;
-		case FS_BSDFFS:
-			fsck_pass = (strcmp(mp, "/") == 0) ? 1 : 2;
-			dump_freq = 1;
-			break;
-		case FS_MSDOS:
-			fstype = "msdos";
-			break;
-		case FS_SWAP:
-			if (swap_dev == -1) {
-				swap_dev = i;
-				dump_dev = ",dp";
-			} else {
-				dump_dev ="";
+				mp = "/mnt";
 			}
-			scripting_fprintf(f, "/dev/%s%c\t\tnone\tswap\tsw%s\t\t 0 0\n",
-				pm->diskdev, 'a' + i, dump_dev);
-			continue;
+
+			switch (pm_i->bsdlabel[i].pi_fstype) {
+			case FS_UNUSED:
+				continue;
+			case FS_BSDLFS:
+				/* If there is no LFS, just comment it out. */
+				if (!check_lfs_progs())
+					s = "# ";
+				fstype = "lfs";
+				/* XXX fsck_lfs considered harmfull */
+				fsck_pass = 0;
+				dump_freq = 1;
+				break;
+			case FS_BSDFFS:
+				fsck_pass = (strcmp(mp, "/") == 0) ? 1 : 2;
+				dump_freq = 1;
+				break;
+			case FS_MSDOS:
+				fstype = "msdos";
+				break;
+			case FS_SWAP:
+				if (swap_dev == -1) {
+					swap_dev = i;
+					dump_dev = ",dp";
+					pm_with_swap = pm_i;
+				} else {
+					dump_dev ="";
+				}
+				scripting_fprintf(f, "/dev/%s%c\t\tnone\tswap\tsw%s\t\t 0 0\n",
+					pm_i->diskdev, 'a' + i, dump_dev);
+				continue;
 #ifdef USE_SYSVBFS
-		case FS_SYSVBFS:
-			fstype = "sysvbfs";
-			make_target_dir("/stand");
-			break;
+			case FS_SYSVBFS:
+				fstype = "sysvbfs";
+				make_target_dir("/stand");
+				break;
 #endif
-		default:
-			fstype = "???";
-			s = "# ";
-			break;
-		}
-		/* The code that remounts root rw doesn't check the partition */
-		if (strcmp(mp, "/") == 0 && !(pm->bsdlabel[i].pi_flags & PIF_MOUNT))
-			s = "# ";
+			default:
+				fstype = "???";
+				s = "# ";
+				break;
+			}
+			/* The code that remounts root rw doesn't check the partition */
+			if (strcmp(mp, "/") == 0 && !(pm_i->bsdlabel[i].pi_flags & PIF_MOUNT))
+				s = "# ";
 
- 		scripting_fprintf(f,
-		  "%s/dev/%s%c\t\t%s\t%s\trw%s%s%s%s%s%s%s%s\t\t %d %d\n",
-		   s, pm->diskdev, 'a' + i, mp, fstype,
-		   pm->bsdlabel[i].pi_flags & PIF_LOG ? ",log" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_MOUNT ? "" : ",noauto",
-		   pm->bsdlabel[i].pi_flags & PIF_ASYNC ? ",async" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_NOATIME ? ",noatime" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_NODEV ? ",nodev" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_NODEVMTIME ? ",nodevmtime" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_NOEXEC ? ",noexec" : "",
-		   pm->bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
-		   dump_freq, fsck_pass);
+	 		scripting_fprintf(f,
+			  "%s/dev/%s%c\t\t%s\t%s\trw%s%s%s%s%s%s%s%s\t\t %d %d\n",
+			   s, pm_i->diskdev, 'a' + i, mp, fstype,
+			   pm_i->bsdlabel[i].pi_flags & PIF_LOG ? ",log" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_MOUNT ? "" : ",noauto",
+			   pm_i->bsdlabel[i].pi_flags & PIF_ASYNC ? ",async" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_NOATIME ? ",noatime" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_NODEV ? ",nodev" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_NODEVMTIME ? ",nodevmtime" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_NOEXEC ? ",noexec" : "",
+			   pm_i->bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
+			   dump_freq, fsck_pass);
+		}
+		/* Simple install, only one disk */
+		if (!partman_go)
+			break;
 	}
-	if (!fstab_prepared) {
-		if (tmp_ramdisk_size != 0) {
+	if (tmp_ramdisk_size != 0) {
 #ifdef HAVE_TMPFS
-			scripting_fprintf(f, "tmpfs\t\t/tmp\ttmpfs\trw,-m=1777,-s=%"
-			    PRIi64 "\n",
-			    tmp_ramdisk_size * 512);
+		scripting_fprintf(f, "tmpfs\t\t/tmp\ttmpfs\trw,-m=1777,-s=%"
+		    PRIi64 "\n",
+		    tmp_ramdisk_size * 512);
 #else
-			if (swap_dev != -1)
-				scripting_fprintf(f, "/dev/%s%c\t\t/tmp\tmfs\trw,-s=%"
-				    PRIi64 "\n",
-				    pm->diskdev, 'a' + swap_dev, tmp_ramdisk_size);
-			else
-				scripting_fprintf(f, "swap\t\t/tmp\tmfs\trw,-s=%"
-				    PRIi64 "\n",
-				    tmp_ramdisk_size);
+		if (swap_dev != -1 && pm_with_swap != NULL)
+			scripting_fprintf(f, "/dev/%s%c\t\t/tmp\tmfs\trw,-s=%"
+			    PRIi64 "\n",
+			    pm_with_swap->diskdev, 'a' + swap_dev, tmp_ramdisk_size);
+		else
+			scripting_fprintf(f, "swap\t\t/tmp\tmfs\trw,-s=%"
+			    PRIi64 "\n",
+			    tmp_ramdisk_size);
 #endif
-		}
-
-		/* Add /kern, /proc and /dev/pts to fstab and make mountpoint. */
-		scripting_fprintf(f, "kernfs\t\t/kern\tkernfs\trw\n");
-		scripting_fprintf(f, "ptyfs\t\t/dev/pts\tptyfs\trw\n");
-		scripting_fprintf(f, "procfs\t\t/proc\tprocfs\trw\n");
-		scripting_fprintf(f, "/dev/" CD_NAME "\t\t/cdrom\tcd9660\tro,noauto\n");
-		make_target_dir("/kern");
-		make_target_dir("/proc");
-		make_target_dir("/dev/pts");
-		make_target_dir("/cdrom");
 	}
+
+	/* Add /kern, /proc and /dev/pts to fstab and make mountpoint. */
+	scripting_fprintf(f, "kernfs\t\t/kern\tkernfs\trw\n");
+	scripting_fprintf(f, "ptyfs\t\t/dev/pts\tptyfs\trw\n");
+	scripting_fprintf(f, "procfs\t\t/proc\tprocfs\trw\n");
+	scripting_fprintf(f, "/dev/" CD_NAME "\t\t/cdrom\tcd9660\tro,noauto\n");
+	make_target_dir("/kern");
+	make_target_dir("/proc");
+	make_target_dir("/dev/pts");
+	make_target_dir("/cdrom");
+
 	scripting_fprintf(NULL, "EOF\n");
 
-	fstab_prepared = 1;
 	fclose(f);
 	fflush(NULL);
 	return 0;

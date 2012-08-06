@@ -44,17 +44,12 @@
 #include "md.h"
 #include "msg_defs.h"
 #include "menu_defs.h"
+// TODO: replace all MAX_ defince with depeding on kernel settings vars
 
 #define MAX_ENTRIES 96
-#define MNTS_MAX 48
-struct {
-    const char *diskdev, *mnt_opts, *fsname;
-    char *pi_mount;
-    int pm_part;
-} mnts[MNTS_MAX];
 
-// TODO: replace all MAX_ defince with depeding on kernel settings vars
-#define MAX_RAID 16 
+#define MAX_DK 16
+#define MAX_RAID 8
 #define MAX_IN_RAID 48
 typedef struct raids_t {
 	int enabled;
@@ -159,9 +154,17 @@ typedef struct pm_upddevlist_adv_t {
 	int (*action)(menudesc *, void *);
 	int pe_type;
 	structinfo_t *s;
+	int getblocked;
 	int sub_num;
 	struct pm_upddevlist_adv_t *sub;
 } pm_upddevlist_adv_t;
+
+#define MNTS_MAX 48
+struct {
+    const char *diskdev, *mnt_opts, *mounted;
+    char *pi_mount;
+    int pm_part;
+} mnts[MNTS_MAX];
 
 int changed; /* flag indicating that we have unsaved changes */
 int manage_raid_spare_cur; // TODO: replace by true way
@@ -266,6 +269,8 @@ pm_manage_getdev(int type)
 	for (pm_i = pm_head->next, num_devs = 0; pm_i != NULL; pm_i = pm_i->next)
 		for (i = 0; i < MAXPARTITIONS; i++) {
 			ok = 0;
+			if (pm_checkpartitions(pm_i, i, 0) != 0)
+				continue;
 			switch (type) {
 				case PM_RAID_T:
 					if (pm_i->bsdlabel[i].pi_fstype == FS_RAID)
@@ -1565,10 +1570,10 @@ pm_lvm_commit(void)
 		for (ii = 0; ii < MAX_LVM_PV && ! error; ii++)
 			if (lvms[i].pv[ii].pm != NULL) {
 				run_program(RUN_SILENT | RUN_ERROR_OK, 
-										"lvm pvremove -fy /dev/r%s",
+										"lvm pvremove -ffy /dev/r%s",
 										(char*)lvms[i].pv[ii].pm_name);
 				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
-										"lvm pvcreate -fy /dev/r%s",
+										"lvm pvcreate -ffy /dev/r%s",
 										(char*)lvms[i].pv[ii].pm_name);
 				if (error)
 					break;
@@ -1619,8 +1624,15 @@ pm_lvm_commit(void)
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS, "lvm lvcreate %s %s",
 									params, lvms[i].name);
 		}
-		if (! error)
-			lvms[i].enabled = 0;
+		if (! error) {
+			lvms[i].blocked = 1;
+			for (ii = 0; ii < MAX_LVM_PV; ii++)
+				if (lvms[i].pv[ii].pm != NULL)
+					lvms[i].pv[ii].pm->blocked++;
+			for (ii = 0; ii < MAX_LVM_LV; ii++)
+				if (lvms[i].lv[ii].size > 0)
+					lvms[i].lv[ii].blocked = 1;
+		}
 	}
 
 	return 0;
@@ -1673,6 +1685,38 @@ pm_getrefdev(pm_devs_t *pm_cur)
 			}
 	}
 	return pm_cur->refdev;
+}
+
+/* Detect that partition is in use */
+int
+pm_checkpartitions(pm_devs_t *pm_cur, int part_num, int do_del)
+{
+	int i, ii;
+
+	for (i = 0; i < MAX_CGD; i++)
+		if (cgds[i].pm == pm_cur) {
+			if (do_del)
+				cgds[i].enabled = 0;
+			return 1;
+		}
+	for (i = 0; i < MAX_RAID; i++)
+		for (ii = 0; ii < MAX_IN_RAID; ii++)
+			if (raids[i].pm[ii] == pm_cur &&
+				raids[i].pm_part[ii] == part_num) {
+					if (do_del)
+						raids[i].pm[ii] = NULL;
+					return 1;
+			}
+	for (i = 0; i < MAX_LVM_VG; i++)
+		for (ii = 0; ii < MAX_LVM_PV; ii++)
+			if (lvms[i].pv[ii].pm == pm_cur &&
+				lvms[i].pv[ii].pm_part == part_num) {
+					if (do_del)
+						lvms[i].pv[ii].pm = NULL;
+					return 1;
+			}
+
+	return 0;
 }
 
 void
@@ -1729,8 +1773,8 @@ pm_mountall(void)
 				mnts[num_devs].pm_part  = i;
 				mnts[num_devs].diskdev  = pm_i->diskdev;
 				mnts[num_devs].mnt_opts = pm_i->bsdlabel[i].mnt_opts;
-				mnts[num_devs].fsname   = pm_i->bsdlabel[i].fsname;
 				mnts[num_devs].pi_mount = pm_i->bsdlabel[i].pi_mount;
+				mnts[num_devs].mounted  = pm_i->bsdlabel[i].mounted;
 				if (strcmp(pm_i->bsdlabel[i].pi_mount, "/") == 0)
 					strlcpy(diskdev_with_root, pm_i->diskdev, sizeof diskdev_with_root);
 				num_devs++;
@@ -1752,8 +1796,11 @@ pm_mountall(void)
 	for (i = 0; i < num_devs; i++) {
 		ii = mnts_order[i];
 		make_target_dir(mnts[ii].pi_mount);
-		error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev,
-			mnts[ii].pm_part, mnts[ii].pi_mount);
+		if (mnts[ii].mounted != NULL && strlen(mnts[ii].mounted) > 0)
+			error = target_mount_do("-t null", mnts[ii].mounted, mnts[ii].pi_mount);
+		else
+			error = target_mount(mnts[ii].mnt_opts, mnts[ii].diskdev,
+				mnts[ii].pm_part, mnts[ii].pi_mount);
 		if (error) {
 			return error;
 		}
@@ -1796,8 +1843,10 @@ void
 pm_umount(pm_devs_t *pm_cur, int part_num)
 {
 	if (run_program(RUN_DISPLAY | RUN_PROGRESS,
-			"umount -f /dev/%s%c", pm_cur->diskdev, part_num + 'a') == 0)
+			"umount -f /dev/%s%c", pm_cur->diskdev, part_num + 'a') == 0) {
 		pm_cur->bsdlabel[part_num].mounted[0] = '\0';
+		pm_cur->blocked--;
+	}
 	return;
 }
 
@@ -1807,7 +1856,7 @@ pm_unconfigure(pm_devs_t *pm_cur)
 	int i, error = 0;
 	if (! strncmp(pm_cur->diskdev, "cgd", 3)) {
  		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "cgdconfig -u %s", pm_cur->diskdev);
- 		if (! error && pm->refdev >= 0) {
+ 		if (! error && pm_cur->refdev >= 0) {
 			cgds[pm_cur->refdev].pm->blocked--;
 			cgds[pm_cur->refdev].blocked = 0;
  		}
@@ -1924,7 +1973,7 @@ pm_commit(menudesc *m, void *arg)
 	/* Call all functions that may create new devices */
 	if ((retcode = pm_raid_commit()) != 0) {
 		if (logfp)
-			fprintf(logfp, "Raid configuring error #%d\n", retcode);
+			fprintf(logfp, "RAIDframe configuring error #%d\n", retcode);
 		return -1;
 	}
 	if ((retcode = pm_vnd_commit()) != 0) {
@@ -2084,9 +2133,9 @@ pm_upddevlist_adv(menudesc *m, void *arg, int *i,
 			*(int*)((char*)d->s->entry_enabled + d->s->entry_size * ii +
 				d->s->parent_size * d->sub_num) == 0 ||
 			*(int*)((char*)d->s->entry_blocked + d->s->entry_size * ii +
-				d->s->parent_size * d->sub_num) != 0)
+				d->s->parent_size * d->sub_num) != d->getblocked)
 			continue;
-		/* We have entry for displaying */
+		/* We have a entry for displaying */
 		changed = 1;
 		m->opts[*i] = (struct menu_ent) {
 			.opt_name = NULL,
@@ -2137,20 +2186,24 @@ pm_upddevlist(menudesc *m, void *arg)
 			}
 		}
 		pm_upddevlist_adv(m, arg, &i,
+			&((pm_upddevlist_adv_t) {NULL, pm_lvm_edit, PM_LVM_T, &lvms_t_info, 1, 0,
+			&((pm_upddevlist_adv_t) {NULL, pm_lvmlv_edit, PM_LVMLV_T, &lv_t_info, 1, 0,
+								NULL})}));
+		pm_upddevlist_adv(m, arg, &i,
 			&((pm_upddevlist_adv_t) {"Create cryptographic volume (CGD)", 
-								pm_cgd_edit, PM_CGD_T, &cgds_t_info, 0, NULL}));
+								pm_cgd_edit, PM_CGD_T, &cgds_t_info, 0, 0, NULL}));
 		pm_upddevlist_adv(m, arg, &i,
 			&((pm_upddevlist_adv_t) {"Create virtual disk image (VND)",
-								pm_vnd_edit, PM_VND_T, &vnds_t_info, 0, NULL}));
+								pm_vnd_edit, PM_VND_T, &vnds_t_info, 0, 0, NULL}));
 		pm_upddevlist_adv(m, arg, &i,
-			&((pm_upddevlist_adv_t) {"Create volume group (LVM VG) [WIP]",
-								pm_lvm_edit, PM_LVM_T, &lvms_t_info, 0,
+			&((pm_upddevlist_adv_t) {"Create volume group (LVM VG)",
+								pm_lvm_edit, PM_LVM_T, &lvms_t_info, 0, 0,
 			&((pm_upddevlist_adv_t) {"      Create logical volume",
-								pm_lvmlv_edit, PM_LVMLV_T, &lv_t_info, 0,
+								pm_lvmlv_edit, PM_LVMLV_T, &lv_t_info, 0, 0,
 								NULL})}));
 		pm_upddevlist_adv(m, arg, &i,
 			&((pm_upddevlist_adv_t) {"Create software RAID",
-								pm_raid_edit, PM_RAID_T, &raids_t_info, 0, NULL}));
+								pm_raid_edit, PM_RAID_T, &raids_t_info, 0, 0, NULL}));
 
 		m->opts[i++] = (struct menu_ent) {
 			.opt_name = "Update devices list",
