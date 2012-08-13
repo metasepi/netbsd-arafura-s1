@@ -1063,159 +1063,159 @@ message failed {Failed}
 
 
 message askfsmountadv
-{Mountpoint or 'raid' or 'cgd' or 'lvm'?}
+{Punto de montaje o 'raid' o 'CGD' o 'lvm'?}
 
 message enable_xdm
-{Enable XDM}
+{Activar XDM}
 
 message enable_cgd
-{Enable CGD}
+{Activar CGD}
 
 message enable_lvm
-{Enable LVM}
+{Activar LVM}
 
 message enable_raid
-{Enable RAIDframe}
+{Activar RAIDframe}
 
 message partman
-{Extended partitioning}
+{Partición extendida}
 
 message editbsdpart
-{Edit BSD partitions}
+{Editar particiones BSD}
 
 message editmbr
-{Edit and save MBR}
+{Editar y guardar MBR}
 
 message switchgpt
-{Switch to GPT}
+{Cambiar a GPT}
 
 message switchmbr
-{Switch to MBR}
+{Cambiar a MBR}
 
 message renamedisk
-{Set disk name}
+{Establece el nombre del disco}
 
 message fmtasraid
-{Format as RAID}
+{Formato como RAID}
 
 message fmtaslvm
-{Format as LVM PV}
+{Formato como LVM PV}
 
 message encrypt
-{Encrypt}
+{Cifrar}
 
 message setbootable
-{Bootable flag}
+{La bandera de arranque}
 
 message erase
-{Safe erase}
+{Borrado seguro}
 
 message undo
-{Undo changes}
+{Deshacer los cambios}
 
 message unconfig
-{Unconfigure}
+{Desconfigurar}
 
 message edit
-{Edit}
+{Editar}
 
 message doumount
-{Force umount}
+{Fuerza umount}
 
 message fillzeros
-{Fill by zeros}
+{Llenar con ceros}
 
 message fillrandom
-{Fill by random data}
+{Llene los datos al azar}
 
 message fillcrypto
-{Fill by crypto data}
+{Rellene los datos de cifrado}
 
 message raid0
-{0 - No parity, only simple striping.}
+{0 - Sin paridad, creación de bandas sólo es simple.}
 
 message raid1
-{1 - Mirroring.  The parity is the mirror.}
+{1 - Creación de reflejos. La paridad es el espejo.}
 
 message raid4
-{4 - Striping with parity stored on the last component.}
+{4 - Striping con paridad almacenada en el último componente. component.}
 
 message raid5
-{5 - Striping with parity at the all components.}
+{5 - Striping con paridad en los componentes de todos. components.}
 
 
 message fremove
-{REMOVE}
+{QUITAR}
 
 message remove
-{Remove}
+{Quitar}
 
 message add
-{Add}
+{Añadir}
 
 message auto
 {auto}
 
 
 message removepartswarn
-{This remove all partitions on disk. Do you want to continue?}
+{Esta eliminar todas las particiones en el disco. ¿Desea continuar? want to continue?}
 
 message saveprompt
-{Save changes before finishing?}
+{Guarde los cambios antes de terminar?}
 
 message cantsave
-{Changes cannot be saved.}
+{Los cambios no se pueden guardar.}
 
 message noroot
-{No root partition defined, cannot continue\n}
+{No hay una partición raíz definida, no puede continuar \n}
 
 message wannaunblock
-{Device is blocked. Do you want to force unblock it and continue?}
+{El dispositivo está bloqueado. ¿Quiere forzar a desbloquear y continuar? unblock it and continue?}
 
 message wannatry
-{Do you want to try?}
+{¿Quieres probar?}
 
 message create_cgd
-{Create cryptographic volume (CGD)}
+{Crear cifrado de volumen (CGD)}
 
 message create_cnd
-{Create virtual disk image (VND)}
+{Crear imagen de disco virtual (VND)}
 
 message create_vg
-{Create volume group (LVM VG)}
+{Crear grupo de volúmenes (LVM VG)}
 
 message create_lv
-{      Create logical volume}
+{      Crear volúmenes lógicos}
 
 message create_raid
-{Create software RAID}
+{Crear RAID por software}
 
 message updpmlist
-{Update devices list}
+{Actualizar lista de dispositivos}
 
 message savepm
-{Save changes}
+{Guardar los cambios}
 
 message pmblocked
-{BLOCKED}
+{BLOQUEADO}
 
 message pmunchanged
-{UNCHANGED}
+{SIN USO}
 
 message pmsetboot
-{BOOT}
+{ARRANCAR}
 
 message pmused
-{USED}
+{UTILIZA}
 
 message pmmounted
-{(mounted)}
+{(montado)}
 
 message pmunused
-{(unused)}
+{(sin usar)}
 
 message pmdisk_fmt
-{%-33s Name:%-20s %9s}
+{%-33s Nombre:%-18s %9s}
 
 message pmwedge_fmt
 {   %-30s %-22s %11uM}
@@ -1228,39 +1228,40 @@ message pmspec_fmt
 
 
 message finishpm
-{Finish partitioning}
+{Finalizar el particionado}
 
 message limitcount
-{Limit for the devices count was reached!}
+{Límite para el número de dispositivos se llegó!}
 
 message invaliddev
-{Invalid device!}
+{No válido dispositivo!}
 
 message avdisks
-{Available disks:}
+{Discos disponibles:}
 
 message nofreedev
-{Cannot allocate device node!}
+{No se puede asignar nodo de dispositivo!}
 
 message partman_header
-{Partition manager. All disks, partitions, LVM, RAID displayed there.
+{Partition Manager.
+Todos los discos, particiones LVM, RAID no aparece LVM, RAID displayed there.
 At first add drive, then prepare partitions and go.}
 
 
 message raid_menufmt
-{   raid%d (level %1d) on %-34s %11uM}
+{   raid%d (nivel %1d) en %-34s %11uM}
 
 message raid_err_menufmt
-{   EMPTY RAID!}
+{   RAID VACIO!}
 
 message raid_disks_fmt
-{Disks: %33s}
+{Discos: %32s}
 
 message raid_spares_fmt
-{Spares: %32s}
+{Piezas de recambio: %20s}
 
 message raid_level_fmt
-{RAID level:       %22d}
+{RAID de nivel:    %22d}
 
 message raid_numrow_fmt
 {numRow:           %22d}
@@ -1281,7 +1282,7 @@ message raid_superrec_fmt
 {SUsPerReconUnit:  %22d}
 
 message raid_nomultidim
-{Multi-dimensional arrays are NOT supported!}
+{Matrices multidimensionales no son compatibles!}
 
 message raid_numrow_ask
 {numRow?}
@@ -1302,100 +1303,100 @@ message raid_superrec_ask
 {SUsPerReconUnit?}
 
 message disksinraid
-{Disks in RAID:}
+{Los discos en RAID:}
 
 message vnd_err_menufmt
-{   PATH NOT DEFINED!}
+{   CAMINO NO DEFINIDO!}
 
 message vnd_assgn_menufmt
-{   vnd%1d on %-51s ASSIGN}
+{   vnd%1d en %-51s ASSIGN}
 
 message vnd_menufmt
-{   vnd%1d on %-45s %11uM}
+{   vnd%1d en %-45s %11uM}
 
 message vnd_path_fmt
-{File path: %29s}
+{Ruta del archivo: %22s}
 
 message vnd_assgn_fmt
-{Assign exist image: %20s}
+{Asignar existe la imagen: %14s}
 
 message vnd_size_fmt
-{Size:            %22sM}
+{Tamaño:          %22sM}
 
 message vnd_ro_fmt
-{Read-only:        %22s}
+{Sólo lectura:     %22s}
 
 message vnd_geom_fmt
-{Set geometry by hand: %18s}
+{Establecer la geometría de la mano: %4s}
 
 message vnd_bps_fmt
-{Bytes per Sector:     %18s}
+{Bytes por sector:     %18s}
 
 message vnd_spt_fmt
-{Sectors per Track:    %18s}
+{Sectores por pista:   %18s}
 
 message vnd_tpc_fmt
-{Tracks per Cylinder:  %18s}
+{Pistas por cilindro:  %18s}
 
 message vnd_cyl_fmt
-{Cylinders:        %22s}
+{Cilindros:        %22s}
 
 message vnd_path_ask
-{File path?}
+{Ruta de acceso?}
 
 message vnd_size_ask
-{Size (MB)}
+{Tamaño (MB)?}
 
 message vnd_bps_ask
-{Bytes per Sector}
+{Bytes por sector?}
 
 message vnd_spt_ask
-{Sectors per Track}
+{Sectores por pista?}
 
 message vnd_tpc_ask
-{Tracks per Cylinder}
+{Pistas por cilindro?}
 
 message vnd_cyl_ask
-{Cylinders}
+{Cilindros}
 
 message cgd_err_menufmt
-{   DISK NOT DEFINED!}
+{   DISCO NO SE DEFINE!}
 
 message cgd_menufmt
 {   cgd%1d %-48s %11uM}
 
 message cgd_dev_fmt
-{Base device:    %24s}
+{Dispositivo de base: %19s}
 
 message cgd_enc_fmt
-{Encyption:      %24s}
+{Encriptación:        %19s}
 
 message cgd_key_fmt
-{Key size:       %24d}
+{Tamaño de la clave:  %19d}
 
 message cgd_iv_fmt
-{IV algorithm:   %24s}
+{Algoritmo IV:        %19s}
 
 message cgd_keygen_fmt
-{Key generation: %24s}
+{La generación de claves: %15s}
 
 message cgd_verif_fmt
-{Verification method:   %17s}
+{Método de verificación:  %15s}
 
 message disksinlvm
-{Disks in VG:}
+{Discos en VG:}
 
 message lvm_menufmt
 {   %-44s %20sM}
 
 message lvm_err_menufmt
-{   EMPTY VG!}
+{   VACIAR VG!}
 
 message lvm_disks_fmt
 {PV's: %34s}
 
 message lvm_name_fmt
-{Name: %34s}
+{Nombre: %32s}
 
 message lvm_maxlv_fmt
 {MaxLogicalVolumes:  %20s}
@@ -1407,7 +1408,7 @@ message lvm_extsiz_fmt
 {PhysicalExtentSize: %20s}
 
 message lvm_name_ask
-{Name?}
+{Nombre?}
 
 message lvm_maxlv_ask
 {MaxLogicalVolumes?}
@@ -1419,61 +1420,61 @@ message lvm_extsiz_ask
 {PhysicalExtentSize (MB)?}
 
 message lvmlv_menufmt
-{      Logical volume %-35s %11uM}
+{      El volumen lógico %-33s% 11uM}
 
 message lvmlv_name_fmt
-{Name: %34s}
+{Nombre: %32s}
 
 message lvmlv_size_fmt
-{Size: %33dM}
+{Tamaño: %31dM}
 
 message lvmlv_ro_fmt
-{Read-only:   %27s}
+{Sólo lectura:  %25s}
 
 message lvmlv_cont_fmt
-{Contiguous:  %27s}
+{Contigua:      %25s}
 
 message lvmlv_extnum_fmt
 {LogicalExtentsNumber: %18s}
 
 message lvmlv_minor_fmt
-{Minor number: %26s}
+{Menor número:  %25s}
 
 message lvmlv_mirrors_fmt
-{Mirrors:     %27d}
+{Espejos:       %25d}
 
 message lvmlv_regsiz_fmt
 {MirrorLogRegionSize:  %18s}
 
 message lvmlv_pers_fmt
-{Persistent minor number?:  %13s}
+{Número de persistente menor: %11s}
 
 message lvmlv_readahsect_fmt
 {ReadAheadSectors:     %18s}
 
 message lvmlv_stripes_fmt
-{Stripes:     %27s}
+{Rayas:         %25s}
 
 message lvmlv_stripesiz_fmt
-{StripeSize:  %27s}
+{Stripesize:    %25s}
 
 message lvmlv_zero_fmt
-{Zeroing of the first KB:   %13s}
+{Puesta a cero de la primera KB: %8s}
 
 message lvmlv_name_ask
-{Name?}
+{Nombre?}
 
 message lvmlv_size_ask
-{Size (MB)?}
+{Tamaño (MB)?}
 
 message lvmlv_extnum_ask
 {LogicalExtentsNumber?}
 
 message lvmlv_minor_ask
-{Minor number?}
+{Número menor de edad?}
 
 message lvmlv_mirrors_ask
-{Mirrors?}
+{Espejos?}
 
 message lvmlv_regsiz_ask
 {MirrorLogRegionSize?}
@@ -1482,5 +1483,5 @@ message lvmlv_readahsect_ask
 {ReadAheadSectors?}
 
 message lvmlv_stripes_ask
-{Stripes?}
+{Rayas?}
 

@@ -1307,19 +1307,19 @@ message vnd_path_ask
 {File path?}
 
 message vnd_size_ask
-{Size (MB)}
+{Size (MB)?}
 
 message vnd_bps_ask
-{Bytes per Sector}
+{Bytes per Sector?}
 
 message vnd_spt_ask
-{Sectors per Track}
+{Sectors per Track?}
 
 message vnd_tpc_ask
-{Tracks per Cylinder}
+{Tracks per Cylinder?}
 
 message vnd_cyl_ask
-{Cylinders}
+{Cylinders?}
 
 message cgd_err_menufmt
 {   DISK NOT DEFINED!}
@@ -1409,7 +1409,7 @@ message lvmlv_regsiz_fmt
 {MirrorLogRegionSize:  %18s}
 
 message lvmlv_pers_fmt
-{Persistent minor number?:  %13s}
+{Persistent minor number:  %14s}
 
 message lvmlv_readahsect_fmt
 {ReadAheadSectors:     %18s}

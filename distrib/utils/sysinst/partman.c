@@ -2692,7 +2692,7 @@ partman(void)
 		refresh();
 		menu_num_entries = pm_upddevlist(&(menudesc){.opts = menu_entries}, args);
 		menu_no = new_menu(MSG_partman_header,
-			menu_entries, menu_num_entries+1, 1, 1, 0, 0,
+			menu_entries, menu_num_entries+1, 1, 1, 0, 75, /* Fixed width */
 			MC_ALWAYS_SCROLL | MC_NOBOX | MC_NOCLEAR,
 			pm_menuin, pm_menufmt, pm_menuout, NULL, MSG_finishpm);
 		if (menu_no == -1)

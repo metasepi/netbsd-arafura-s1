@@ -928,7 +928,7 @@ message other {inny  }
 message Perform_IPv6_autoconfiguration {Wykonac autokonfiguracje IPv6?}
 message Perform_DHCP_autoconfiguration {Wykonac autkonfiguracje DHCP?}
 message Root_shell {Powloka root'a}
-message Color_scheme {Schemat kolorów}
+message Color_scheme {Kolorystyka}
 message White_on_black {Bia³y na czarnym}
 message Black_on_white {Czarno na bia³ym}
 message White_on_blue {Bia³y na niebieskim}
@@ -1019,159 +1019,159 @@ message failed {Failed}
 
 
 message askfsmountadv
-{Mountpoint or 'raid' or 'cgd' or 'lvm'?}
+{Montowania lub "raid" lub "cgd" lub "lvm"?}
 
 message enable_xdm
-{Enable XDM}
+{W³±cz XDM}
 
 message enable_cgd
-{Enable CGD}
+{W³±cz CGD}
 
 message enable_lvm
-{Enable LVM}
+{W³±cz LVM}
 
 message enable_raid
-{Enable RAIDframe}
+{W³±cz RAIDframe}
 
 message partman
-{Extended partitioning}
+{Partycje rozszerzone}
 
 message editbsdpart
-{Edit BSD partitions}
+{Edytuj partycje BSD}
 
 message editmbr
-{Edit and save MBR}
+{Edytowaæ i zapisywaæ MBR}
 
 message switchgpt
-{Switch to GPT}
+{Prze³±cz na GPT}
 
 message switchmbr
-{Switch to MBR}
+{Prze³±cz na MBR}
 
 message renamedisk
-{Set disk name}
+{Ustaw nazwê dysku}
 
 message fmtasraid
-{Format as RAID}
+{Format jak RAID}
 
 message fmtaslvm
-{Format as LVM PV}
+{Format jak LVM PV}
 
 message encrypt
-{Encrypt}
+{Szyfrowanie}
 
 message setbootable
-{Bootable flag}
+{Bootable flaga}
 
 message erase
-{Safe erase}
+{Bezpieczne kasowanie}
 
 message undo
-{Undo changes}
+{Cofanie zmian}
 
 message unconfig
-{Unconfigure}
+{Zdekonfigurowanie}
 
 message edit
-{Edit}
+{Edytuj}
 
 message doumount
-{Force umount}
+{Si³a umount}
 
 message fillzeros
-{Fill by zeros}
+{Wype³nij zerami}
 
 message fillrandom
-{Fill by random data}
+{Wype³nij losowymi danymi}
 
 message fillcrypto
-{Fill by crypto data}
+{Wype³nij przez crypto danych}
 
 message raid0
-{0 - No parity, only simple striping.}
+{0 - brak parzysto¶ci, tylko proste rozk³adanie.}
 
 message raid1
-{1 - Mirroring.  The parity is the mirror.}
+{1 - Mirroring. Parytet jest lustro.}
 
 message raid4
-{4 - Striping with parity stored on the last component.}
+{4 - Malowanie z parytetu przechowywanych w ostatniej czê¶ci.}
 
 message raid5
-{5 - Striping with parity at the all components.}
+{5 - Malowanie z parytetu w tych wszystkich elementów.}
 
 
 message fremove
-{REMOVE}
+{USUÑ}
 
 message remove
-{Remove}
+{Usun±æ}
 
 message add
-{Add}
+{Dodaæ}
 
 message auto
 {auto}
 
 
 message removepartswarn
-{This remove all partitions on disk. Do you want to continue?}
+{To usun±æ wszystkie partycje na dysku. Czy chcesz kontynuowaæ?}
 
 message saveprompt
-{Save changes before finishing?}
+{Zapisz zmiany przed zakoñczeniem?}
 
 message cantsave
-{Changes cannot be saved.}
+{Zmiany nie mog± byæ zbawieni.}
 
 message noroot
-{No root partition defined, cannot continue\n}
+{No partycja zdefiniowana, nie mo¿e kontynuowaæ \n}
 
 message wannaunblock
-{Device is blocked. Do you want to force unblock it and continue?}
+{Urz±dzenie jest zablokowane. Czy chcesz, aby zmusiæ go odblokowaæ i kontynuowaæ?}
 
 message wannatry
-{Do you want to try?}
+{Czy chcesz spróbowaæ?}
 
 message create_cgd
-{Create cryptographic volume (CGD)}
+{Utwórz wolumen kryptograficznych (CGD)}
 
 message create_cnd
-{Create virtual disk image (VND)}
+{Utwórz wirtualnego obraz dysku (VND)}
 
 message create_vg
-{Create volume group (LVM VG)}
+{Utwórz grupê woluminów (LVM VG)}
 
 message create_lv
-{      Create logical volume}
+{      Utwórz wolumin logiczny}
 
 message create_raid
-{Create software RAID}
+{Utwórz oprogramowania RAID}
 
 message updpmlist
-{Update devices list}
+{Aktualizuj listê urz±dzeñ}
 
 message savepm
-{Save changes}
+{Zapisz zmiany}
 
 message pmblocked
-{BLOCKED}
+{ZABLOK.}
 
 message pmunchanged
-{UNCHANGED}
+{BEZ ZMIAN}
 
 message pmsetboot
 {BOOT}
 
 message pmused
-{USED}
+{U¯YWANE}
 
 message pmmounted
-{(mounted)}
+{(zamontowany)}
 
 message pmunused
-{(unused)}
+{(nieu¿ywany)}
 
 message pmdisk_fmt
-{%-33s Name:%-20s %9s}
+{%-33s Nazwa:%-19s %9s}
 
 message pmwedge_fmt
 {   %-30s %-22s %11uM}
@@ -1184,22 +1184,22 @@ message pmspec_fmt
 
 
 message finishpm
-{Finish partitioning}
+{Zakoñcz partycjonowanie}
 
 message limitcount
-{Limit for the devices count was reached!}
+{Limit liczby urz±dzeñ zosta³ osi±gniêty!}
 
 message invaliddev
-{Invalid device!}
+{Nieprawid³owy urz±dzenie!}
 
 message avdisks
-{Available disks:}
+{Dostêpne dysków:}
 
 message nofreedev
-{Cannot allocate device node!}
+{Nie mo¿na przydzieliæ wêze³!}
 
 message partman_header
-{Partition manager. All disks, partitions, LVM, RAID displayed there.
+{Partition Manager. Wszystkie dyski, przegródki, LVM, RAID tam wy¶wietlane.
 At first add drive, then prepare partitions and go.}
 
 
@@ -1210,22 +1210,22 @@ message raid_err_menufmt
 {   EMPTY RAID!}
 
 message raid_disks_fmt
-{Disks: %33s}
+{Dyski: %33s}
 
 message raid_spares_fmt
-{Spares: %32s}
+{Czê¶ci zamienne: %23s}
 
 message raid_level_fmt
-{RAID level:       %22d}
+{Poziom RAID:     %23d}
 
 message raid_numrow_fmt
-{numRow:           %22d}
+{numRow:          %23d}
 
 message raid_numcol_fmt
-{numCol:           %22d}
+{numCol:          %23d}
 
 message raid_numspare_fmt
-{numSpare:         %22d}
+{numSpare:        %23d}
 
 message raid_sectpersu_fmt
 {sectPerSU:        %22d}
@@ -1237,7 +1237,7 @@ message raid_superrec_fmt
 {SUsPerReconUnit:  %22d}
 
 message raid_nomultidim
-{Multi-dimensional arrays are NOT supported!}
+{Tablice wielowymiarowe nie s± obs³ugiwane!}
 
 message raid_numrow_ask
 {numRow?}
@@ -1258,88 +1258,88 @@ message raid_superrec_ask
 {SUsPerReconUnit?}
 
 message disksinraid
-{Disks in RAID:}
+{Dyski w RAID:}
 
 message vnd_err_menufmt
-{   PATH NOT DEFINED!}
+{   ¦CIE¯KA NIE ZDEFINIOWANE!}
 
 message vnd_assgn_menufmt
-{   vnd%1d on %-51s ASSIGN}
+{   vnd%1d na %-51s ASSIGN}
 
 message vnd_menufmt
-{   vnd%1d on %-45s %11uM}
+{   vnd%1d na %-45s %11uM}
 
 message vnd_path_fmt
-{File path: %29s}
+{¦cie¿ka: %31s}
 
 message vnd_assgn_fmt
-{Assign exist image: %20s}
+{Przypisywanie istnieæ obraz: %11s}
 
 message vnd_size_fmt
-{Size:            %22sM}
+{Rozmiar: %30sM}
 
 message vnd_ro_fmt
-{Read-only:        %22s}
+{Tylko do odczytu:   %20s}
 
 message vnd_geom_fmt
-{Set geometry by hand: %18s}
+{Ustaw geometriê rêcznie: %15s}
 
 message vnd_bps_fmt
-{Bytes per Sector:     %18s}
+{Bajtów na sektorów: %20s}
 
 message vnd_spt_fmt
-{Sectors per Track:    %18s}
+{Sektory na ¶cie¿ki: %20s}
 
 message vnd_tpc_fmt
-{Tracks per Cylinder:  %18s}
+{Utwory na cylinder: %20s}
 
 message vnd_cyl_fmt
-{Cylinders:        %22s}
+{Si³owniki:          %20s}
 
 message vnd_path_ask
-{File path?}
+{File Path?}
 
 message vnd_size_ask
-{Size (MB)}
+{Rozmiar (MB)?}
 
 message vnd_bps_ask
-{Bytes per Sector}
+{Bajtów na sektor?}
 
 message vnd_spt_ask
-{Sectors per Track}
+{Sektory na ¶cie¿kê?}
 
 message vnd_tpc_ask
-{Tracks per Cylinder}
+{Utwory na cylinder?}
 
 message vnd_cyl_ask
-{Cylinders}
+{Cylindry}
 
 message cgd_err_menufmt
-{   DISK NOT DEFINED!}
+{   DISK NIE ZDEFINIOWANE!}
 
 message cgd_menufmt
 {   cgd%1d %-48s %11uM}
 
 message cgd_dev_fmt
-{Base device:    %24s}
+{Urz±dzenie podstawy: %19s}
 
 message cgd_enc_fmt
-{Encyption:      %24s}
+{Encyption:           %19s}
 
 message cgd_key_fmt
-{Key size:       %24d}
+{Rozmiar klucza:      %19d}
 
 message cgd_iv_fmt
-{IV algorithm:   %24s}
+{Algorytm IV: %27s}
 
 message cgd_keygen_fmt
-{Key generation: %24s}
+{Generowanie kluczy: %20s}
 
 message cgd_verif_fmt
-{Verification method:   %17s}
+{Metoda weryfikacji: %20s}
 
 message disksinlvm
-{Disks in VG:}
+{Dyski w VG:}
 
 message lvm_menufmt
 {   %-44s %20sM}
@@ -1351,7 +1351,7 @@ message lvm_disks_fmt
 {PV's: %34s}
 
 message lvm_name_fmt
-{Name: %34s}
+{Nazwa: %33s}
 
 message lvm_maxlv_fmt
 {MaxLogicalVolumes:  %20s}
@@ -1363,7 +1363,7 @@ message lvm_extsiz_fmt
 {PhysicalExtentSize: %20s}
 
 message lvm_name_ask
-{Name?}
+{Nazwa?}
 
 message lvm_maxlv_ask
 {MaxLogicalVolumes?}
@@ -1375,25 +1375,25 @@ message lvm_extsiz_ask
 {PhysicalExtentSize (MB)?}
 
 message lvmlv_menufmt
-{      Logical volume %-35s %11uM}
+{      Wolumin logiczny%-34s %11uM}
 
 message lvmlv_name_fmt
-{Name: %34s}
+{Nazwa: %33s}
 
 message lvmlv_size_fmt
-{Size: %33dM}
+{Rozmiar: %30dM}
 
 message lvmlv_ro_fmt
-{Read-only:   %27s}
+{Read-only:       %23s}
 
 message lvmlv_cont_fmt
-{Contiguous:  %27s}
+{S±siaduj±cy:     %23s}
 
 message lvmlv_extnum_fmt
 {LogicalExtentsNumber: %18s}
 
 message lvmlv_minor_fmt
-{Minor number: %26s}
+{Mniejsza liczba: %23s}
 
 message lvmlv_mirrors_fmt
 {Mirrors:     %27d}
@@ -1402,10 +1402,10 @@ message lvmlv_regsiz_fmt
 {MirrorLogRegionSize:  %18s}
 
 message lvmlv_pers_fmt
-{Persistent minor number?:  %13s}
+{Trwa³e drobne numer:  %18s}
 
 message lvmlv_readahsect_fmt
-{ReadAheadSectors:     %18s}
+{ReadAheadSectors ceny: %17s}
 
 message lvmlv_stripes_fmt
 {Stripes:     %27s}
@@ -1414,19 +1414,19 @@ message lvmlv_stripesiz_fmt
 {StripeSize:  %27s}
 
 message lvmlv_zero_fmt
-{Zeroing of the first KB:   %13s}
+{Zerowanie pierwszej KB: %16s}
 
 message lvmlv_name_ask
-{Name?}
+{Nazwa?}
 
 message lvmlv_size_ask
-{Size (MB)?}
+{Rozmiar (MB)?}
 
 message lvmlv_extnum_ask
 {LogicalExtentsNumber?}
 
 message lvmlv_minor_ask
-{Minor number?}
+{Mniejsza liczba?}
 
 message lvmlv_mirrors_ask
 {Mirrors?}
@@ -1439,4 +1439,3 @@ message lvmlv_readahsect_ask
 
 message lvmlv_stripes_ask
 {Stripes?}
-
