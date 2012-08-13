@@ -141,6 +141,17 @@ checklabel(partinfo *lp, int nparts, int rawpart, int bsdpart,
 	return (0);
 }
 
+int
+checkoverlap(partinfo *lp, int nparts, int rawpart, int bsdpart)
+{
+	int i, j;
+	if (checklabel(lp, nparts, rawpart, bsdpart, &i, &j)) {
+		msg_display(MSG_partitions_overlap,'a'+i,'a'+j);
+		return 1;
+	}
+	return 0;
+}
+
 static int
 check_one_root(partinfo *lp, int nparts)
 {
@@ -632,8 +643,6 @@ edit_and_check_label(partinfo *lp, int nparts, int rawpart, int bsdpart)
 	pm->current_cylsize = pm->dlcylsize;
 
 	for (;;) {
-		int i, j;
-
 		/* first give the user the option to edit the label... */
 		process_menu(menu_no, &pi);
 
@@ -643,10 +652,7 @@ edit_and_check_label(partinfo *lp, int nparts, int rawpart, int bsdpart)
 			msg_display(MSG_must_be_one_root);
 		else 
 			/* Check for overlaps */
-			if (checklabel(lp, nparts, rawpart, bsdpart, &i, &j))
-				/* partitions overlap */
-				msg_display(MSG_partitions_overlap,'a'+i,'a'+j);
-			else
+			if (checkoverlap(lp, nparts, rawpart, bsdpart) == 0)
 				return 1;
 
 		/*XXX ???*/

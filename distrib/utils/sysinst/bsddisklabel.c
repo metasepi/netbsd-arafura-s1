@@ -226,8 +226,8 @@ set_ptn_size(menudesc *m, void *arg)
 		return 0;
 
 	if (p->mount[0] == 0) {
-		msg_prompt_win(partman_go?"Mountpoint or 'raid' or 'cgd' or 'lvm'?":MSG_askfsmount,
-			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount); // XXX: localize
+		msg_prompt_win(partman_go?MSG_askfsmountadv:MSG_askfsmount,
+			-1, 18, 0, 0, NULL, p->mount, sizeof p->mount);
 		if (p->mount[0] == 0)
 			return 0;
 	}
@@ -759,7 +759,8 @@ make_bsd_partitions(void)
 			sizeof pm->bsddiskname);
 
 	/* save label to disk for MI code to update. */
-	(void) savenewlabel(pm->bsdlabel, maxpart);
+	if (! partman_go)
+		(void) savenewlabel(pm->bsdlabel, maxpart);
 
 	/* Everything looks OK. */
 	return (1);

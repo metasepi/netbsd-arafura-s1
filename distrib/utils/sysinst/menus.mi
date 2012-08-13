@@ -179,7 +179,6 @@ menu utility, title MSG_NetBSD_VERSION_Utilities, exit,
 		};
 	option MSG_Partition_a_disk, action { partman_go = 1; partman(); };
 	option MSG_Logging_functions, action { do_logging(); };
-	option "View log", action (endwin) { system("less /tmp/sysinst.log"); }; /* XXX: localize */
 	option MSG_Color_scheme, sub menu colors;
 	option MSG_Halt_the_system, exit,
 		action (endwin) { system("/sbin/halt -q"); };
@@ -509,73 +508,93 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 
 
 menu pmdiskentry, x=50, y=5, exit, default exit; /* XXX: localize */
-	option "Edit and save MBR",		exit, action { md_get_info(); md_pre_disklabel(); };
-	option "Edit and save GPT [WIP]",	exit, action { pm->changed = 1; };
-	option "Edit BSD partitions", exit, action { pm->changed = 1;
-								layoutkind = LY_SETNEW;
-								md_make_bsd_partitions();
-								if (pm->bsdlabel[pm->rootpart].pi_flags & PIF_MOUNT)
-									pm->bootable = 1;
-								else
-									pm->bootable = 0; };
-	option "Set disk name",		exit, action { pm->changed = 1; pm_rename(pm); };
-	option "Format as RAID",	exit, action { pm->changed = 1;
+	option MSG_editbsdpart, exit,
+		action {
+				pm->unsaved = 1;
+				layoutkind = LY_SETNEW;
+				md_make_bsd_partitions();
+				pm->bootable = (pm->bsdlabel[pm->rootpart].pi_flags & PIF_MOUNT) ?
+					1 : 0;
+		};
+	option MSG_editmbr,		exit, action { md_get_info(); md_pre_disklabel(); };
+	option MSG_switchgpt,		exit, action { pm_gpt_convert(pm); };
+	option MSG_renamedisk,		exit, action { pm->unsaved = 1; pm_rename(pm); };
+	option MSG_fmtasraid,	exit, action { pm->unsaved = 1;
 												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
-	option "Format as LVM PV",		exit, action { pm->changed = 1;
+	option MSG_fmtaslvm,	exit, action { pm->unsaved = 1;
 												layoutkind = LY_NEWLVM;
 												md_make_bsd_partitions(); };
-	option "Encrypt",			exit, action { pm->changed = 1;
+	option MSG_encrypt,			exit, action { pm->unsaved = 1;
 								layoutkind = LY_NEWCGD;
 								md_make_bsd_partitions();
-								pm_cgd_edit_adddisk(0,
-									&(part_entry_t){.dev_pm = pm, .dev_num = PART_E}
+								pm_cgd_edit(0,
+									&(part_entry_t){.dev_ptr = pm, .dev_num = PART_E}
 								); };
-	option "Bootable flag",		exit, action { pm->changed = 1;
+	option MSG_setbootable,		exit, action { pm->unsaved = 1;
 												pm->bootable = !pm->bootable; };
-	option "Safe erase",		next menu shred_modes;
-	option "Undo changes",		exit, action { label_read(); pm->changed = 0; };
-	option "Unconfigure",		exit, action { pm_unconfigure(pm); };
+	option MSG_erase,		next menu shred_modes;
+	option MSG_undo,		exit, action { label_read(); pm->unsaved = 0; };
+	option MSG_unconfig,	exit, action { pm_unconfigure(pm); };
 
 menu pmpartentry, x=50, y=5, exit, default exit;
-	option "Format as RAID",	exit, action { pm->changed = 1;
-									pm_setfstype(pm, *(int*)arg, FS_RAID); };
-	option "Format as LVM PV",		exit, action { pm->changed = 1;
+	option MSG_edit,				exit, action { 
+									pm->unsaved = 1;
+									pm_editpart(*(int*)arg);
+								};
+	option MSG_fmtasraid,	exit, action {
+									pm->unsaved = 1;
+									pm_setfstype(pm, *(int*)arg, FS_RAID);
+								};
+	option MSG_fmtaslvm,	exit, action {
+									pm->unsaved = 1;
 									pm_setfstype(pm, *(int*)arg, FS_BSDFFS);
-								    pm->bsdlabel[*(int*)arg].lvmpv = 1; };
-	option "Encrypt",			exit, action { pm->changed = 1;
+								    pm->bsdlabel[*(int*)arg].lvmpv = 1;
+								};
+	option MSG_encrypt,			exit, action {
+									pm->unsaved = 1;
 									pm_setfstype(pm, *(int*)arg, FS_CGD);
-									pm_cgd_edit_adddisk(0,
-										&(part_entry_t){.dev_pm = pm, .dev_num = *(int*)arg}
-									); };
-	option "Safe erase",		next menu shred_modes;
-	option "Force umount",		exit, action { pm_umount(pm, *(int*)arg); };
-	option "Delete",			exit, action { pm->changed = 1;
+									pm_cgd_edit(0,
+										&(part_entry_t){.dev_ptr = pm,
+														.dev_num = *(int*)arg});
+								};
+	option MSG_erase,		next menu shred_modes;
+	option MSG_doumount,		exit, action { pm_umount(pm, *(int*)arg); };
+	option MSG_Delete_partition,	exit, action {
+									pm->unsaved = 1;
 									pm->bsdlabel[*(int*)arg].pi_fstype = FS_UNUSED;
-									pm_checkpartitions(pm, *(int*)arg, 1); };
+									pm_checkpartitions(pm, *(int*)arg, 1);
+								};
 
-menu pmspecentry, x=50, y=8, exit, default exit;
-	option "Edit",				exit, action { edit_ptn(&(struct menudesc)
-														{.cursel = 0}, NULL); };
-	option "Unconfigure",		exit, action { pm_unconfigure(pm); };
+menu pmgptentry, x=50, y=8, exit, default exit;
+	option MSG_editbsdpart, exit,
+		action {
+				pm->unsaved = 1;
+				layoutkind = LY_SETNEW;
+				md_make_bsd_partitions();
+				pm->bootable = (pm->bsdlabel[pm->rootpart].pi_flags & PIF_MOUNT) ?
+					1 : 0;
+		};
+	option MSG_switchmbr,		exit, action { pm_gpt_convert(pm); };
+	option MSG_setbootable,		exit, action { pm->unsaved = 1;
+												pm->bootable = !pm->bootable; };
+	option MSG_erase,			next menu shred_modes;
+	option MSG_undo,			exit, action { label_read(); pm->unsaved = 0; };
+	option MSG_unconfig,		exit, action { pm_unconfigure(pm); };
 
 menu shred_modes, x=50, y=5, exit, default exit;
-	option "Fill by zeros",			exit, action { pm_shred(pm->diskdev,
-													*(int*)arg, SHRED_ZEROS); };
-	option "Fill by random data",	exit, action { pm_shred(pm->diskdev,
-													*(int*)arg, SHRED_RANDOM); };
-	option "Fill by crypto data",	exit, action { pm_shred(pm->diskdev,
-													*(int*)arg, SHRED_CRYPTO); };
+	option MSG_fillzeros,	exit,
+							action { pm_shred(pm, *(int*)arg, SHRED_ZEROS); };
+	option MSG_fillrandom,	exit,
+							action { pm_shred(pm, *(int*)arg, SHRED_RANDOM); };
+	option MSG_fillcrypto,	exit,
+							action { pm_shred(pm, *(int*)arg, SHRED_CRYPTO); };
 
 menu raidlevel;
-	option "0 - No parity, only simple striping.", exit,
-		action { *(int *)arg = 0; };
-	option "1 - Mirroring.  The parity is the mirror.", exit,
-		action { *(int *)arg = 1; };
-	option "4 - Striping with parity stored on the last component.", exit,
-		action { *(int *)arg = 4; };
-	option "5 - Striping with parity at the all components.", exit,
-		action { *(int *)arg = 5; };
+	option MSG_raid0, exit, action { *(int *)arg = 0; };
+	option MSG_raid1, exit, action { *(int *)arg = 1; };
+	option MSG_raid4, exit, action { *(int *)arg = 4; };
+	option MSG_raid5, exit, action { *(int *)arg = 5; };
 
 menu cgd_enctype;
 	option "aes-cbc",			exit, action { *(const char**)arg = "aes-cbc"; };

@@ -69,6 +69,9 @@ enum {
 	CONFIGOPT_NTPDATE,
 	CONFIGOPT_MDNSD,
 	CONFIGOPT_XDM,
+	CONFIGOPT_CGD,
+	CONFIGOPT_LVM,
+	CONFIGOPT_RAIDFRAME,
 	CONFIGOPT_LAST
 };
 
@@ -92,10 +95,12 @@ configinfo config_list[] = {
 	{MSG_enable_ntpd, CONFIGOPT_NTPD, "ntpd", toggle_rcvar, NULL},
 	{MSG_run_ntpdate, CONFIGOPT_NTPDATE, "ntpdate", toggle_rcvar, NULL},
 	{MSG_enable_mdnsd, CONFIGOPT_MDNSD, "mdnsd", toggle_rcvar, NULL},
-	{"Enable XDM", CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
-	{"Enable CGD", CONFIGOPT_XDM, "cgd", toggle_rcvar, NULL},
+	{MSG_enable_xdm, CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
+	{MSG_enable_cgd, CONFIGOPT_XDM, "cgd", toggle_rcvar, NULL},
+	{MSG_enable_lvm, CONFIGOPT_XDM, "lvm", toggle_rcvar, NULL},
+	{MSG_enable_raid, CONFIGOPT_XDM, "raidframe", toggle_rcvar, NULL},
 	{NULL,		CONFIGOPT_LAST,	NULL, NULL, NULL}
-}; // XXX: XDM
+};
 
 static void
 config_list_init(void)

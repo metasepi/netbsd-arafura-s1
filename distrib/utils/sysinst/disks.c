@@ -73,6 +73,47 @@ struct disk_desc {
 	uint	dd_totsec;
 };
 
+/* gpt(8) use different filesystem names.
+   In other case is better to add getfstypeID() to
+   ./common/lib/libutil/getfstypename.c */
+struct filesystems_t {
+    const char *name;
+    int id;
+};
+static const struct filesystems_t gpt_filesystems[] = {
+    { "swap", FS_SWAP, },
+    { "ffs", FS_BSDFFS, },
+    { "lfs", FS_BSDLFS },
+    { "linux", FS_EX2FS, },
+    { "windows,", FS_MSDOS, },
+    { "hfs", FS_HFS, },
+    { "ufs", FS_OTHER, },
+    { "ccd", FS_CCD, },
+    { "raid", FS_RAID, },
+    { "cgd", FS_CGD, },
+    { "efi", FS_OTHER, },
+    { "bios", FS_OTHER, },
+    { NULL, -1, },
+};
+static const struct filesystems_t dk_filesystems[] = {
+    { DKW_PTYPE_UNUSED, FS_UNUSED, },
+    { DKW_PTYPE_SWAP, FS_SWAP, },
+    { DKW_PTYPE_FFS, FS_BSDFFS, },
+    { DKW_PTYPE_LFS, FS_BSDLFS },
+    { DKW_PTYPE_EXT2FS, FS_EX2FS, },
+    { DKW_PTYPE_FAT, FS_MSDOS, },
+    { DKW_PTYPE_NTFS, FS_NTFS, },
+    { DKW_PTYPE_APPLEHFS, FS_HFS, },
+    { DKW_PTYPE_APPLEUFS, FS_APPLEUFS, },
+    { DKW_PTYPE_AMIGADOS, FS_ADOS, },
+    { DKW_PTYPE_ISO9660, FS_ISO9660, },
+    { DKW_PTYPE_RAIDFRAME, FS_RAID, },
+    { DKW_PTYPE_CCD, FS_CCD, },
+    { DKW_PTYPE_CGD, FS_CGD, },
+    { DKW_PTYPE_FILECORE, FS_OTHER, },
+    { NULL, -1, },
+};
+
 /* Local prototypes */
 static int foundffs(struct data *, size_t);
 #ifdef USE_SYSVBFS
@@ -80,6 +121,8 @@ static int foundsysvbfs(struct data *, size_t);
 #endif
 static int fsck_preen(const char *, int, const char *);
 static void fixsb(const char *, const char *, char);
+static int is_gpt(const char *);
+static int incoregpt(pm_devs_t *, partinfo *);
 
 #ifndef DISK_NAMES
 #define DISK_NAMES "wd", "sd", "ld", "raid"
@@ -388,7 +431,7 @@ find_disks(const char *doingwhat)
 				dsk_menu[i].opt_action = set_menu_select;
 			}
 			if (partman_go < 0) {
-				dsk_menu[i].opt_name = "Extended partitioning"; // XXX: localize
+				dsk_menu[i].opt_name = MSG_partman;
 				dsk_menu[i].opt_menu = OPT_NOMENU;
 				dsk_menu[i].opt_flags = OPT_EXIT;
 				dsk_menu[i].opt_action = set_menu_select;
@@ -428,7 +471,7 @@ find_disks(const char *doingwhat)
 				/* We already added this device, skipping */
 				continue;
 		}
-		pm = pm_found;
+		pm = pm_new;
 		pm->found = 1;
 		pm->bootable = 0;
 		pm->pi.menu_no = -1;
@@ -439,20 +482,19 @@ find_disks(const char *doingwhat)
 		/* Use as a default disk if the user has the sets on a local disk */
 		strlcpy(localfs_dev, disk->dd_name, sizeof localfs_dev);
 
+		pm->gpt = is_gpt(pm->diskdev);
+		pm->no_mbr = disk->dd_no_mbr || pm->gpt;
 		pm->sectorsize = disk->dd_secsize;
 		pm->dlcyl = disk->dd_cyl;
 		pm->dlhead = disk->dd_head;
 		pm->dlsec = disk->dd_sec;
 		pm->dlsize = disk->dd_totsec;
-		pm->no_mbr = disk->dd_no_mbr;
 		if (pm->dlsize == 0)
 			pm->dlsize = disk->dd_cyl * disk->dd_head * disk->dd_sec;
-		if (pm->dlsize > UINT32_MAX) {
+		if (pm->dlsize > UINT32_MAX && ! partman_go) {
 			if (logfp)
 				fprintf(logfp, "Cannot process disk %s: too big size (%d)\n",
-					pm->diskdev, (int)pm->dlsize); // XXX: localize
-			if (partman_go)
-				continue;
+					pm->diskdev, (int)pm->dlsize);
 			msg_display(MSG_toobigdisklabel);
 			process_menu(MENU_ok, NULL);
 			return -1;
@@ -461,11 +503,11 @@ find_disks(const char *doingwhat)
 
 		label_read();
 		if (partman_go) {
-			pm_getrefdev(pm_found);
-			pm_i->next = pm_found;
-			pm_found = malloc(sizeof (pm_devs_t));
-			memset(pm_found, 0, sizeof *pm_found);
-			pm_found->next = NULL;
+			pm_getrefdev(pm_new);
+			pm_i->next = pm_new;
+			pm_new = malloc(sizeof (pm_devs_t));
+			memset(pm_new, 0, sizeof *pm_new);
+			pm_new->next = NULL;
 		} else
 			/* We is not in partman and do not want to process all devices, exit */
 			break;
@@ -479,10 +521,14 @@ label_read(void)
 {
 	/* Get existing/default label */
 	memset(&pm->oldlabel, 0, sizeof pm->oldlabel);
-	incorelabel(pm->diskdev, pm->oldlabel);
+	if (! pm->gpt)
+		incorelabel(pm->diskdev, pm->oldlabel);
+	else
+		incoregpt(pm, pm->oldlabel);
 	/* Set 'target' label to current label in case we don't change it */
 	memcpy(&pm->bsdlabel, &pm->oldlabel, sizeof pm->bsdlabel);
-	savenewlabel(pm->oldlabel, getmaxpartitions());
+	if (! pm->gpt)
+		savenewlabel(pm->oldlabel, getmaxpartitions());
 }
 
 void
@@ -668,7 +714,7 @@ make_filesystems(void)
 					    "%s /dev/r%s",
 					    newfs, dev);
 				else {
-			        	run_program(RUN_SILENT | RUN_ERROR_OK,
+			        run_program(RUN_SILENT | RUN_ERROR_OK,
 					    "umount /mnt2");
 					error = 0;
 				}
@@ -684,6 +730,7 @@ make_filesystems(void)
 		if (error != 0)
 			return error;
 
+		lbl->pi_flags ^= PIF_NEWFS;
 		md_pre_mount();
 
 		if (partman_go == 0 && lbl->pi_flags & PIF_MOUNT &&
@@ -1186,3 +1233,125 @@ bootxx_name(void)
 	return bootxx;
 }
 #endif
+
+int
+get_gptfs_by_name(const char *filesystem)
+{
+	int i;
+	for (i = 0; gpt_filesystems[i].name != NULL; i++)
+		if (! strcmp(filesystem, gpt_filesystems[i].name))
+			return gpt_filesystems[i].id;
+	return FS_OTHER;
+}
+
+int
+get_dkfs_by_name(const char *filesystem)
+{
+	int i;
+	for (i = 0; dk_filesystems[i].name != NULL; i++)
+		if (! strcmp(filesystem, dk_filesystems[i].name))
+			return dk_filesystems[i].id;
+	return FS_OTHER;
+}
+
+const char *
+get_gptfs_by_id(int filesystem)
+{
+	int i;
+	for (i = 0; gpt_filesystems[i].id > 0; i++)
+		if (filesystem == gpt_filesystems[i].id)
+			return gpt_filesystems[i].name;
+	return NULL;
+}
+
+const char *
+get_dkfs_by_id(int filesystem)
+{
+	int i;
+	for (i = 0; dk_filesystems[i].id > 0; i++)
+		if (filesystem == dk_filesystems[i].id)
+			return dk_filesystems[i].name;
+	return NULL;
+}
+
+/* from dkctl.c */
+static int
+get_dkwedges_sort(const void *a, const void *b)
+{
+	const struct dkwedge_info *dkwa = a, *dkwb = b;
+	const daddr_t oa = dkwa->dkw_offset, ob = dkwb->dkw_offset;
+	return (oa < ob) ? -1 : (oa > ob) ? 1 : 0;
+}
+
+int
+get_dkwedges(struct dkwedge_info **dkw, const char *diskdev)
+{
+	int fd;
+	char buf[STRSIZE];
+	size_t bufsize;
+	struct dkwedge_list dkwl;
+
+	*dkw = NULL;
+	dkwl.dkwl_buf = *dkw;
+	dkwl.dkwl_bufsize = 0;
+	fd = opendisk(diskdev, O_RDONLY, buf, STRSIZE, 0);
+	if (fd < 0)
+		return -1;
+
+	for (;;) {
+		if (ioctl(fd, DIOCLWEDGES, &dkwl) == -1)
+			return -2;
+		if (dkwl.dkwl_nwedges == dkwl.dkwl_ncopied)
+			break;
+		bufsize = dkwl.dkwl_nwedges * sizeof(**dkw);
+		if (dkwl.dkwl_bufsize < bufsize) {
+			*dkw = realloc(dkwl.dkwl_buf, bufsize);
+			if (*dkw == NULL)
+				return -3;
+			dkwl.dkwl_buf = *dkw;
+			dkwl.dkwl_bufsize = bufsize;
+		}
+	}
+
+	if (dkwl.dkwl_nwedges > 0)
+		qsort(*dkw, dkwl.dkwl_nwedges, sizeof(**dkw), get_dkwedges_sort);
+
+	close(fd);
+	return dkwl.dkwl_nwedges;
+}
+
+static int
+incoregpt(pm_devs_t *pm_cur, partinfo *lp)
+{
+	int i, num;
+	uint32_t pri_start, pri_size, sec_start, sec_size;
+	char *buf_in;
+	struct dkwedge_info *dkw;
+
+	num = get_dkwedges(&dkw, pm_cur->diskdev);
+	if (dkw != NULL) {
+		for (i = 0; i < num && i < MAX_WEDGES; i++)
+			run_program(RUN_SILENT, "dkctl %s delwedge %s",
+				pm_cur->diskdev, dkw[i].dkw_devname);
+		free (dkw);
+	}
+
+	/* XXX: rewrite, add support for reading partition table */
+	if (collect(T_OUTPUT, &buf_in,
+		"sh -c \"gpt show %s |grep 'GPT table' |grep -oE '[0-9]*'\" 2>/dev/null",
+		pm_cur->diskdev) > 0) {
+		sscanf(buf_in, "%u\n%u\n%u\n%u", &pri_start, &pri_size, &sec_start, &sec_size);
+		pm_cur->ptstart = pri_start + pri_size;
+		pm_cur->ptsize = sec_start - (pri_start + pri_size);
+	}
+
+	return 0;
+}
+
+/* XXX: rewrite */
+static int
+is_gpt(const char *dev)
+{
+	return ! run_program(RUN_SILENT | RUN_ERROR_OK,
+		"sh -c 'gpt show %s |grep -e Pri\\ GPT\\ table'", dev);
+}

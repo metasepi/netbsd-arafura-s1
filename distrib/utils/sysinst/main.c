@@ -130,6 +130,7 @@ init(void)
 	const struct f_arg *arg;
 	
 	sizemult = 1;
+	multname = msg_string(MSG_secname);
 	tmp_ramdisk_size = 0;
 	clean_xfer_dir = 0;
 	mnt2_mounted = 0;
@@ -138,12 +139,12 @@ init(void)
 
 	pm_head = malloc (sizeof (pm_devs_t));
 	memset(pm_head, 0, sizeof *pm_head);
-	pm_found = malloc (sizeof (pm_devs_t));
-	memset(pm_found, 0, sizeof *pm_found);
+	pm_new = malloc (sizeof (pm_devs_t));
+	memset(pm_new, 0, sizeof *pm_new);
 
 	for (arg = fflagopts; arg->name != NULL; arg++)
 		strlcpy(arg->var, arg->dflt, arg->size);
-	strlcpy(pm_found->bsddiskname, bsddiskname, sizeof pm_found->bsddiskname);
+	strlcpy(pm_new->bsddiskname, bsddiskname, sizeof pm_new->bsddiskname);
 	pkg.xfer_type = pkgsrc.xfer_type = "http";
 	
 	clr_arg.bg=COLOR_BLUE;
@@ -498,7 +499,7 @@ process_f_flag(char *f_name)
 			break;
 		}
 	}
-	strlcpy(pm_found->bsddiskname, bsddiskname, sizeof pm_found->bsddiskname);
+	strlcpy(pm_new->bsddiskname, bsddiskname, sizeof pm_new->bsddiskname);
 
 	fclose(fp);
 }

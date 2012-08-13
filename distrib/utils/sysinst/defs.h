@@ -40,6 +40,7 @@
 /* System includes needed for this. */
 #include <sys/types.h>
 #include <sys/disklabel.h>
+#include <sys/disk.h>
 
 const char *getfslabelname(uint8_t);
 
@@ -269,11 +270,22 @@ unsigned int root_limit;    /* BIOS (etc) read limit */
 enum SHRED_T { SHRED_NONE=0, SHRED_ZEROS, SHRED_RANDOM, SHRED_CRYPTO };
 
 /* All information that is unique for each drive */
+#define MAX_WEDGES 16 /* num of dk* devices */
+typedef struct pm_wedge_t {
+    int allocated;
+#define startblk bsdlabel->pi_partition.p_offset
+#define blkcnt bsdlabel->pi_partition.p_fsize
+    const char *ptype;
+    partinfo *bsdlabel;
+    int bsdlabelnum;
+} pm_wedge_t;
+pm_wedge_t wedges[MAX_WEDGES];
+
 typedef struct pm_devs_t {
-    int changed; /* Flag indicating to partman that device need saving */
+    int unsaved; /* Flag indicating to partman that device need saving */
     int found; /* Flag to delete unplugged and unconfigured devices */
     int blocked; /* Device is busy and cannot be changed */
-    int refdev; /* If device is blocked thats is a refer to a parent dev */
+    void *refdev; /* If device is blocked thats is a pointers to a parent dev */
     int isspecial; /* LVM LV or DK device that doesnot accept disklabel */
     char diskdev[SSTRSIZE]; /* Actual name of the disk. */
     char diskdev_descr[STRSIZE];
@@ -282,6 +294,8 @@ typedef struct pm_devs_t {
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
+    pm_wedge_t *wedge[MAX_WEDGES];
+    int gpt;
     int no_mbr; /* set for raid (etc) */
     int rootpart; /* partition we install into */
     const char *disktype; /* ST506, SCSI, ... */
@@ -298,17 +312,17 @@ typedef struct pm_devs_t {
 } pm_devs_t;
 pm_devs_t *pm; /* Pointer to currend device with which we work */
 pm_devs_t *pm_head; /* Pointer to head of list with all devices */
-pm_devs_t *pm_found; /* Pointer for next allocating device in find_disks() */
+pm_devs_t *pm_new; /* Pointer for next allocating device in find_disks() */
 
 /* Generic structure for partman */
 typedef struct {
     int retvalue;
     int dev_num;
-    pm_devs_t *dev_pm;
+    int wedge_num;
     void *dev_ptr;
     int dev_ptr_delta;
     char fullname[SSTRSIZE];
-    enum {PM_DISK_T=1, PM_PART_T, PM_SPEC_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
+    enum {PM_DISK_T=1, PM_PART_T, PM_WEDGE_T, PM_SPEC_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
         PM_LVM_T, PM_LVMLV_T} type;
 } part_entry_t;
 
@@ -426,6 +440,11 @@ int	set_swap(const char *, partinfo *);
 int	check_swap(const char *, int);
 char *bootxx_name(void);
 void label_read(void);
+int get_dkwedges(struct dkwedge_info **, const char *);
+int get_gptfs_by_name(const char *);
+int get_dkfs_by_name(const char *);
+const char *get_gptfs_by_id(int);
+const char *get_dkfs_by_id(int);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
@@ -439,6 +458,7 @@ void	set_bsize(partinfo *, int);
 void	set_fsize(partinfo *, int);
 void	set_ptype(partinfo *, int, int);
 int edit_ptn(menudesc *, void *);
+int checkoverlap(partinfo *, int, int, int);
 
 /* from install.c */
 void	do_install(void);
@@ -553,13 +573,15 @@ int partman(void);
 int pm_checkpartitions(pm_devs_t *, int, int);
 int pm_getrefdev(pm_devs_t *);
 void pm_setfstype(pm_devs_t *, int, int);
+int pm_editpart(int);
 void pm_rename(pm_devs_t *);
-int pm_shred(char *, char, int);
+int pm_shred(pm_devs_t *, int, int);
 void pm_umount(pm_devs_t *, int);
 int pm_unconfigure(pm_devs_t *);
-void pm_unconfigureall(void);
-int pm_cgd_edit_adddisk(void *, part_entry_t *);
+int pm_cgd_edit(void *, part_entry_t *);
 int pm_clean(void);
+int pm_gpt_convert(pm_devs_t *);
+void pm_wedges_fill(pm_devs_t *);
 
 /* from bsddisklabel.c */
 int	make_bsd_partitions(void);

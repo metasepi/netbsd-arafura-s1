@@ -1606,7 +1606,7 @@ ext_dir_for_set(const char *set_name) {
 }
 
 void
-do_coloring (unsigned int fg, unsigned int bg) {
+do_coloring(unsigned int fg, unsigned int bg) {
 	if (bg > COLOR_WHITE)
 		bg = COLOR_BLUE;
 	if (fg > COLOR_WHITE)

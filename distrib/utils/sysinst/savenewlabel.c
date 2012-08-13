@@ -64,8 +64,13 @@ savenewlabel(partinfo *lp, int nparts)
 
 	/* Check names collision */
 	for (pm_i = pm_head->next; partman_go && pm_i != NULL; pm_i = pm_i->next)
-		while (pm_i != pm && !strcmp(pm_i->bsddiskname, pm->bsddiskname))
-			pm->bsddiskname[strlen(pm->bsddiskname)-1] = rand() % ('z' - 'a') + 'a';
+		for (i = 'a'; pm_i != pm && i < 'z' &&
+				! strcmp(pm_i->bsddiskname, pm->bsddiskname); i++) {
+			if (strlen(pm_i->bsddiskname) > 0)
+				pm_i->bsddiskname[strlen(pm_i->bsddiskname)-1] = i;
+			else
+				snprintf(pm_i->bsddiskname, DISKNAME_SIZE, "disk %c", i);
+	}
 
 	snprintf(f_name, STRSIZE, "/tmp/disktab.%s", pm->bsddiskname);
 
