@@ -611,7 +611,7 @@ pm_raid_disk_del(menudesc *m, void *arg)
 		num_devs++;
 	}
 
-	menu_no = new_menu(MSG_disksinraid,
+	menu_no = new_menu(MSG_raid_disks,
 		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13,
 		MC_SCROLL | MC_NOCLEAR, NULL, NULL, NULL, NULL, NULL);
 	if (menu_no == -1)
@@ -1247,7 +1247,7 @@ pm_lvm_disk_del(menudesc *m, void *arg)
 		num_devs++;
 	}
 
-	menu_no = new_menu(MSG_disksinlvm,
+	menu_no = new_menu(MSG_lvm_disks,
 		menu_entries, num_devs, -1, -1, (num_devs+1<3)?3:num_devs+1, 13,
 		MC_SCROLL | MC_NOCLEAR, NULL, NULL, NULL, NULL, NULL);
 	if (menu_no == -1)
@@ -2344,7 +2344,7 @@ static int
 pm_submenu(menudesc *m, void *arg)
 {
 	int part_num = -1;
-	pm_devs_t *pm_cur;
+	pm_devs_t *pm_cur = NULL;
 	((part_entry_t *)arg)[0].retvalue = m->cursel + 1;
 
 	switch (((part_entry_t *)arg)[m->cursel].type) {

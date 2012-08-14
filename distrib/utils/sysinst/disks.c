@@ -398,7 +398,7 @@ find_disks(const char *doingwhat)
 	struct disk_desc disks[MAX_DISKS];
 	menu_ent dsk_menu[nelem(disks) + 1]; // + 1 for extended partitioning entry
 	struct disk_desc *disk;
-	pm_devs_t *pm_i;
+	pm_devs_t *pm_i = NULL;
 	int i, already_found;
 	int numdisks, selected_disk = -1;
 	int menu_no;
