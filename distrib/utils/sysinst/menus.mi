@@ -507,7 +507,7 @@ menu pkgsrc, y=-4, x=0, w=70, no box, no clear,
 	option MSG_quit_install, exit, action { yesno = SET_SKIP; };
 
 
-menu pmdiskentry, x=50, y=5, exit, default exit; /* XXX: localize */
+menu pmdiskentry, x=50, y=5, exit, default exit;
 	option MSG_editbsdpart, exit,
 		action {
 				pm->unsaved = 1;
@@ -517,8 +517,8 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* XXX: localize */
 					1 : 0;
 		};
 	option MSG_editmbr,		exit, action { md_get_info(); md_pre_disklabel(); };
-	option MSG_switchgpt,		exit, action { pm_gpt_convert(pm); };
-	option MSG_renamedisk,		exit, action { pm->unsaved = 1; pm_rename(pm); };
+	option MSG_switchgpt,	exit, action { pm_gpt_convert(pm); };
+	option MSG_renamedisk,	exit, action { pm->unsaved = 1; pm_rename(pm); };
 	option MSG_fmtasraid,	exit, action { pm->unsaved = 1;
 												layoutkind = LY_NEWRAID;
 												md_make_bsd_partitions(); };
@@ -531,8 +531,8 @@ menu pmdiskentry, x=50, y=5, exit, default exit; /* XXX: localize */
 								pm_cgd_edit(0,
 									&(part_entry_t){.dev_ptr = pm, .dev_num = PART_E}
 								); };
-	option MSG_setbootable,		exit, action { pm->unsaved = 1;
-												pm->bootable = !pm->bootable; };
+	option MSG_setbootable,	exit, action { pm->unsaved = 1;
+											pm->bootable = !pm->bootable; };
 	option MSG_erase,		next menu shred_modes;
 	option MSG_undo,		exit, action { label_read(); pm->unsaved = 0; };
 	option MSG_unconfig,	exit, action { pm_unconfigure(pm); };
@@ -545,26 +545,26 @@ menu pmpartentry, x=50, y=5, exit, default exit;
 	option MSG_fmtasraid,	exit, action {
 									pm->unsaved = 1;
 									pm_setfstype(pm, *(int*)arg, FS_RAID);
-								};
+									};
 	option MSG_fmtaslvm,	exit, action {
 									pm->unsaved = 1;
 									pm_setfstype(pm, *(int*)arg, FS_BSDFFS);
 								    pm->bsdlabel[*(int*)arg].lvmpv = 1;
-								};
-	option MSG_encrypt,			exit, action {
+									};
+	option MSG_encrypt,		exit, action {
 									pm->unsaved = 1;
 									pm_setfstype(pm, *(int*)arg, FS_CGD);
 									pm_cgd_edit(0,
 										&(part_entry_t){.dev_ptr = pm,
 														.dev_num = *(int*)arg});
-								};
+									};
 	option MSG_erase,		next menu shred_modes;
 	option MSG_doumount,		exit, action { pm_umount(pm, *(int*)arg); };
 	option MSG_Delete_partition,	exit, action {
 									pm->unsaved = 1;
 									pm->bsdlabel[*(int*)arg].pi_fstype = FS_UNUSED;
 									pm_checkpartitions(pm, *(int*)arg, 1);
-								};
+									};
 
 menu pmgptentry, x=50, y=8, exit, default exit;
 	option MSG_editbsdpart, exit,
@@ -618,4 +618,3 @@ menu cgd_verifytype;
 	option "disklabel",			exit, action { *(const char**)arg = "disklabel"; };
 	option "ffs",				exit, action { *(const char**)arg = "ffs"; };
 	option "re-enter",			exit, action { *(const char**)arg = "re-enter"; };
-

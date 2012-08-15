@@ -74,8 +74,7 @@ struct disk_desc {
 };
 
 /* gpt(8) use different filesystem names.
-   In other case is better to add getfstypeID() to
-   ./common/lib/libutil/getfstypename.c */
+   So, we cant use ./common/lib/libutil/getfstypename.c */
 struct filesystems_t {
     const char *name;
     int id;
@@ -93,24 +92,6 @@ static const struct filesystems_t gpt_filesystems[] = {
     { "cgd", FS_CGD, },
     { "efi", FS_OTHER, },
     { "bios", FS_OTHER, },
-    { NULL, -1, },
-};
-static const struct filesystems_t dk_filesystems[] = {
-    { DKW_PTYPE_UNUSED, FS_UNUSED, },
-    { DKW_PTYPE_SWAP, FS_SWAP, },
-    { DKW_PTYPE_FFS, FS_BSDFFS, },
-    { DKW_PTYPE_LFS, FS_BSDLFS },
-    { DKW_PTYPE_EXT2FS, FS_EX2FS, },
-    { DKW_PTYPE_FAT, FS_MSDOS, },
-    { DKW_PTYPE_NTFS, FS_NTFS, },
-    { DKW_PTYPE_APPLEHFS, FS_HFS, },
-    { DKW_PTYPE_APPLEUFS, FS_APPLEUFS, },
-    { DKW_PTYPE_AMIGADOS, FS_ADOS, },
-    { DKW_PTYPE_ISO9660, FS_ISO9660, },
-    { DKW_PTYPE_RAIDFRAME, FS_RAID, },
-    { DKW_PTYPE_CCD, FS_CCD, },
-    { DKW_PTYPE_CGD, FS_CGD, },
-    { DKW_PTYPE_FILECORE, FS_OTHER, },
     { NULL, -1, },
 };
 
@@ -1244,16 +1225,6 @@ get_gptfs_by_name(const char *filesystem)
 	return FS_OTHER;
 }
 
-int
-get_dkfs_by_name(const char *filesystem)
-{
-	int i;
-	for (i = 0; dk_filesystems[i].name != NULL; i++)
-		if (! strcmp(filesystem, dk_filesystems[i].name))
-			return dk_filesystems[i].id;
-	return FS_OTHER;
-}
-
 const char *
 get_gptfs_by_id(int filesystem)
 {
@@ -1261,16 +1232,6 @@ get_gptfs_by_id(int filesystem)
 	for (i = 0; gpt_filesystems[i].id > 0; i++)
 		if (filesystem == gpt_filesystems[i].id)
 			return gpt_filesystems[i].name;
-	return NULL;
-}
-
-const char *
-get_dkfs_by_id(int filesystem)
-{
-	int i;
-	for (i = 0; dk_filesystems[i].id > 0; i++)
-		if (filesystem == dk_filesystems[i].id)
-			return dk_filesystems[i].name;
 	return NULL;
 }
 

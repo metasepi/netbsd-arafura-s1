@@ -264,7 +264,7 @@ pm_getdevstring(char *buf, int len, pm_devs_t *pm_cur, int num)
 		for (i = 0; i < MAX_WEDGES; i++)
 			if (pm_cur->wedge[i] != NULL &&
 				pm_cur->wedge[i]->bsdlabelnum == num)
-				snprintf(buf, len, "dk%d", i);
+				snprintf(buf, len, "dk%d", i); // XXX: xxx
 	} else
 		snprintf(buf, len, "%s%c", pm_cur->diskdev, num + 'a');
 
@@ -1689,56 +1689,58 @@ pm_lvm_commit(void)
 GPT
 ***/
 
-static int
-pm_gpt_find(void)
-{
-	int i, num, num_devs = 0, already_found;
-	pm_devs_t *pm_i, *pm_ii;
-	struct dkwedge_info *dkw;
 
-	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
-		if (! pm_i->gpt)
-			continue;
+// static int
+// pm_gpt_find(void)
+// {
+// 	int i, num, num_devs = 0, already_found;
+// 	pm_devs_t *pm_i, *pm_ii;
+// 	struct dkwedge_info *dkw;
 
-		num = get_dkwedges(&dkw, pm_i->diskdev);
-		if (num < 0)
-			continue;
+// 	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
+// 		if (! pm_i->gpt)
+// 			continue;
 
-		for (i = 0; i < num; i++) {
-			already_found = 0;
-			for (pm_ii = pm_head; pm_ii->next != NULL; pm_ii = pm_ii->next)
-				if (!already_found && strcmp(pm_ii->next->diskdev, dkw[i].dkw_devname) == 0) {
-					pm_ii->next->found = 1;
-					already_found = 1;
-					break;
-				}
-			if (already_found)
-				/* We already added this device, skipping */
-				continue;
-			pm_new->found = 1;
-			pm_new->isspecial = 1;
-			pm_new->refdev = pm_i;
-			pm_new->sectorsize = 1;
-			pm_new->dlcylsize = MEG;
-			pm_new->bsdlabel[0].pi_fstype = get_dkfs_by_name(dkw[i].dkw_ptype);
-			pm_new->bsdlabel[0].pi_size = dkw[i].dkw_size * 512; /* XXX: 512? */
-			strlcpy(pm_new->diskdev, dkw[i].dkw_devname, SSTRSIZE);
-			strlcpy(pm_new->bsddiskname, (char*)dkw[i].dkw_wname, DISKNAME_SIZE);
-			snprintf(pm_new->diskdev_descr, STRSIZE, "   %s (%s)",
-				dkw[i].dkw_devname, dkw[i].dkw_ptype);
+// 		num = get_dkwedges(&dkw, pm_i->diskdev);
+// 		if (num < 0)
+// 			continue;
 
-			pm_ii = pm_i->next;
-			pm_i->next = pm_new;
-			pm_i->next->next = pm_ii;
-			pm_new = malloc(sizeof (pm_devs_t));
-			memset(pm_new, 0, sizeof *pm_new);
-			pm_new->next = NULL;
-		}
-		num_devs += num;
-		free(dkw);
-	}
-	return num_devs;	
-}
+// 		for (i = 0; i < num; i++) {
+// 			already_found = 0;
+// 			for (pm_ii = pm_head; pm_ii->next != NULL; pm_ii = pm_ii->next)
+// 				if (!already_found && strcmp(pm_ii->next->diskdev, dkw[i].dkw_devname) == 0) {
+// 					pm_ii->next->found = 1;
+// 					already_found = 1;
+// 					break;
+// 				}
+// 			if (already_found)
+// 				/* We already added this device, skipping */
+// 				continue;
+// 			pm_new->found = 1;
+// 			pm_new->isspecial = 1;
+// 			pm_new->refdev = pm_i;
+// 			pm_new->sectorsize = 1;
+// 			pm_new->dlcylsize = MEG;
+// 			pm_new->refdev = pm_i;
+// 			pm_new->bsdlabel[0].pi_fstype = get_dkfs_by_name(dkw[i].dkw_ptype);
+// 			pm_new->bsdlabel[0].pi_size = dkw[i].dkw_size * 512; /* XXX: 512? */
+// 			strlcpy(pm_new->diskdev, dkw[i].dkw_devname, SSTRSIZE);
+// 			strlcpy(pm_new->bsddiskname, (char*)dkw[i].dkw_wname, DISKNAME_SIZE);
+// 			snprintf(pm_new->diskdev_descr, STRSIZE, "   %s (%s)",
+// 				dkw[i].dkw_devname, dkw[i].dkw_ptype);
+
+// 			pm_ii = pm_i->next;
+// 			pm_i->next = pm_new;
+// 			pm_i->next->next = pm_ii;
+// 			pm_new = malloc(sizeof (pm_devs_t));
+// 			memset(pm_new, 0, sizeof *pm_new);
+// 			pm_new->next = NULL;
+// 		}
+// 		num_devs += num;
+// 		free(dkw);
+// 	}
+// 	return num_devs;	
+// }
 
 int
 pm_gpt_convert(pm_devs_t *pm_cur)
@@ -1795,13 +1797,13 @@ pm_wedges_fill(pm_devs_t *pm_cur)
 			pm_cur->wedge[current] = &wedges[current];
 			pm_cur->wedge[current]->bsdlabelnum = i;
 			pm_cur->wedge[current]->bsdlabel = &(pm_cur->bsdlabel[i]);
-			pm_cur->wedge[current]->ptype = get_dkfs_by_id(pm_cur->bsdlabel[i].pi_fstype);
+			pm_cur->wedge[current]->ptype = getfstypename(pm_cur->bsdlabel[i].pi_fstype);
 		}
 	return;
 }
 
 static int
-pm_wedge_create(pm_devs_t *pm_cur, partinfo *p)
+pm_wedge_create(pm_devs_t *pm_cur, partinfo *p, pm_devs_t **pm_dk)
 {
 	int i, error;
 	for (i = 0; i < MAX_WEDGES; i++)
@@ -1810,10 +1812,19 @@ pm_wedge_create(pm_devs_t *pm_cur, partinfo *p)
 					"dkctl %s addwedge dk%d %u %u %s",
 					pm_cur->diskdev, i,
 					wedges[i].startblk, wedges[i].blkcnt,
-					get_dkfs_by_id(wedges[i].bsdlabel->pi_fstype));
+					getfstypename(wedges[i].bsdlabel->pi_fstype));
 			if (!error) {
 				wedges[i].allocated = 1;
 				pm_cur->blocked++;
+				if (pm_dk != NULL) {
+					*pm_dk = malloc(sizeof(pm_devs_t));
+					snprintf((*pm_dk)->diskdev, SSTRSIZE, "dk%d", i);
+					memcpy(&(*pm_dk)->bsdlabel[0], p, sizeof (*pm_dk)->bsdlabel[0]);
+					(*pm_dk)->isspecial = 1;
+					(*pm_dk)->sectorsize = 1;
+					(*pm_dk)->dlcylsize = MEG;
+					(*pm_dk)->refdev = pm_cur;
+				}
 			}
 			return error;
 		}
@@ -1832,7 +1843,7 @@ pm_wedges_commit(void)
 				pm_i->wedge[i]->bsdlabel == NULL ||
 				pm_i->wedge[i]->bsdlabel->pi_fstype == FS_UNUSED)
 				continue;
-			error += pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel);
+			error += pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel, NULL);
 		}
 	return error;
 }
@@ -1841,7 +1852,7 @@ static int
 pm_gpt_commit(void)
 {
 	uint i, error;
-	pm_devs_t *pm_i;
+	pm_devs_t *pm_i, *pm_dk;
 	char fstype[STRSIZE]; fstype[0] = '\0';
 
 	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
@@ -1858,17 +1869,23 @@ pm_gpt_commit(void)
 				snprintf(fstype, STRSIZE, "-t %s",
 					get_gptfs_by_id(pm_i->bsdlabel[i].pi_fstype));
 			error = run_program(RUN_DISPLAY | RUN_PROGRESS,
-				"gpt add -i %u -s %u %s %s",
-				i+1, pm_i->bsdlabel[i].pi_size, fstype, pm_i->diskdev);
+				"gpt add -i %u -b %u -s %u %s %s",
+				i+1, pm_i->bsdlabel[i].pi_offset, pm_i->bsdlabel[i].pi_size,
+				fstype, pm_i->diskdev);
 
 			if (! error) {
-				if (pm_checkpartitions(pm_i, pm_i->wedge[i]->bsdlabelnum, 0))
-					pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel);
+				pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel, &pm_dk);
+				if (pm_dk != NULL) {
+					pm_select(pm_dk);
+					make_filesystems();
+					if (! pm_checkpartitions(pm_i, pm_i->wedge[i]->bsdlabelnum, 0))
+						pm_unconfigure(pm_dk);
+					free(pm_dk);
+				}
 				pm_i->unsaved = 0;
 			}
 		}
 	}
-	pm_gpt_find();
 	return 0;
 }
 
@@ -2182,7 +2199,7 @@ pm_umount(pm_devs_t *pm_cur, int part_num)
 int
 pm_unconfigure(pm_devs_t *pm_cur)
 {
-	int i, error = 0;
+	int i, error = 0, num = 0;
 	if (! strncmp(pm_cur->diskdev, "cgd", 3)) {
  		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "cgdconfig -u %s", pm_cur->diskdev);
  		if (! error && pm_cur->refdev != NULL) {
@@ -2208,6 +2225,14 @@ pm_unconfigure(pm_devs_t *pm_cur)
 			return -2;
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "dkctl %s delwedge %s",
 			((pm_devs_t*)pm_cur->refdev)->diskdev, pm_cur->diskdev);
+		if (! error) {
+			pm_cur->found = 0;
+			if (pm_cur->refdev != NULL && ((pm_devs_t*)pm_cur->refdev)->blocked > 0)
+				((pm_devs_t*)pm_cur->refdev)->blocked--;
+			sscanf(pm_cur->diskdev, "dk%d", &num);
+			if (num >= 0 && num < MAX_WEDGES)
+				wedges[num].allocated = 0;
+		}
 	} /* XXX: lvm */
 	else
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%sd",

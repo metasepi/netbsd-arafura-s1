@@ -442,9 +442,7 @@ char *bootxx_name(void);
 void label_read(void);
 int get_dkwedges(struct dkwedge_info **, const char *);
 int get_gptfs_by_name(const char *);
-int get_dkfs_by_name(const char *);
 const char *get_gptfs_by_id(int);
-const char *get_dkfs_by_id(int);
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);
