@@ -137,8 +137,8 @@ init(void)
 	fd_type = "msdos";
 	layoutkind = LY_SETNEW;
 
-	pm_head = malloc (sizeof (pm_devs_t));
-	memset(pm_head, 0, sizeof *pm_head);
+	pm_head = (struct pm_head_t) SLIST_HEAD_INITIALIZER(pm_head);
+	SLIST_INIT(&pm_head);
 	pm_new = malloc (sizeof (pm_devs_t));
 	memset(pm_new, 0, sizeof *pm_new);
 

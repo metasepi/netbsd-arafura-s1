@@ -38,6 +38,7 @@
 /* defs.h -- definitions for use in the sysinst program. */
 
 /* System includes needed for this. */
+#include <sys/queue.h>
 #include <sys/types.h>
 #include <sys/disklabel.h>
 #include <sys/disk.h>
@@ -281,6 +282,8 @@ typedef struct pm_wedge_t {
 } pm_wedge_t;
 pm_wedge_t wedges[MAX_WEDGES];
 
+SLIST_HEAD(pm_head_t, pm_devs_t) pm_head;
+
 typedef struct pm_devs_t {
     int unsaved; /* Flag indicating to partman that device need saving */
     int found; /* Flag to delete unplugged and unconfigured devices */
@@ -307,11 +310,10 @@ typedef struct pm_devs_t {
     daddr_t ptstart, ptsize;
     /* If we have an MBR boot partition, start and size in sectors */
     int bootstart, bootsize;
-    struct pm_devs_t *next;
     struct ptn_info pi;
+    SLIST_ENTRY(pm_devs_t) l;
 } pm_devs_t;
 pm_devs_t *pm; /* Pointer to currend device with which we work */
-pm_devs_t *pm_head; /* Pointer to head of list with all devices */
 pm_devs_t *pm_new; /* Pointer for next allocating device in find_disks() */
 
 /* Generic structure for partman */
@@ -577,7 +579,6 @@ int pm_shred(pm_devs_t *, int, int);
 void pm_umount(pm_devs_t *, int);
 int pm_unconfigure(pm_devs_t *);
 int pm_cgd_edit(void *, part_entry_t *);
-int pm_clean(void);
 int pm_gpt_convert(pm_devs_t *);
 void pm_wedges_fill(pm_devs_t *);
 

@@ -275,14 +275,14 @@ pm_getdevstring(char *buf, int len, pm_devs_t *pm_cur, int num)
 part_entry_t
 pm_dev_list(int type)
 {
-	pm_devs_t *pm_i;
-	int dev_num = -1, num_devs;
+	int dev_num = -1, num_devs = 0;
 	int i, ok;
 	int menu_no;
 	menu_ent menu_entries[MAX_DISKS*MAXPARTITIONS];
 	part_entry_t disk_entries[MAX_DISKS*MAXPARTITIONS];
+	pm_devs_t *pm_i;
 
-	for (pm_i = pm_head->next, num_devs = 0; pm_i != NULL; pm_i = pm_i->next)
+	SLIST_FOREACH(pm_i, &pm_head, l)
 		for (i = 0; i < MAXPARTITIONS; i++) {
 			ok = 0;
 			switch (type) {
@@ -349,7 +349,7 @@ pm_manage_getfreenode(void *node, const char *d, structinfo_t *s)
 			continue;
 		/* Check that node is not in the device list */
 		snprintf(buf, SSTRSIZE, "%s%d", d, i);
-		for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+		SLIST_FOREACH(pm_i, &pm_head, l)
 			if (! strcmp(pm_i->diskdev, buf)) {
 				ok = 0;
 				break;
@@ -903,7 +903,7 @@ pm_vnd_commit(void)
 			continue;
 
 		/* Trying to assign target device */
-		for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+		SLIST_FOREACH(pm_i, &pm_head, l)
 			for (ii = 0; ii < 6; ii++) {
 				strcpy(buf, pm_i->bsdlabel[ii].pi_mount);
 				if (buf[strlen(buf)-1] != '/')
@@ -1180,9 +1180,9 @@ pm_lvm_find(void)
 				continue;
 			snprintf(dev, STRSIZE, "%s/%s", lvms[i].name, lvms[i].lv[ii].name);
 			already_found = 0;
-			for (pm_i = pm_head; pm_i->next != NULL; pm_i = pm_i->next)
-				if (!already_found && strcmp(pm_i->next->diskdev, dev) == 0) {
-					pm_i->next->found = 1;
+			SLIST_FOREACH(pm_i, &pm_head, l)
+				if (!already_found && strcmp(pm_i->diskdev, dev) == 0) {
+					pm_i->found = 1;
 					already_found = 1;
 				}
 			if (already_found)
@@ -1197,10 +1197,12 @@ pm_lvm_find(void)
 			strlcpy(pm_new->diskdev, dev, SSTRSIZE);
 			strlcpy(pm_new->diskdev_descr, dev, STRSIZE);
 
-			pm_i->next = pm_new;
+			if (SLIST_EMPTY(&pm_head))
+				 SLIST_INSERT_HEAD(&pm_head, pm_new, l);
+			else
+				 SLIST_INSERT_AFTER(pm_i, pm_new, l);
 			pm_new = malloc(sizeof (pm_devs_t));
 			memset(pm_new, 0, sizeof *pm_new);
-			pm_new->next = NULL;
 		}
 	}
 	return 0;
@@ -1836,7 +1838,7 @@ pm_wedges_commit(void)
 {
 	int i, error = 0;
 	pm_devs_t *pm_i;
-	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+	SLIST_FOREACH(pm_i, &pm_head, l)
 		for (i = 0; i < MAX_WEDGES; i++) {
 			if (pm_i->wedge[i] == NULL ||
 				pm_i->wedge[i]->allocated != 0 ||
@@ -1852,10 +1854,11 @@ static int
 pm_gpt_commit(void)
 {
 	uint i, error;
-	pm_devs_t *pm_i, *pm_dk;
+	pm_devs_t *pm_dk;
 	char fstype[STRSIZE]; fstype[0] = '\0';
+	pm_devs_t *pm_i;
 
-	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
+	SLIST_FOREACH(pm_i, &pm_head, l) {
 		if (! pm_i->gpt || ! pm_i->unsaved)
 			continue;
 		error = 0;
@@ -1981,30 +1984,18 @@ pm_checkpartitions(pm_devs_t *pm_cur, int part_num, int do_del)
 }
 
 /* Cleanup removed devices */
-int
+static int
 pm_clean(void)
 {
-	int count = 0, again;
-	pm_devs_t *pm_i, *pm_swap;
+	int count = 0;
+	pm_devs_t *pm_i;
 
-	for (pm_i = pm_head; partman_go && pm_i != NULL && pm_i->next != NULL;
-			pm_i = pm_i->next)
-		do {
-			again = 0;
-			if (! pm_i->next->found) {
-				count++;
-				if (pm_i->next->next == NULL) {
-					free(pm_i->next);
-					pm_i->next = NULL;
-					break;
-				} else {
-					pm_swap = pm_i->next->next;
-					free(pm_i->next);
-					pm_i->next = pm_swap;
-					again = 1;
-				}
-			}
-		} while (again);
+	SLIST_FOREACH(pm_i, &pm_head, l)
+		if (! pm_i->found) {
+			count++;
+			SLIST_REMOVE(&pm_head, pm_i, pm_devs_t, l);
+			free(pm_i);
+		}
 	return count;
 }
 
@@ -2099,14 +2090,16 @@ pm_mountall_sort(const void *a, const void *b)
 static int
 pm_mountall(void)
 {
-	pm_devs_t *pm_i;
 	int num_devs = 0;
-	int i, ii, error, ok;
-	localfs_dev[0] = '\0';
-	char dev[SSTRSIZE]; dev[0] = '\0';
-
 	int mnts_order[MNTS_MAX];
-	for (pm_i = pm_head->next, num_devs = 0; pm_i != NULL; pm_i = pm_i->next) {
+	int i, ii, error, ok;
+	char dev[SSTRSIZE]; dev[0] = '\0';
+	pm_devs_t *pm_i;
+	
+	localfs_dev[0] = '\0';
+	memset(&mnts, 0, sizeof mnts);
+
+	SLIST_FOREACH(pm_i, &pm_head, l) {
 		ok = 0;
 		for (i = 0; i < MAXPARTITIONS; i++) {
 			if (!(pm_i->bsdlabel[i].pi_flags & PIF_MOUNT && 
@@ -2115,7 +2108,7 @@ pm_mountall(void)
 			mnts[num_devs].mnt_opts = pm_i->bsdlabel[i].mnt_opts;
 			if (pm_i->bsdlabel[i].mounted != NULL &&
 					strlen(pm_i->bsdlabel[i].mounted) > 0) {
-				/* Device was already mounted. So, doing mount_null */
+				/* Device is already mounted. So, doing mount_null */
 				strlcpy(mnts[num_devs].dev, pm_i->bsdlabel[i].mounted, MOUNTLEN);
 				mnts[num_devs].mnt_opts = "-t null";
 			} else {
@@ -2257,17 +2250,15 @@ pm_lastcheck(void)
 static int
 pm_needsave(void)
 {
-	pm_devs_t *pm_i; 
-
-	for (pm_i = pm_head->next; !changed && pm_i != NULL; pm_i = pm_i->next)
-		if (pm_i->unsaved)
+	pm_devs_t *pm_i;
+	SLIST_FOREACH(pm_i, &pm_head, l)
+		if (pm_i->unsaved) {
+			/* Oops, we have unsaved changes */
 			changed = 1;
-	if (changed) {
-		/* Oops, we have unsaved changes */
-		msg_display(MSG_saveprompt);
-		process_menu(MENU_yesno, NULL);
-		return (yesno);
-	}
+			msg_display(MSG_saveprompt);
+			process_menu(MENU_yesno, NULL);
+			return (yesno);
+		}
 	return 0;
 }
 
@@ -2282,7 +2273,7 @@ pm_commit(menudesc *m, void *arg)
 
 	pm_gpt_commit();
 
-	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
+	SLIST_FOREACH(pm_i, &pm_head, l) {
 		if (! pm_i->unsaved)
 			continue;
 		pm_select(pm_i);
@@ -2342,8 +2333,7 @@ static int
 pm_savebootsector(void)
 {
 	pm_devs_t *pm_i;
-
-	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next)
+	SLIST_FOREACH(pm_i, &pm_head, l)
 		if (pm_i->bootable) {
 			if (! strncmp("raid", pm_i->diskdev, 4))
 				run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A root %s",
@@ -2448,59 +2438,59 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 	const char *dev_status = "";
 	char buf[STRSIZE];
 	int part_num = ((part_entry_t *)arg)[opt].dev_num;
-	pm_devs_t *pm_i = ((part_entry_t *)arg)[opt].dev_ptr;
+	pm_devs_t *pm_cur = ((part_entry_t *)arg)[opt].dev_ptr;
 
 	switch (((part_entry_t *)arg)[opt].type) {
 		case PM_DISK_T:
-			if (pm_i->blocked)
+			if (pm_cur->blocked)
 				dev_status = msg_string(MSG_pmblocked);
-			else if (! pm_i->unsaved)
+			else if (! pm_cur->unsaved)
 				dev_status = msg_string(MSG_pmunchanged);
-			else if (pm_i->bootable)
+			else if (pm_cur->bootable)
 				dev_status = msg_string(MSG_pmsetboot);
 			else
 				dev_status = msg_string(MSG_pmused);
-			wprintw(m->mw, msg_string(MSG_pmdisk_fmt), pm_i->diskdev_descr,
-				pm_i->bsddiskname, dev_status);
+			wprintw(m->mw, msg_string(MSG_pmdisk_fmt), pm_cur->diskdev_descr,
+				pm_cur->bsddiskname, dev_status);
 			break;
-			if (pm_i->gpt)
+			if (pm_cur->gpt)
 				snprintf(buf, STRSIZE, "dk%d", part_num);
 			else
 		case PM_WEDGE_T:
 			part_num = ((part_entry_t *)arg)[opt].wedge_num;
 			snprintf(buf, STRSIZE, "dk%d: %s",
 				part_num,
-				pm_i->wedge[part_num]->bsdlabel->pi_mount);
+				pm_cur->wedge[part_num]->bsdlabel->pi_mount);
 			wprintw(m->mw, msg_string(MSG_pmwedge_fmt),
 				buf,
-				(pm_i->wedge[part_num]->bsdlabel->lvmpv) ? 
+				(pm_cur->wedge[part_num]->bsdlabel->lvmpv) ? 
 					"lvm pv" :
-					getfslabelname(pm_i->wedge[part_num]->bsdlabel->pi_fstype),
-				pm_i->wedge[part_num]->bsdlabel->pi_size / (MEG / pm_i->sectorsize));
+					getfslabelname(pm_cur->wedge[part_num]->bsdlabel->pi_fstype),
+				pm_cur->wedge[part_num]->bsdlabel->pi_size / (MEG / pm_cur->sectorsize));
 			break;
 		case PM_PART_T:
 			snprintf(buf, STRSIZE, "%s%c: %s %s",
-				pm_i->diskdev,
+				pm_cur->diskdev,
 				'a' + part_num,
-				pm_i->bsdlabel[part_num].pi_mount,
-				(strlen(pm_i->bsdlabel[part_num].mounted) > 0) ? msg_string(MSG_pmmounted) : 
+				pm_cur->bsdlabel[part_num].pi_mount,
+				(strlen(pm_cur->bsdlabel[part_num].mounted) > 0) ? msg_string(MSG_pmmounted) : 
 					(part_num == PART_B ||
-						strlen (pm_i->bsdlabel[part_num].pi_mount ) < 1 ||
-						pm_i->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
+						strlen (pm_cur->bsdlabel[part_num].pi_mount ) < 1 ||
+						pm_cur->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
 						"" : msg_string(MSG_pmunused));
 			wprintw(m->mw, msg_string(MSG_pmpart_fmt),
 				buf,
-				(pm_i->bsdlabel[part_num].lvmpv) ? 
+				(pm_cur->bsdlabel[part_num].lvmpv) ? 
 					"lvm pv" :
-					getfslabelname(pm_i->bsdlabel[part_num].pi_fstype),
-				pm_i->bsdlabel[part_num].pi_size / (MEG / pm_i->sectorsize));
+					getfslabelname(pm_cur->bsdlabel[part_num].pi_fstype),
+				pm_cur->bsdlabel[part_num].pi_size / (MEG / pm_cur->sectorsize));
 			break;
 		case PM_SPEC_T:
 			snprintf(buf, STRSIZE, "%s: %s",
-				pm_i->diskdev_descr, pm_i->bsdlabel[0].pi_mount);
+				pm_cur->diskdev_descr, pm_cur->bsdlabel[0].pi_mount);
 			wprintw(m->mw, msg_string(MSG_pmspec_fmt), buf,
-				getfslabelname(pm_i->bsdlabel[0].pi_fstype),
-				pm_i->bsdlabel[0].pi_size / (MEG / pm_i->sectorsize));
+				getfslabelname(pm_cur->bsdlabel[0].pi_fstype),
+				pm_cur->bsdlabel[0].pi_size / (MEG / pm_cur->sectorsize));
 			break;
 		case PM_RAID_T:
 			pm_raid_menufmt(m, opt, arg);
@@ -2575,7 +2565,7 @@ pm_upddevlist(menudesc *m, void *arg)
 
 	changed = 0;
 	/* Mark all devicec as not found */
-	for (pm_i = pm_head->next; partman_go && pm_i != NULL; pm_i = pm_i->next)
+	SLIST_FOREACH(pm_i, &pm_head, l)
 		pm_i->found = 0;
 	/* Detect all present devices */
 	find_disks("partman");
@@ -2585,7 +2575,7 @@ pm_upddevlist(menudesc *m, void *arg)
 	if (m == NULL || arg == NULL)
 		return -1;
 
-	for (pm_i = pm_head->next, i = 0; pm_i != NULL; pm_i = pm_i->next, i++) {
+	SLIST_FOREACH(pm_i, &pm_head, l) {
 		m->opts[i].opt_name = NULL;
 		m->opts[i].opt_action = pm_submenu;
 		((part_entry_t *)arg)[i].dev_ptr = pm_i;
@@ -2617,6 +2607,7 @@ pm_upddevlist(menudesc *m, void *arg)
 					}
 			}
 		}
+		i++;
 	}
 	pm_upddevlist_adv(m, arg, &i,
 		&(pm_upddevlist_adv_t) {MSG_create_cgd, PM_CGD_T, &cgds_t_info, 0, NULL});
@@ -2668,49 +2659,60 @@ int
 partman(void)
 {
 	int menu_no, menu_num_entries;
+	static int firstrun = 1;
 	menu_ent menu_entries[MAX_ENTRIES+6];
 	part_entry_t args[MAX_ENTRIES];
 
-	raids_t_info = (structinfo_t) {
-		.max = MAX_RAID,
-		.entry_size = sizeof raids[0],
-		.entry_first = &raids[0],
-		.entry_enabled = &(raids[0].enabled),
-		.entry_blocked = &(raids[0].blocked),
-		.entry_node = &(raids[0].node),
-	};
-	vnds_t_info = (structinfo_t) {
-		.max = MAX_VND,
-		.entry_size = sizeof vnds[0],
-		.entry_first = &vnds[0],
-		.entry_enabled = &(vnds[0].enabled),
-		.entry_blocked = &(vnds[0].blocked),
-		.entry_node = &(vnds[0].node),
-	};
-	cgds_t_info = (structinfo_t) {
-		.max = MAX_CGD,
-		.entry_size = sizeof cgds[0],
-		.entry_first = &cgds[0],
-		.entry_enabled = &(cgds[0].enabled),
-		.entry_blocked = &(cgds[0].blocked),
-		.entry_node = &(cgds[0].node),
-	};
-	lvms_t_info = (structinfo_t) {
-		.max = MAX_LVM_VG,
-		.entry_size = sizeof lvms[0],
-		.entry_first = &lvms[0],
-		.entry_enabled = &(lvms[0].enabled),
-		.entry_blocked = &(lvms[0].blocked),
-		.entry_node = NULL,
-	};
-	lv_t_info = (structinfo_t) {
-		.max = MAX_LVM_LV,
-		.entry_size = sizeof lvms[0].lv[0], 
-		.entry_first = &lvms[0].lv[0],
-		.entry_enabled = &(lvms[0].lv[0].size),
-		.entry_blocked = &(lvms[0].lv[0].blocked),
-		.parent_size = sizeof lvms[0],
-	};
+	if (firstrun) {
+		raids_t_info = (structinfo_t) {
+			.max = MAX_RAID,
+			.entry_size = sizeof raids[0],
+			.entry_first = &raids[0],
+			.entry_enabled = &(raids[0].enabled),
+			.entry_blocked = &(raids[0].blocked),
+			.entry_node = &(raids[0].node),
+		};
+		vnds_t_info = (structinfo_t) {
+			.max = MAX_VND,
+			.entry_size = sizeof vnds[0],
+			.entry_first = &vnds[0],
+			.entry_enabled = &(vnds[0].enabled),
+			.entry_blocked = &(vnds[0].blocked),
+			.entry_node = &(vnds[0].node),
+		};
+		cgds_t_info = (structinfo_t) {
+			.max = MAX_CGD,
+			.entry_size = sizeof cgds[0],
+			.entry_first = &cgds[0],
+			.entry_enabled = &(cgds[0].enabled),
+			.entry_blocked = &(cgds[0].blocked),
+			.entry_node = &(cgds[0].node),
+		};
+		lvms_t_info = (structinfo_t) {
+			.max = MAX_LVM_VG,
+			.entry_size = sizeof lvms[0],
+			.entry_first = &lvms[0],
+			.entry_enabled = &(lvms[0].enabled),
+			.entry_blocked = &(lvms[0].blocked),
+			.entry_node = NULL,
+		};
+		lv_t_info = (structinfo_t) {
+			.max = MAX_LVM_LV,
+			.entry_size = sizeof lvms[0].lv[0], 
+			.entry_first = &lvms[0].lv[0],
+			.entry_enabled = &(lvms[0].lv[0].size),
+			.entry_blocked = &(lvms[0].lv[0].blocked),
+			.parent_size = sizeof lvms[0],
+		};
+
+		memset(&raids, 0, sizeof raids);
+		memset(&cgds, 0, sizeof cgds);
+		memset(&vnds, 0, sizeof vnds);
+		memset(&lvms, 0, sizeof lvms);
+		cursel = 0;
+		changed = 0;
+		firstrun = 0;
+	}
 
 	do {
 		clear();

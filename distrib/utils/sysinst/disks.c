@@ -379,10 +379,10 @@ find_disks(const char *doingwhat)
 	struct disk_desc disks[MAX_DISKS];
 	menu_ent dsk_menu[nelem(disks) + 1]; // + 1 for extended partitioning entry
 	struct disk_desc *disk;
-	pm_devs_t *pm_i = NULL;
 	int i, already_found;
 	int numdisks, selected_disk = -1;
 	int menu_no;
+	pm_devs_t *pm_i, *pm_last;
 
 	/* Find disks. */
 	numdisks = get_disks(disks);
@@ -442,13 +442,15 @@ find_disks(const char *doingwhat)
 		else {
 			disk = disks + i;
 			already_found = 0;
-			for (pm_i = pm_head; pm_i->next != NULL; pm_i = pm_i->next)
+			SLIST_FOREACH(pm_i, &pm_head, l) {
+				pm_last = pm_i;
 				if (!already_found && 
-						strcmp(pm_i->next->diskdev, disk->dd_name) == 0) {
-					pm_i->next->found = 1;
-					already_found = 1;
+						strcmp(pm_i->diskdev, disk->dd_name) == 0) {
+					pm_i->found = 1;
+					break;
 				}
-			if (already_found)
+			}
+			if (pm_i != NULL && pm_i->found)
 				/* We already added this device, skipping */
 				continue;
 		}
@@ -485,10 +487,12 @@ find_disks(const char *doingwhat)
 		label_read();
 		if (partman_go) {
 			pm_getrefdev(pm_new);
-			pm_i->next = pm_new;
+			if (SLIST_EMPTY(&pm_head))
+				 SLIST_INSERT_HEAD(&pm_head, pm_new, l);
+			else
+				 SLIST_INSERT_AFTER(pm_last, pm_new, l);
 			pm_new = malloc(sizeof (pm_devs_t));
 			memset(pm_new, 0, sizeof *pm_new);
-			pm_new->next = NULL;
 		} else
 			/* We is not in partman and do not want to process all devices, exit */
 			break;
@@ -761,12 +765,10 @@ make_fstab(void)
 
 	scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
 			"fstab/ for more examples.\n", target_prefix());
-	if (partman_go)
-		pm_i = pm_head->next; /* We want to process multiple disks... */
-	else
-		pm_i = pm;            /* ... or only one? */
-	for (; pm_i != NULL; pm_i = pm_i->next) {
+	SLIST_FOREACH(pm_i, &pm_head, l) {
 		for (i = 0; i < getmaxpartitions(); i++) {
+			if (! partman_go)
+				pm_i = pm; /* We want to process only one disk... */
 			const char *s = "";
 			const char *mp = pm_i->bsdlabel[i].pi_mount;
 			const char *fstype = "ffs";
