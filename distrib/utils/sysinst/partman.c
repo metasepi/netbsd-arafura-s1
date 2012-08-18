@@ -208,7 +208,7 @@ static void pm_select(pm_devs_t *);
 static int
 pm_edit(int menu_entries_count, void (*menu_fmt)(menudesc *, int, void *),
 	int (*action)(menudesc *, void *), int (*check_fun)(void *),
-	void (*entry_init)(void *, void *),	void* entry_init_arg,
+	void (*entry_init)(void *, void *),	void *entry_init_arg,
 	void *dev_ptr, int dev_ptr_delta, structinfo_t *s)
 {
 	int i, ok = 0;
@@ -222,16 +222,9 @@ pm_edit(int menu_entries_count, void (*menu_fmt)(menudesc *, int, void *),
 				ok = 1;
 			}
 		if (!ok) {
+			/* We do not have free device slots */
 			process_menu(MENU_ok, deconst(MSG_limitcount));
 			return -1;
-		}
-	} else {
-		/* ... or edit existent */
-		if (check_fun(dev_ptr) == 0) {
-			if (logfp)
-				fprintf(logfp, "pm_edit: invalid drive\n");
-				process_menu(MENU_ok, deconst(MSG_invaliddev));
-			return -2;
 		}
 	}
 
@@ -299,7 +292,7 @@ pm_dev_list(int type)
 						ok = 1;
 					break;
 			}
-			if (ok && pm_checkpartitions(pm_i, i, 0) == 0) {
+			if (ok && pm_partusage(pm_i, i, 0) == 0) {
 				disk_entries[num_devs].dev_ptr = pm_i;
 				disk_entries[num_devs].dev_num = i;
 				pm_getdevstring(disk_entries[num_devs].fullname, SSTRSIZE, pm, i);
@@ -1881,7 +1874,7 @@ pm_gpt_commit(void)
 				if (pm_dk != NULL) {
 					pm_select(pm_dk);
 					make_filesystems();
-					if (! pm_checkpartitions(pm_i, pm_i->wedge[i]->bsdlabelnum, 0))
+					if (! pm_partusage(pm_i, pm_i->wedge[i]->bsdlabelnum, 0))
 						pm_unconfigure(pm_dk);
 					free(pm_dk);
 				}
@@ -1889,6 +1882,7 @@ pm_gpt_commit(void)
 			}
 		}
 	}
+	pm_wedges_commit();
 	return 0;
 }
 
@@ -1949,16 +1943,25 @@ pm_getrefdev(pm_devs_t *pm_cur)
 
 /* Detect that partition is in use */
 int
-pm_checkpartitions(pm_devs_t *pm_cur, int part_num, int do_del)
+pm_partusage(pm_devs_t *pm_cur, int part_num, int do_del)
 {
-	int i, ii;
+	int i, ii, retvalue = 0;
+
+	if (part_num < 0) {
+		/* Check all partitions on device */
+		for (i = 0; i < MAXPARTITIONS; i++)
+			retvalue += pm_partusage(pm_cur, i, do_del);
+		return retvalue;
+	}
 
 	for (i = 0; i < MAX_CGD; i++)
 		if (cgds[i].enabled &&
 			cgds[i].pm == pm_cur &&
 			cgds[i].pm_part == part_num) {
-			if (do_del)
-				cgds[i].enabled = 0;
+			if (do_del) {
+				cgds[i].pm = NULL;
+				strcpy(cgds[i].pm_name, "");
+			}
 			return 1;
 		}
 	for (i = 0; i < MAX_RAID; i++)
@@ -1997,6 +2000,24 @@ pm_clean(void)
 			free(pm_i);
 		}
 	return count;
+}
+
+void 
+pm_make_bsd_partitions(pm_devs_t *pm_cur)
+{
+	int i;
+	partinfo baklabel[MAXPARTITIONS];
+	memcpy(baklabel, &pm_cur->bsdlabel, sizeof baklabel);
+
+	pm_cur->unsaved = 1;
+	layoutkind = LY_SETNEW;
+	md_make_bsd_partitions();
+	pm_cur->bootable = (pm_cur->bsdlabel[pm_cur->rootpart].pi_flags & PIF_MOUNT) ?
+		1 : 0;
+	for (i = 0; i < MAXPARTITIONS; i++)
+		if (pm_cur->bsdlabel[i].pi_fstype != baklabel[i].pi_fstype ||
+				pm_cur->bsdlabel[i].lvmpv != baklabel[i].lvmpv)
+			pm_partusage(pm_cur, i, 1);
 }
 
 void
@@ -2281,7 +2302,7 @@ pm_commit(menudesc *m, void *arg)
 		if (pm_i->isspecial) {
 			if (make_filesystems() != 0) {
 				if (logfp)
-					fprintf(logfp, "Special disk preparing error %s\n", pm_i->diskdev);
+					fprintf(logfp, "Special disk %s preparing error\n", pm_i->diskdev);
 				continue;
 			}
 			pm_i->unsaved = 0;
@@ -2294,7 +2315,7 @@ pm_commit(menudesc *m, void *arg)
 			) {
 				/* Oops, something failed... */
 				if (logfp)
-					fprintf(logfp, "Disk preparing error %s\n", pm_i->diskdev);
+					fprintf(logfp, "Disk %s preparing error\n", pm_i->diskdev);
 				continue;
 			}
 			pm_i->unsaved = 0;
@@ -2450,18 +2471,15 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 				dev_status = msg_string(MSG_pmsetboot);
 			else
 				dev_status = msg_string(MSG_pmused);
-			wprintw(m->mw, msg_string(MSG_pmdisk_fmt), pm_cur->diskdev_descr,
+			wprintw(m->mw, "%-33s %-22s %12s", pm_cur->diskdev_descr,
 				pm_cur->bsddiskname, dev_status);
 			break;
-			if (pm_cur->gpt)
-				snprintf(buf, STRSIZE, "dk%d", part_num);
-			else
 		case PM_WEDGE_T:
 			part_num = ((part_entry_t *)arg)[opt].wedge_num;
 			snprintf(buf, STRSIZE, "dk%d: %s",
 				part_num,
 				pm_cur->wedge[part_num]->bsdlabel->pi_mount);
-			wprintw(m->mw, msg_string(MSG_pmwedge_fmt),
+			wprintw(m->mw, "   %-30s %-22s %11uM",
 				buf,
 				(pm_cur->wedge[part_num]->bsdlabel->lvmpv) ? 
 					"lvm pv" :
@@ -2478,7 +2496,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 						strlen (pm_cur->bsdlabel[part_num].pi_mount ) < 1 ||
 						pm_cur->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
 						"" : msg_string(MSG_pmunused));
-			wprintw(m->mw, msg_string(MSG_pmpart_fmt),
+			wprintw(m->mw, "   %-30s %-22s %11uM",
 				buf,
 				(pm_cur->bsdlabel[part_num].lvmpv) ? 
 					"lvm pv" :
@@ -2488,7 +2506,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 		case PM_SPEC_T:
 			snprintf(buf, STRSIZE, "%s: %s",
 				pm_cur->diskdev_descr, pm_cur->bsdlabel[0].pi_mount);
-			wprintw(m->mw, msg_string(MSG_pmspec_fmt), buf,
+			wprintw(m->mw, "%-33s %-22s %11uM", buf,
 				getfslabelname(pm_cur->bsdlabel[0].pi_fstype),
 				pm_cur->bsdlabel[0].pi_size / (MEG / pm_cur->sectorsize));
 			break;

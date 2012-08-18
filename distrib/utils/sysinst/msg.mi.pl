@@ -1071,10 +1071,6 @@ message pmsetboot {BOOT}
 message pmused {U¯YWANE}
 message pmmounted {(zamontowany)}
 message pmunused {(nieu¿ywany)}
-message pmdisk_fmt {%-33s Nazwa:%-19s %9s}
-message pmwedge_fmt {   %-30s %-22s %11uM}
-message pmpart_fmt {   %-30s %-22s %11uM}
-message pmspec_fmt {%-33s %-22s %11uM}
 
 message finishpm {Zakoñcz partycjonowanie}
 message limitcount {Limit liczby urz±dzeñ zosta³ osi±gniêty!}

@@ -1114,10 +1114,6 @@ message pmsetboot {ARRANCAR}
 message pmused {UTILIZA}
 message pmmounted {(montado)}
 message pmunused {(sin usar)}
-message pmdisk_fmt {%-33s Nombre:%-18s %9s}
-message pmwedge_fmt {   %-30s %-22s %11uM}
-message pmpart_fmt {   %-30s %-22s %11uM}
-message pmspec_fmt {%-33s %-22s %11uM}
 
 message finishpm {Finalizar el particionado}
 message limitcount {Límite para el número de dispositivos se llegó!}

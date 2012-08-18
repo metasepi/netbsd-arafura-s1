@@ -217,7 +217,7 @@ main(int argc, char **argv)
 	}
 	if (has_colors()) {
 		start_color();
-		do_coloring (clr_arg.fg,clr_arg.bg);
+		do_coloring(clr_arg.fg,clr_arg.bg);
 	}
 	msg_window(mainwin);
 

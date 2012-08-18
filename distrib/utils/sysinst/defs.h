@@ -297,7 +297,7 @@ typedef struct pm_devs_t {
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
-    pm_wedge_t *wedge[MAX_WEDGES];
+//    pm_wedge_t *wedge[MAX_WEDGES];
     int gpt;
     int no_mbr; /* set for raid (etc) */
     int rootpart; /* partition we install into */
@@ -324,8 +324,8 @@ typedef struct {
     void *dev_ptr;
     int dev_ptr_delta;
     char fullname[SSTRSIZE];
-    enum {PM_DISK_T=1, PM_PART_T, PM_WEDGE_T, PM_SPEC_T, PM_RAID_T, PM_VND_T, PM_CGD_T,
-        PM_LVM_T, PM_LVMLV_T} type;
+    enum {PM_DISK_T=1, PM_PART_T, PM_WEDGE_T, PM_SPEC_T, PM_RAID_T, PM_CGD_T,
+        PM_VND_T, PM_LVM_T, PM_LVMLV_T} type;
 } part_entry_t;
 
 /* Relative file name for storing a distribution. */
@@ -570,7 +570,7 @@ int	target_mounted(void);
 
 /* from partman.c */
 int partman(void);
-int pm_checkpartitions(pm_devs_t *, int, int);
+int pm_partusage(pm_devs_t *, int, int);
 int pm_getrefdev(pm_devs_t *);
 void pm_setfstype(pm_devs_t *, int, int);
 int pm_editpart(int);
@@ -581,6 +581,7 @@ int pm_unconfigure(pm_devs_t *);
 int pm_cgd_edit(void *, part_entry_t *);
 int pm_gpt_convert(pm_devs_t *);
 void pm_wedges_fill(pm_devs_t *);
+void pm_make_bsd_partitions(pm_devs_t *);
 
 /* from bsddisklabel.c */
 int	make_bsd_partitions(void);
