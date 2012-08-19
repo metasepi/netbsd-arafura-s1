@@ -155,11 +155,11 @@ typedef struct pm_upddevlist_adv_t {
 	struct pm_upddevlist_adv_t *sub;
 } pm_upddevlist_adv_t;
 
-#define MNTS_MAX 48
+#define MAX_MNTS 48
 struct {
     char dev[STRSIZE];
     const char *mnt_opts, *on;
-} mnts[MNTS_MAX];
+} mnts[MAX_MNTS];
 
 int cursel; /* Number of selected main menu entrie */
 int changed; /* flag indicating that we have unsaved changes */
@@ -1700,9 +1700,9 @@ pm_gpt_convert(pm_devs_t *pm_cur)
 	else
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "gpt destroy %s", 
 				pm_cur->diskdev);
-		pm->gpt = 0;
+		pm_cur->gpt = 0;
 	if (!error) {
-		pm->gpt = !pm->gpt;
+		pm_cur->gpt = !pm_cur->gpt;
 		pm_select(pm_cur);
 		label_read();
 	}
@@ -1770,7 +1770,7 @@ pm_wedge_create(int num, pm_devs_t **pm_dk)
 			wedges[num].pm->diskdev,
 			num,
 			p->pi_offset,
-			p->pi_fsize,
+			p->pi_size,
 			getfstypename(p->pi_fstype));
 	if (!error) {
 		wedges[num].allocated = 1;
@@ -2086,7 +2086,7 @@ static int
 pm_mountall(void)
 {
 	int num_devs = 0;
-	int mnts_order[MNTS_MAX];
+	int mnts_order[MAX_MNTS];
 	int i, ii, error, ok;
 	char dev[SSTRSIZE]; dev[0] = '\0';
 	pm_devs_t *pm_i;
@@ -2107,7 +2107,7 @@ pm_mountall(void)
 				strlcpy(mnts[num_devs].dev, pm_i->bsdlabel[i].mounted, MOUNTLEN);
 				mnts[num_devs].mnt_opts = "-t null";
 			} else {
-				pm_getdevstring(dev, SSTRSIZE, pm, i);
+				pm_getdevstring(dev, SSTRSIZE, pm_i, i);
 				snprintf(mnts[num_devs].dev, STRSIZE, "/dev/%s", dev);
 			}
 			mnts[num_devs].on = pm_i->bsdlabel[i].pi_mount;
@@ -2330,21 +2330,33 @@ pm_savebootsector(void)
 {
 	pm_devs_t *pm_i;
 	SLIST_FOREACH(pm_i, &pm_head, l)
-		if (pm_i->bootable) {
+		if (pm_i->bootable && ! pm_i->isspecial) {
 			if (! strncmp("raid", pm_i->diskdev, 4))
-				run_program(RUN_DISPLAY | RUN_PROGRESS, "raidctl -v -A root %s",
-					pm_i->diskdev);
-			if (pm_i->gpt && pm_i->rootpart > 0 && run_program(RUN_DISPLAY | RUN_PROGRESS,
-				"gpt biosboot -i %d %s", pm_i->rootpart, pm_i->diskdev) != 0) {
-		 		if (logfp)
-					fprintf(logfp, "Error writting GPT bootsector to %s\n",
-						pm_i->diskdev);
-				continue;
-			}
-		 	else if (check_partitions() == 0 || md_post_newfs() != 0) {
-		 		if (logfp)
-					fprintf(logfp, "Error writting bootsector to %s\n", pm_i->diskdev);
-				continue;
+				if (run_program(RUN_DISPLAY | RUN_PROGRESS,
+					"raidctl -v -A root %s", pm_i->diskdev) != 0) {
+					if (logfp)
+						fprintf(logfp, "Error writting RAID bootsector to %s\n",
+							pm_i->diskdev);
+					continue;
+				}
+			if (pm_i->gpt) {
+				if (pm_i->rootpart < 0 ||
+					run_program(RUN_DISPLAY | RUN_PROGRESS,
+					"gpt biosboot -i %d %s",
+					pm_i->rootpart + 1, pm_i->diskdev) != 0) {
+			 		if (logfp)
+						fprintf(logfp, "Error writting GPT bootsector to %s\n",
+							pm_i->diskdev);
+					continue;
+				}
+			} else {
+				pm_select(pm_i);
+			 	if (check_partitions() == 0 || md_post_newfs() != 0) {
+		 			if (logfp)
+						fprintf(logfp, "Error writting bootsector to %s\n",
+							pm_i->diskdev);
+					continue;
+				}
 			}
 		}
 	return 0;
@@ -2382,7 +2394,7 @@ pm_submenu(menudesc *m, void *arg)
 		case PM_DISK_T:
 			if (pm_cur == NULL) 
 				return -1;
-			if (pm->gpt) {
+			if (pm_cur->gpt) {
 				process_menu(MENU_pmgptentry, &part_num);
 				pm_wedges_fill(pm_cur);
 			} else
