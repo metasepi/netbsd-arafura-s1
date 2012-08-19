@@ -385,7 +385,7 @@ find_disks(const char *doingwhat)
 	int i, already_found;
 	int numdisks, selected_disk = -1;
 	int menu_no;
-	pm_devs_t *pm_i, *pm_last;
+	pm_devs_t *pm_i, *pm_last = NULL;
 
 	/* Find disks. */
 	numdisks = get_disks(disks);
@@ -490,7 +490,7 @@ find_disks(const char *doingwhat)
 		label_read();
 		if (partman_go) {
 			pm_getrefdev(pm_new);
-			if (SLIST_EMPTY(&pm_head))
+			if (SLIST_EMPTY(&pm_head) || pm_last == NULL)
 				 SLIST_INSERT_HEAD(&pm_head, pm_new, l);
 			else
 				 SLIST_INSERT_AFTER(pm_last, pm_new, l);
@@ -605,7 +605,7 @@ make_filesystems(void)
 	int ptn_order[nelem(pm->bsdlabel)];
 	int error = 0;
 	unsigned int maxpart = getmaxpartitions();
-	char *newfs = NULL, *dev = NULL;
+	char *newfs = NULL, *dev = NULL, *devdev = NULL;
 	partinfo *lbl;
 
 	if (maxpart > nelem(pm->bsdlabel))
@@ -634,11 +634,16 @@ make_filesystems(void)
 			/* No mount point */
 			continue;
 
-		if (pm->isspecial)
+		if (pm->isspecial) {
 			asprintf(&dev, "%s", pm->diskdev);
-		else
+			ptn = 0 - 'a';
+		} else {
 			asprintf(&dev, "%s%c", pm->diskdev, 'a' + ptn);
+		}
 		if (dev == NULL)
+			return (ENOMEM);
+		asprintf(&devdev, "/dev/%s", dev);
+		if (devdev == NULL)
 			return (ENOMEM);
 
 		newfs = NULL;
@@ -724,13 +729,14 @@ make_filesystems(void)
 		if (partman_go == 0 && lbl->pi_flags & PIF_MOUNT &&
 				lbl->mnt_opts != NULL) {
 			make_target_dir(lbl->pi_mount);
-			error = target_mount_do(lbl->mnt_opts, dev, lbl->pi_mount);
+			error = target_mount_do(lbl->mnt_opts, devdev, lbl->pi_mount);
 			if (error) {
 				msg_display(MSG_mountfail, dev, ' ', lbl->pi_mount);
 				process_menu(MENU_ok, NULL);
 				return error;
 			}
 		}
+		free(devdev);
 		free(dev);
 	}
 	return 0;
@@ -946,7 +952,7 @@ fsck_preen(const char *disk, int ptn, const char *fsname)
 	char *prog;
 	int error;
 
-	ptn += 'a';
+	ptn = (ptn < 0)? 0 : 'a' + ptn;
 	if (fsname == NULL)
 		return 0;
 	/* first, check if fsck program exists, if not, assume ok */
@@ -987,7 +993,7 @@ fixsb(const char *prog, const char *disk, char ptn)
 	struct fs *fs = &sblk.fs;
 
 	snprintf(sblk.buf, sizeof(sblk.buf), "/dev/r%s%c",
-		disk, ptn == ' ' ? 0 : ptn);
+		disk, (ptn == ' ' || ptn < 0)? 0 : ptn);
 	fd = open(sblk.buf, O_RDONLY);
 	if (fd == -1)
 		return;
@@ -1028,8 +1034,9 @@ static int
 mount_root(void)
 {
 	int	error;
+	int ptn = (pm->isspecial)? 0 - 'a' : pm->rootpart;
 
-	error = fsck_preen(pm->diskdev, pm->rootpart, "ffs");
+	error = fsck_preen(pm->diskdev, ptn, "ffs");
 	if (error != 0)
 		return error;
 
@@ -1041,7 +1048,7 @@ mount_root(void)
 	 * XXX consider -o remount in case target root is
 	 * current root, still readonly from single-user?
 	 */
-	return target_mount("", pm->diskdev, pm->rootpart, "");
+	return target_mount("", pm->diskdev, ptn, "");
 }
 
 /* Get information on the file systems mounted from the root filesystem.

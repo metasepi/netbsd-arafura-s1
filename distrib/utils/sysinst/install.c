@@ -99,9 +99,12 @@ do_install(void)
 		if (!yesno)
 			return;
 
-		if (md_pre_disklabel() != 0 || write_disklabel() != 0 ||
-			md_post_disklabel() != 0 || make_filesystems() ||
-			make_fstab() != 0 || md_post_newfs() != 0)
+		if (md_pre_disklabel() != 0 ||
+			write_disklabel() != 0 ||
+			md_post_disklabel() != 0 ||
+			make_filesystems() ||
+			make_fstab() != 0 ||
+			md_post_newfs() != 0)
 			return;
 	}
 

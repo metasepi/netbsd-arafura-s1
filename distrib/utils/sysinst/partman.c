@@ -256,7 +256,7 @@ pm_getdevstring(char *buf, int len, pm_devs_t *pm_cur, int num)
 	else if (pm_cur->gpt) {
 		for (i = 0; i < MAX_WEDGES; i++)
 			if (wedges[i].pm == pm_cur &&
-				wedges[i].bsdlabelnum == num)
+				wedges[i].ptn == num)
 				snprintf(buf, len, "dk%d", i); // XXX: xxx
 	} else
 		snprintf(buf, len, "%s%c", pm_cur->diskdev, num + 'a');
@@ -1687,7 +1687,7 @@ GPT
 int
 pm_gpt_convert(pm_devs_t *pm_cur)
 {
-	int error = 0;
+	int i, error = 0;
 
 	msg_display(MSG_removepartswarn);
 	process_menu(MENU_noyes, NULL);
@@ -1697,10 +1697,13 @@ pm_gpt_convert(pm_devs_t *pm_cur)
 	if (! pm_cur->gpt)
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "gpt create -f %s", 
 				pm_cur->diskdev);
-	else
+	else {
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "gpt destroy %s", 
 				pm_cur->diskdev);
-		pm_cur->gpt = 0;
+		for (i = 0; i < MAX_WEDGES; i++)
+			if (wedges[i].pm == pm_cur)
+				wedges[i].pm = NULL;
+	}
 	if (!error) {
 		pm_cur->gpt = !pm_cur->gpt;
 		pm_select(pm_cur);
@@ -1736,7 +1739,7 @@ pm_wedges_fill(pm_devs_t *pm_cur)
 				return;
 			}
 			wedges[current].pm = pm_cur;
-			wedges[current].bsdlabelnum = i;
+			wedges[current].ptn = i;
 		}
 	return;
 }
@@ -1745,7 +1748,7 @@ static int
 pm_wedge_create(int num, pm_devs_t **pm_dk)
 {
 	int i, ii, hackerr, error;
-	partinfo *p = &(wedges[num].pm->bsdlabel[wedges[num].bsdlabelnum]);
+	partinfo *p = &(wedges[num].pm->bsdlabel[wedges[num].ptn]);
 
 	if (num > MAX_WEDGES)
 		return -1;
@@ -1807,7 +1810,7 @@ static int
 pm_gpt_commit(void)
 {
 	uint i, error;
-	pm_devs_t *pm_i, *pm_dk;
+	pm_devs_t *pm_i, *pm_dk = NULL;
 	char fstype[STRSIZE]; fstype[0] = '\0';
 	partinfo *p;
 
@@ -1820,16 +1823,16 @@ pm_gpt_commit(void)
 	for (i = 0; i < MAX_WEDGES; i++) {
 		if (wedges[i].pm == NULL ||
 			! wedges[i].pm->unsaved ||
-			wedges[i].bsdlabelnum < 0)
+			wedges[i].ptn < 0)
 			continue;
 		error = 0;
-		p = &(wedges[i].pm->bsdlabel[wedges[i].bsdlabelnum]);
+		p = &(wedges[i].pm->bsdlabel[wedges[i].ptn]);
 		if (wedges[i].pm->gpt) {
 			if (get_gptfs_by_id(p->pi_fstype) != NULL)
 				snprintf(fstype, STRSIZE, "-t %s", get_gptfs_by_id(p->pi_fstype));
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 				"gpt add -i %u -b %u -s %u %s %s",
-				wedges[i].bsdlabelnum + 1,
+				wedges[i].ptn + 1,
 				p->pi_offset, p->pi_size,
 				fstype, wedges[i].pm->diskdev);
 		}
@@ -2469,14 +2472,14 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 			part_num = ((part_entry_t *)arg)[opt].wedge_num;
 			snprintf(buf, STRSIZE, "dk%d: %s",
 				part_num,
-				wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].pi_mount);
+				wedges[part_num].pm->bsdlabel[wedges[part_num].ptn].pi_mount);
 			wprintw(m->mw, "   %-30s %-22s %11uM",
 				buf,
-				(wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].lvmpv) ? 
+				(wedges[part_num].pm->bsdlabel[wedges[part_num].ptn].lvmpv) ? 
 					"lvm pv" :
 					getfslabelname(wedges[part_num].pm->bsdlabel[wedges[part_num].
-						bsdlabelnum].pi_fstype),
-				wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].pi_size /
+						ptn].pi_fstype),
+				wedges[part_num].pm->bsdlabel[wedges[part_num].ptn].pi_size /
 					(MEG / pm_cur->sectorsize));
 			break;
 		case PM_PART_T:
@@ -2604,7 +2607,7 @@ pm_upddevlist(menudesc *m, void *arg)
 						m->opts[i].opt_name = NULL;
 						m->opts[i].opt_action = pm_submenu;
 						((part_entry_t *)arg)[i].dev_ptr = pm_i;
-						((part_entry_t *)arg)[i].dev_num = wedges[ii].bsdlabelnum;
+						((part_entry_t *)arg)[i].dev_num = wedges[ii].ptn;
 						((part_entry_t *)arg)[i].wedge_num = ii;
 						((part_entry_t *)arg)[i].type = PM_WEDGE_T;
 					}
@@ -2728,8 +2731,6 @@ partman(void)
 	}
 
 	do {
-		clear();
-		refresh();
 		menu_num_entries = pm_upddevlist(&(menudesc){.opts = menu_entries}, args);
 		menu_no = new_menu(MSG_partman_header,
 			menu_entries, menu_num_entries+1, 1, 1, 0, 75, /* Fixed width */
@@ -2739,6 +2740,8 @@ partman(void)
 			args[0].retvalue = -1;
 		else {
 			args[0].retvalue = 0;
+			clear();
+			refresh();
 			process_menu(menu_no, &args);
 			free_menu(menu_no);
 		}

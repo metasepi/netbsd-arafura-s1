@@ -309,7 +309,7 @@ typedef struct pm_wedge_t {
     int allocated;
     int todel;
     pm_devs_t *pm;
-    int bsdlabelnum;
+    int ptn;
 } pm_wedge_t;
 pm_wedge_t wedges[MAX_WEDGES];
 

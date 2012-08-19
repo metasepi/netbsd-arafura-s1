@@ -430,7 +430,7 @@ target_mount(const char *opts, const char *from, int ptn, const char *on)
 {
 	int error;
 	char *frompath;
-	asprintf (&frompath, "/dev/%s%c", from, 'a' + ptn);
+	asprintf (&frompath, "/dev/%s%c", from, (ptn < 0)? 0 : 'a' + ptn);
 	if (frompath == 0)
 		return (ENOMEM);
 	error = target_mount_do(opts, frompath, on);
