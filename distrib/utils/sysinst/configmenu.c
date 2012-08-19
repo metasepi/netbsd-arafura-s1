@@ -96,9 +96,9 @@ configinfo config_list[] = {
 	{MSG_run_ntpdate, CONFIGOPT_NTPDATE, "ntpdate", toggle_rcvar, NULL},
 	{MSG_enable_mdnsd, CONFIGOPT_MDNSD, "mdnsd", toggle_rcvar, NULL},
 	{MSG_enable_xdm, CONFIGOPT_XDM, "xdm", toggle_rcvar, NULL},
-	{MSG_enable_cgd, CONFIGOPT_XDM, "cgd", toggle_rcvar, NULL},
-	{MSG_enable_lvm, CONFIGOPT_XDM, "lvm", toggle_rcvar, NULL},
-	{MSG_enable_raid, CONFIGOPT_XDM, "raidframe", toggle_rcvar, NULL},
+	{MSG_enable_cgd, CONFIGOPT_CGD, "cgd", toggle_rcvar, NULL},
+	{MSG_enable_lvm, CONFIGOPT_LVM, "lvm", toggle_rcvar, NULL},
+	{MSG_enable_raid, CONFIGOPT_RAIDFRAME, "raidframe", toggle_rcvar, NULL},
 	{NULL,		CONFIGOPT_LAST,	NULL, NULL, NULL}
 };
 

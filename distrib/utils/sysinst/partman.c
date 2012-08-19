@@ -2046,23 +2046,21 @@ pm_editpart(int part_num)
 int
 pm_shred(pm_devs_t *pm_cur, int part, int shredtype)
 {
-	int error = 0;
+	int error = -1;
 	char dev[SSTRSIZE];
 
 	pm_getdevstring(dev, SSTRSIZE, pm_cur, part);
 	switch(shredtype) {
-		case SHRED_NONE:
-			return 0;
 		case SHRED_ZEROS:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 				"dd of=/dev/%s if=/dev/zero bs=1m progress=100 msgfmt=human",
 				dev);
-			return error; 
+			break;
 		case SHRED_RANDOM:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 				"dd of=/dev/r%s if=/dev/urandom bs=1m progress=100 msgfmt=human",
 				dev);
-			return error;
+			break;
 		case SHRED_CRYPTO:
 			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 				"sh -c 'cgdconfig -s cgd0 /dev/%s aes-cbc 128 < /dev/urandom'",
@@ -2073,9 +2071,13 @@ pm_shred(pm_devs_t *pm_cur, int part, int shredtype)
 				error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 					"cgdconfig -u cgd0");
 			}
-			return error;
+			break;
+		default:
+			return -1;
 	}
-	return -1;
+	memset(&pm_cur->oldlabel, 0, sizeof pm_cur->oldlabel);
+	memset(&pm_cur->bsdlabel, 0, sizeof pm_cur->bsdlabel);
+	return error;
 }
 
 static int
@@ -2461,7 +2463,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 				dev_status = msg_string(MSG_pmsetboot);
 			else
 				dev_status = msg_string(MSG_pmused);
-			wprintw(m->mw, "%-33s %-22s %12s",
+			wprintw(m->mw, "%-33.33s %-22.22s %12.12s",
 				pm_cur->diskdev_descr,
 				(pm_cur->gpt) ?
 					msg_string(MSG_pmgptdisk) :
@@ -2473,7 +2475,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 			snprintf(buf, STRSIZE, "dk%d: %s",
 				part_num,
 				wedges[part_num].pm->bsdlabel[wedges[part_num].ptn].pi_mount);
-			wprintw(m->mw, "   %-30s %-22s %11uM",
+			wprintw(m->mw, "   %-30.30s %-22.22s %11uM",
 				buf,
 				(wedges[part_num].pm->bsdlabel[wedges[part_num].ptn].lvmpv) ? 
 					"lvm pv" :
@@ -2492,7 +2494,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 						strlen (pm_cur->bsdlabel[part_num].pi_mount ) < 1 ||
 						pm_cur->bsdlabel[part_num].pi_flags & PIF_MOUNT) ?
 						"" : msg_string(MSG_pmunused));
-			wprintw(m->mw, "   %-30s %-22s %11uM",
+			wprintw(m->mw, "   %-30.30s %-22.22s %11uM",
 				buf,
 				(pm_cur->bsdlabel[part_num].lvmpv) ? 
 					"lvm pv" :
@@ -2502,7 +2504,7 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 		case PM_SPEC_T:
 			snprintf(buf, STRSIZE, "%s: %s",
 				pm_cur->diskdev_descr, pm_cur->bsdlabel[0].pi_mount);
-			wprintw(m->mw, "%-33s %-22s %11uM", buf,
+			wprintw(m->mw, "%-33.33s %-22.22s %11uM", buf,
 				getfslabelname(pm_cur->bsdlabel[0].pi_fstype),
 				pm_cur->bsdlabel[0].pi_size / (MEG / pm_cur->sectorsize));
 			break;

@@ -774,10 +774,14 @@ make_fstab(void)
 
 	scripting_fprintf(f, "# NetBSD %s/etc/fstab\n# See /usr/share/examples/"
 			"fstab/ for more examples.\n", target_prefix());
+	if (! partman_go) {
+		/* We want to process only one disk... */
+		pm_i = pm;
+		goto onlyonediskinfstab;
+	}
 	SLIST_FOREACH(pm_i, &pm_head, l) {
+		onlyonediskinfstab:
 		for (i = 0; i < getmaxpartitions(); i++) {
-			if (! partman_go)
-				pm_i = pm; /* We want to process only one disk... */
 			const char *s = "";
 			const char *mp = pm_i->bsdlabel[i].pi_mount;
 			const char *fstype = "ffs";
