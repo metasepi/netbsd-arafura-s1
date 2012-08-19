@@ -2086,7 +2086,7 @@ pm_shred(pm_devs_t *pm_cur, int part, int shredtype)
 static int
 pm_mountall_sort(const void *a, const void *b)
 {
-	return strcmp(mnts[*(const int *)a].dev, mnts[*(const int *)b].dev);
+	return strcmp(mnts[*(const int *)a].on, mnts[*(const int *)b].on);
 }
 
 /* Mount all available partitions */
