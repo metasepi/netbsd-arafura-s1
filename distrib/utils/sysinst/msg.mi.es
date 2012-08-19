@@ -1066,6 +1066,7 @@ message pkgin_failed
 message failed {Failed}
 
 
+message notsupported {Operación no admitida!}
 message askfsmountadv {Punto de montaje o 'raid' o 'CGD' o 'lvm'?}
 message partman {Partición extendida}
 message editbsdpart {Editar particiones BSD}
@@ -1114,6 +1115,7 @@ message pmsetboot {ARRANCAR}
 message pmused {UTILIZA}
 message pmmounted {(montado)}
 message pmunused {(sin usar)}
+message pmgptdisk {Disco con GPT}
 
 message finishpm {Finalizar el particionado}
 message limitcount {Límite para el número de dispositivos se llegó!}

@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <util.h>
+#include <uuid.h>
 
 #include <sys/param.h>
 #include <sys/swap.h>
@@ -48,6 +49,7 @@
 #include <ufs/ffs/fs.h>
 #define FSTYPENAMES
 #include <sys/disklabel.h>
+#include <sys/disklabel_gpt.h>
 
 #include <dev/scsipi/scsipi_all.h>
 #include <sys/scsiio.h>
@@ -75,24 +77,25 @@ struct disk_desc {
 
 /* gpt(8) use different filesystem names.
    So, we cant use ./common/lib/libutil/getfstypename.c */
-struct filesystems_t {
+struct gptfs_t {
     const char *name;
     int id;
+    uuid_t uuid;
 };
-static const struct filesystems_t gpt_filesystems[] = {
-    { "swap", FS_SWAP, },
-    { "ffs", FS_BSDFFS, },
-    { "lfs", FS_BSDLFS },
-    { "linux", FS_EX2FS, },
-    { "windows,", FS_MSDOS, },
-    { "hfs", FS_HFS, },
-    { "ufs", FS_OTHER, },
-    { "ccd", FS_CCD, },
-    { "raid", FS_RAID, },
-    { "cgd", FS_CGD, },
-    { "efi", FS_OTHER, },
-    { "bios", FS_OTHER, },
-    { NULL, -1, },
+static const struct gptfs_t gpt_filesystems[] = {
+    { "swap", FS_SWAP, GPT_ENT_TYPE_NETBSD_SWAP, },
+    { "ffs", FS_BSDFFS, GPT_ENT_TYPE_NETBSD_FFS, },
+    { "lfs", FS_BSDLFS, GPT_ENT_TYPE_NETBSD_LFS, },
+    { "linux", FS_EX2FS, GPT_ENT_TYPE_LINUX_DATA, },
+    { "windows,", FS_MSDOS, GPT_ENT_TYPE_MS_BASIC_DATA, },
+    { "hfs", FS_HFS, GPT_ENT_TYPE_APPLE_HFS, },
+    { "ufs", FS_OTHER, GPT_ENT_TYPE_APPLE_UFS, },
+    { "ccd", FS_CCD, GPT_ENT_TYPE_NETBSD_CCD, },
+    { "raid", FS_RAID, GPT_ENT_TYPE_NETBSD_RAIDFRAME, },
+    { "cgd", FS_CGD, GPT_ENT_TYPE_NETBSD_CGD, },
+    { "efi", FS_OTHER, GPT_ENT_TYPE_EFI, },
+    { "bios", FS_OTHER, GPT_ENT_TYPE_BIOS, },
+    { NULL, -1, GPT_ENT_TYPE_UNUSED, },
 };
 
 /* Local prototypes */
@@ -1217,13 +1220,19 @@ bootxx_name(void)
 }
 #endif
 
-int
-get_gptfs_by_name(const char *filesystem)
+static int
+get_fsid_by_gptuuid(const char *str)
 {
 	int i;
-	for (i = 0; gpt_filesystems[i].name != NULL; i++)
-		if (! strcmp(filesystem, gpt_filesystems[i].name))
-			return gpt_filesystems[i].id;
+	uuid_t uuid;
+	uint32_t status;
+
+	uuid_from_string(str, &uuid, &status);
+	if (status == uuid_s_ok) {
+		for (i = 0; gpt_filesystems[i].id > 0; i++)
+			if (uuid_equal(&uuid, &(gpt_filesystems[i].uuid), NULL))
+				return gpt_filesystems[i].id;
+	}
 	return FS_OTHER;
 }
 
@@ -1283,12 +1292,13 @@ get_dkwedges(struct dkwedge_info **dkw, const char *diskdev)
 	return dkwl.dkwl_nwedges;
 }
 
+/* XXX: rewrite */
 static int
 incoregpt(pm_devs_t *pm_cur, partinfo *lp)
 {
 	int i, num;
-	uint32_t pri_start, pri_size, sec_start, sec_size;
-	char *buf_in;
+	uint32_t p_start, p_size, p_num;
+	char *textbuf, *t, *tt, p_type[STRSIZE];
 	struct dkwedge_info *dkw;
 
 	num = get_dkwedges(&dkw, pm_cur->diskdev);
@@ -1299,19 +1309,54 @@ incoregpt(pm_devs_t *pm_cur, partinfo *lp)
 		free (dkw);
 	}
 
-	/* XXX: rewrite, add support for reading partition table */
-	if (collect(T_OUTPUT, &buf_in,
-		"sh -c \"gpt show %s |grep 'GPT table' |grep -oE '[0-9]*'\" 2>/dev/null",
-		pm_cur->diskdev) > 0) {
-		sscanf(buf_in, "%u\n%u\n%u\n%u", &pri_start, &pri_size, &sec_start, &sec_size);
-		pm_cur->ptstart = pri_start + pri_size;
-		pm_cur->ptsize = sec_start - (pri_start + pri_size);
+	if (collect(T_OUTPUT, &textbuf, "gpt show -u %s 2>/dev/null", pm_cur->diskdev) < 1)
+		return -1;
+
+	(void)strtok(textbuf, "\n"); /* ignore first line */
+	while ((t = strtok(NULL, "\n")) != NULL) {
+		i = 0; p_start = -1; p_size = -1; p_num = -1; strcpy(p_type, ""); /* init */
+		while ((tt = strsep(&t, " \t")) != NULL) {
+			if (strlen(tt) < 1)
+				continue;
+			if (i == 0)
+				p_start = atoi(tt);
+			if (i == 1)
+				p_size = atoi(tt);
+			if (i == 2)
+				p_num = atoi(tt);
+			if (i > 2 || (i == 2 && p_num == 0))
+				if (
+					strcmp(tt, "GPT") &&
+					strcmp(tt, "part") &&
+					strcmp(tt, "-")
+					)
+						strncat(p_type, tt, STRSIZE);
+			i++;
+		}
+		if (p_start < 1 || p_size < 1)
+			continue;
+		else if (! strcmp(p_type, "Pritable"))
+			pm_cur->ptstart = p_start + p_size;
+		else if (! strcmp(p_type, "Sectable"))
+			pm_cur->ptsize = p_start - pm_cur->ptstart - 1;
+		else if (p_num < 1 && strlen(p_type) > 0)
+			/* Utilitary entry (PMBR, etc) */
+			continue;
+		else if (p_num < 1) {
+			/* Free space */
+			continue;
+		} else {
+			/* Usual partition */
+			lp[p_num].pi_size = p_size;
+			lp[p_num].pi_offset = p_start;
+			lp[p_num].pi_fstype = get_fsid_by_gptuuid(p_type);
+		}
 	}
+	free(textbuf);
 
 	return 0;
 }
 
-/* XXX: rewrite */
 static int
 is_gpt(const char *dev)
 {

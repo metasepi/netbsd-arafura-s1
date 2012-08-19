@@ -1138,6 +1138,7 @@ n'existe pas.  Vérifiez le chemin et essayez à nouveau.}
 message failed {Échoué}
 
 
+message notsupported {Le fonctionnement n'est pas pris en charge!}
 message askfsmountadv {Point de montage ou de 'raid' ou 'cgd' ou 'lvm'?}
 message partman {Partitionnement étendue}
 message editbsdpart {Modifier les partitions BSD}
@@ -1186,6 +1187,7 @@ message pmsetboot {BOOT}
 message pmused {UTILISÉ}
 message pmmounted {(monté)}
 message pmunused {(non utilisé)}
+message pmgptdisk {Disque avec GPT}
 
 message finishpm {Terminer le partitionnement}
 message limitcount {Limite pour le nombre de dispositifs a été atteint!}

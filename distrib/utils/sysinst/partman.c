@@ -255,8 +255,8 @@ pm_getdevstring(char *buf, int len, pm_devs_t *pm_cur, int num)
 		snprintf(buf, len, "%sd", pm_cur->diskdev);
 	else if (pm_cur->gpt) {
 		for (i = 0; i < MAX_WEDGES; i++)
-			if (pm_cur->wedge[i] != NULL &&
-				pm_cur->wedge[i]->bsdlabelnum == num)
+			if (wedges[i].pm == pm_cur &&
+				wedges[i].bsdlabelnum == num)
 				snprintf(buf, len, "dk%d", i); // XXX: xxx
 	} else
 		snprintf(buf, len, "%s%c", pm_cur->diskdev, num + 'a');
@@ -1684,59 +1684,6 @@ pm_lvm_commit(void)
 GPT
 ***/
 
-
-// static int
-// pm_gpt_find(void)
-// {
-// 	int i, num, num_devs = 0, already_found;
-// 	pm_devs_t *pm_i, *pm_ii;
-// 	struct dkwedge_info *dkw;
-
-// 	for (pm_i = pm_head->next; pm_i != NULL; pm_i = pm_i->next) {
-// 		if (! pm_i->gpt)
-// 			continue;
-
-// 		num = get_dkwedges(&dkw, pm_i->diskdev);
-// 		if (num < 0)
-// 			continue;
-
-// 		for (i = 0; i < num; i++) {
-// 			already_found = 0;
-// 			for (pm_ii = pm_head; pm_ii->next != NULL; pm_ii = pm_ii->next)
-// 				if (!already_found && strcmp(pm_ii->next->diskdev, dkw[i].dkw_devname) == 0) {
-// 					pm_ii->next->found = 1;
-// 					already_found = 1;
-// 					break;
-// 				}
-// 			if (already_found)
-// 				/* We already added this device, skipping */
-// 				continue;
-// 			pm_new->found = 1;
-// 			pm_new->isspecial = 1;
-// 			pm_new->refdev = pm_i;
-// 			pm_new->sectorsize = 1;
-// 			pm_new->dlcylsize = MEG;
-// 			pm_new->refdev = pm_i;
-// 			pm_new->bsdlabel[0].pi_fstype = get_dkfs_by_name(dkw[i].dkw_ptype);
-// 			pm_new->bsdlabel[0].pi_size = dkw[i].dkw_size * 512; /* XXX: 512? */
-// 			strlcpy(pm_new->diskdev, dkw[i].dkw_devname, SSTRSIZE);
-// 			strlcpy(pm_new->bsddiskname, (char*)dkw[i].dkw_wname, DISKNAME_SIZE);
-// 			snprintf(pm_new->diskdev_descr, STRSIZE, "   %s (%s)",
-// 				dkw[i].dkw_devname, dkw[i].dkw_ptype);
-
-// 			pm_ii = pm_i->next;
-// 			pm_i->next = pm_new;
-// 			pm_i->next->next = pm_ii;
-// 			pm_new = malloc(sizeof (pm_devs_t));
-// 			memset(pm_new, 0, sizeof *pm_new);
-// 			pm_new->next = NULL;
-// 		}
-// 		num_devs += num;
-// 		free(dkw);
-// 	}
-// 	return num_devs;	
-// }
-
 int
 pm_gpt_convert(pm_devs_t *pm_cur)
 {
@@ -1767,7 +1714,7 @@ pm_wedge_getfree(void)
 {
 	int i;
 	for (i = 0; i < MAX_WEDGES; i++)
-		if (! wedges[i].allocated && wedges[i].bsdlabel == NULL)
+		if (! wedges[i].allocated && wedges[i].pm == NULL)
 			return i;
 	return -1;
 }
@@ -1778,68 +1725,81 @@ pm_wedges_fill(pm_devs_t *pm_cur)
 	int i, current;
 
 	for (i = 0; i < MAX_WEDGES; i++)
-		if (pm_cur->wedge[i] != NULL) {
-			if (pm_cur->wedge[i]->bsdlabel != NULL)
-				pm_cur->wedge[i]->bsdlabel = NULL;
-			pm_cur->wedge[i] = NULL;
-		}
+		if (wedges[i].pm == pm_cur)
+			wedges[i].pm = NULL;
 
 	for (i = 0; i < MAXPARTITIONS && i < MAX_WEDGES; i++)
 		if (pm_cur->bsdlabel[i].pi_fstype != FS_UNUSED) {
 			current = pm_wedge_getfree();
-			if (current < 0)
+			if (current < 0) {
+				process_menu(MENU_ok, deconst(MSG_limitcount));
 				return;
-			pm_cur->wedge[current] = &wedges[current];
-			pm_cur->wedge[current]->bsdlabelnum = i;
-			pm_cur->wedge[current]->bsdlabel = &(pm_cur->bsdlabel[i]);
-			pm_cur->wedge[current]->ptype = getfstypename(pm_cur->bsdlabel[i].pi_fstype);
+			}
+			wedges[current].pm = pm_cur;
+			wedges[current].bsdlabelnum = i;
 		}
 	return;
 }
 
 static int
-pm_wedge_create(pm_devs_t *pm_cur, partinfo *p, pm_devs_t **pm_dk)
+pm_wedge_create(int num, pm_devs_t **pm_dk)
 {
-	int i, error;
-	for (i = 0; i < MAX_WEDGES; i++)
-		if (wedges[i].bsdlabel == p) {
-			error = run_program(RUN_DISPLAY | RUN_PROGRESS,
-					"dkctl %s addwedge dk%d %u %u %s",
-					pm_cur->diskdev, i,
-					wedges[i].startblk, wedges[i].blkcnt,
-					getfstypename(wedges[i].bsdlabel->pi_fstype));
-			if (!error) {
-				wedges[i].allocated = 1;
-				pm_cur->blocked++;
-				if (pm_dk != NULL) {
-					*pm_dk = malloc(sizeof(pm_devs_t));
-					snprintf((*pm_dk)->diskdev, SSTRSIZE, "dk%d", i);
-					memcpy(&(*pm_dk)->bsdlabel[0], p, sizeof (*pm_dk)->bsdlabel[0]);
-					(*pm_dk)->isspecial = 1;
-					(*pm_dk)->sectorsize = 1;
-					(*pm_dk)->dlcylsize = MEG;
-					(*pm_dk)->refdev = pm_cur;
-				}
-			}
-			return error;
-		}
-	return -1;
-}
+	int i, ii, hackerr, error;
+	partinfo *p = &(wedges[num].pm->bsdlabel[wedges[num].bsdlabelnum]);
 
-static int
-pm_wedges_commit(void)
-{
-	int i, error = 0;
-	pm_devs_t *pm_i;
-	SLIST_FOREACH(pm_i, &pm_head, l)
-		for (i = 0; i < MAX_WEDGES; i++) {
-			if (pm_i->wedge[i] == NULL ||
-				pm_i->wedge[i]->allocated != 0 ||
-				pm_i->wedge[i]->bsdlabel == NULL ||
-				pm_i->wedge[i]->bsdlabel->pi_fstype == FS_UNUSED)
-				continue;
-			error += pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel, NULL);
+	if (num > MAX_WEDGES)
+		return -1;
+
+	/* There is no ability to use requied dkX device, so that's hack */
+	for (i = 0; i < num; i++)
+		if (! wedges[i].allocated) {
+			hackerr = 1;
+			for (ii = 0; hackerr && ii < 3; ii++)
+				hackerr = run_program(RUN_SILENT | RUN_ERROR_OK,
+					"dkctl %s addwedge HACK%d %d %d unused",
+					wedges[num].pm->diskdev,
+					rand()%33, rand()%33, 0);
+			wedges[i].todel = 1;
 		}
+	
+	run_program(RUN_SILENT | RUN_ERROR_OK,
+					"dkctl %s listwedges", wedges[num].pm->diskdev);
+
+	error = run_program(RUN_DISPLAY | RUN_PROGRESS,
+			"dkctl %s addwedge dk%d %u %u %s",
+			wedges[num].pm->diskdev,
+			num,
+			p->pi_offset,
+			p->pi_fsize,
+			getfstypename(p->pi_fstype));
+	if (!error) {
+		wedges[num].allocated = 1;
+		wedges[num].pm->blocked++;
+		if (pm_dk != NULL) {
+			*pm_dk = malloc(sizeof(pm_devs_t));
+			memcpy(&(*pm_dk)->bsdlabel[0], p, sizeof (*pm_dk)->bsdlabel[0]);
+			(*pm_dk)->found = -1;
+			(*pm_dk)->isspecial = 1;
+			(*pm_dk)->sectorsize = 1;
+			(*pm_dk)->dlcylsize = MEG;
+			(*pm_dk)->refdev = wedges[num].pm;
+			snprintf((*pm_dk)->diskdev, SSTRSIZE, "dk%d", num);
+			snprintf((*pm_dk)->diskdev_descr, STRSIZE, "   %s (%s)",
+				(*pm_dk)->diskdev, getfstypename(p->pi_fstype));
+		}
+	} else
+		if (logfp)
+			fprintf(logfp, "Cannot create wedge dk%d for %s.\n",
+				num, wedges[num].pm->diskdev);
+
+	/* Hack, see above */
+	for (i = 0; i < num; i ++)
+		if (! wedges[i].allocated && wedges[i].todel) {
+			hackerr = run_program(RUN_SILENT | RUN_ERROR_OK,
+				"dkctl %s delwedge dk%d", wedges[num].pm->diskdev, i);
+			wedges[i].todel = 0;
+		}
+
 	return error;
 }
 
@@ -1847,42 +1807,56 @@ static int
 pm_gpt_commit(void)
 {
 	uint i, error;
-	pm_devs_t *pm_dk;
+	pm_devs_t *pm_i, *pm_dk;
 	char fstype[STRSIZE]; fstype[0] = '\0';
-	pm_devs_t *pm_i;
+	partinfo *p;
 
-	SLIST_FOREACH(pm_i, &pm_head, l) {
-		if (! pm_i->gpt || ! pm_i->unsaved)
+	SLIST_FOREACH(pm_i, &pm_head, l)
+		if (pm_i->gpt && pm_i->unsaved)
+			run_program(RUN_DISPLAY | RUN_PROGRESS,
+				"gpt remove -a %s",
+				pm_i->diskdev);
+
+	for (i = 0; i < MAX_WEDGES; i++) {
+		if (wedges[i].pm == NULL ||
+			! wedges[i].pm->unsaved ||
+			wedges[i].bsdlabelnum < 0)
 			continue;
 		error = 0;
-		for (i = 0; !error && i < MAX_WEDGES; i++) {
-			if (pm_i->wedge[i] == NULL ||
-				pm_i->wedge[i]->bsdlabel == NULL ||
-				pm_i->wedge[i]->bsdlabel->pi_fstype == FS_UNUSED)
-				continue;
-
-			if (get_gptfs_by_id(pm_i->bsdlabel[i].pi_fstype) != NULL)
-				snprintf(fstype, STRSIZE, "-t %s",
-					get_gptfs_by_id(pm_i->bsdlabel[i].pi_fstype));
-			error = run_program(RUN_DISPLAY | RUN_PROGRESS,
+		p = &(wedges[i].pm->bsdlabel[wedges[i].bsdlabelnum]);
+		if (wedges[i].pm->gpt) {
+			if (get_gptfs_by_id(p->pi_fstype) != NULL)
+				snprintf(fstype, STRSIZE, "-t %s", get_gptfs_by_id(p->pi_fstype));
+			error += run_program(RUN_DISPLAY | RUN_PROGRESS,
 				"gpt add -i %u -b %u -s %u %s %s",
-				i+1, pm_i->bsdlabel[i].pi_offset, pm_i->bsdlabel[i].pi_size,
-				fstype, pm_i->diskdev);
+				wedges[i].bsdlabelnum + 1,
+				p->pi_offset, p->pi_size,
+				fstype, wedges[i].pm->diskdev);
+		}
+		
+		if (error || wedges[i].allocated) {
+			if (logfp && error)
+				fprintf(logfp, "Cannot create GPT partition #%d on %s\n",
+					i, wedges[i].pm->diskdev);
+			continue;
+		}
 
-			if (! error) {
-				pm_wedge_create(pm_i, pm_i->wedge[i]->bsdlabel, &pm_dk);
-				if (pm_dk != NULL) {
-					pm_select(pm_dk);
-					make_filesystems();
-					if (! pm_partusage(pm_i, pm_i->wedge[i]->bsdlabelnum, 0))
-						pm_unconfigure(pm_dk);
-					free(pm_dk);
-				}
-				pm_i->unsaved = 0;
-			}
+		error += pm_wedge_create(i, &pm_dk);
+		if (pm_dk != NULL) {
+			/* Create filesystem on wedge and add it to list */
+			pm_select(pm_dk);
+			make_filesystems();
+			SLIST_INSERT_AFTER(wedges[i].pm, pm_dk, l);
+			memset(p, 0, sizeof *p);
+			if (error)
+				return -1;
 		}
 	}
-	pm_wedges_commit();
+
+	SLIST_FOREACH(pm_i, &pm_head, l)
+		if (pm_i->gpt && pm_i->unsaved)
+			pm_i->unsaved = 0;
+
 	return 0;
 }
 
@@ -2240,7 +2214,6 @@ pm_unconfigure(pm_devs_t *pm_cur)
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "dkctl %s delwedge %s",
 			((pm_devs_t*)pm_cur->refdev)->diskdev, pm_cur->diskdev);
 		if (! error) {
-			pm_cur->found = 0;
 			if (pm_cur->refdev != NULL && ((pm_devs_t*)pm_cur->refdev)->blocked > 0)
 				((pm_devs_t*)pm_cur->refdev)->blocked--;
 			sscanf(pm_cur->diskdev, "dk%d", &num);
@@ -2251,6 +2224,8 @@ pm_unconfigure(pm_devs_t *pm_cur)
 	else
 		error = run_program(RUN_DISPLAY | RUN_PROGRESS, "eject -t disk /dev/%sd",
 			pm_cur->diskdev);
+	if (!error)
+		pm_cur->found = 0;
 	return error;
 }
 
@@ -2471,20 +2446,26 @@ pm_menufmt(menudesc *m, int opt, void *arg)
 				dev_status = msg_string(MSG_pmsetboot);
 			else
 				dev_status = msg_string(MSG_pmused);
-			wprintw(m->mw, "%-33s %-22s %12s", pm_cur->diskdev_descr,
-				pm_cur->bsddiskname, dev_status);
+			wprintw(m->mw, "%-33s %-22s %12s",
+				pm_cur->diskdev_descr,
+				(pm_cur->gpt) ?
+					msg_string(MSG_pmgptdisk) :
+					pm_cur->bsddiskname,
+				dev_status);
 			break;
 		case PM_WEDGE_T:
 			part_num = ((part_entry_t *)arg)[opt].wedge_num;
 			snprintf(buf, STRSIZE, "dk%d: %s",
 				part_num,
-				pm_cur->wedge[part_num]->bsdlabel->pi_mount);
+				wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].pi_mount);
 			wprintw(m->mw, "   %-30s %-22s %11uM",
 				buf,
-				(pm_cur->wedge[part_num]->bsdlabel->lvmpv) ? 
+				(wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].lvmpv) ? 
 					"lvm pv" :
-					getfslabelname(pm_cur->wedge[part_num]->bsdlabel->pi_fstype),
-				pm_cur->wedge[part_num]->bsdlabel->pi_size / (MEG / pm_cur->sectorsize));
+					getfslabelname(wedges[part_num].pm->bsdlabel[wedges[part_num].
+						bsdlabelnum].pi_fstype),
+				wedges[part_num].pm->bsdlabel[wedges[part_num].bsdlabelnum].pi_size /
+					(MEG / pm_cur->sectorsize));
 			break;
 		case PM_PART_T:
 			snprintf(buf, STRSIZE, "%s%c: %s %s",
@@ -2584,7 +2565,8 @@ pm_upddevlist(menudesc *m, void *arg)
 	changed = 0;
 	/* Mark all devicec as not found */
 	SLIST_FOREACH(pm_i, &pm_head, l)
-		pm_i->found = 0;
+		if (pm_i->found > 0)
+			pm_i->found = 0;
 	/* Detect all present devices */
 	find_disks("partman");
 	pm_lvm_find();
@@ -2603,13 +2585,14 @@ pm_upddevlist(menudesc *m, void *arg)
 		else {
 			((part_entry_t *)arg)[i].type = PM_DISK_T;
 			if (pm_i->gpt) {
+				pm_wedges_fill(pm_i);
 				for (ii = 0; ii < MAX_WEDGES; ii++)
-					if (pm_i->wedge[ii] != NULL) {
+					if (wedges[ii].pm == pm_i) {
 						i++;
 						m->opts[i].opt_name = NULL;
 						m->opts[i].opt_action = pm_submenu;
 						((part_entry_t *)arg)[i].dev_ptr = pm_i;
-						((part_entry_t *)arg)[i].dev_num = pm_i->wedge[ii]->bsdlabelnum;
+						((part_entry_t *)arg)[i].dev_num = wedges[ii].bsdlabelnum;
 						((part_entry_t *)arg)[i].wedge_num = ii;
 						((part_entry_t *)arg)[i].type = PM_WEDGE_T;
 					}
@@ -2751,8 +2734,7 @@ partman(void)
 		if (args[0].retvalue == 0) {
 			if (pm_needsave())
 				pm_commit(NULL, NULL);
-			if (pm_wedges_commit() != 0 ||
-				pm_mountall() != 0 ||
+			if (pm_mountall() != 0 ||
 				make_fstab() != 0 ||
 				pm_lastcheck() != 0 ||
 				pm_savebootsector() != 0) {

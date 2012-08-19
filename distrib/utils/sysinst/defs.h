@@ -271,17 +271,6 @@ unsigned int root_limit;    /* BIOS (etc) read limit */
 enum SHRED_T { SHRED_NONE=0, SHRED_ZEROS, SHRED_RANDOM, SHRED_CRYPTO };
 
 /* All information that is unique for each drive */
-#define MAX_WEDGES 16 /* num of dk* devices */
-typedef struct pm_wedge_t {
-    int allocated;
-#define startblk bsdlabel->pi_partition.p_offset
-#define blkcnt bsdlabel->pi_partition.p_fsize
-    const char *ptype;
-    partinfo *bsdlabel;
-    int bsdlabelnum;
-} pm_wedge_t;
-pm_wedge_t wedges[MAX_WEDGES];
-
 SLIST_HEAD(pm_head_t, pm_devs_t) pm_head;
 
 typedef struct pm_devs_t {
@@ -297,7 +286,6 @@ typedef struct pm_devs_t {
     char bsddiskname[DISKNAME_SIZE];
     partinfo oldlabel[MAXPARTITIONS]; /* What we found on the disk */
     partinfo bsdlabel[MAXPARTITIONS]; /* What we want it to look like */
-//    pm_wedge_t *wedge[MAX_WEDGES];
     int gpt;
     int no_mbr; /* set for raid (etc) */
     int rootpart; /* partition we install into */
@@ -315,6 +303,15 @@ typedef struct pm_devs_t {
 } pm_devs_t;
 pm_devs_t *pm; /* Pointer to currend device with which we work */
 pm_devs_t *pm_new; /* Pointer for next allocating device in find_disks() */
+
+#define MAX_WEDGES 16 /* num of dk* devices */
+typedef struct pm_wedge_t {
+    int allocated;
+    int todel;
+    pm_devs_t *pm;
+    int bsdlabelnum;
+} pm_wedge_t;
+pm_wedge_t wedges[MAX_WEDGES];
 
 /* Generic structure for partman */
 typedef struct {
@@ -443,8 +440,8 @@ int	check_swap(const char *, int);
 char *bootxx_name(void);
 void label_read(void);
 int get_dkwedges(struct dkwedge_info **, const char *);
-int get_gptfs_by_name(const char *);
 const char *get_gptfs_by_id(int);
+
 
 /* from disks_lfs.c */
 int	fs_is_lfs(void *);

@@ -1099,6 +1099,7 @@ vorhanden sind. Bitte den Pfad der Pakete überprüfen und noch einmal versuchen.}
 message failed {Fehlgeschlagen}
 
 
+message notsupported {Operation wird nicht unterstützt!}
 message askfsmountadv {Mountpoint oder 'raid' oder 'cgd' oder 'lvm'?}
 message partman {Erweiterte Partitionierung}
 message editbsdpart {Bearbeiten BSD-Partitionen}
@@ -1147,6 +1148,7 @@ message pmsetboot {BOOTEN}
 message pmused {BENUTZT}
 message pmmounted {(montiert)}
 message pmunused {(unbenutzt)}
+message pmgptdisk {Festplatte mit GPT}
 
 message finishpm {Partitionierung beenden}
 message limitcount {Grenze für die Anzahl der Geräte erreicht wurde!}

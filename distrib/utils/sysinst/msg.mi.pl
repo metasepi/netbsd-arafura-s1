@@ -1021,7 +1021,7 @@ message pkgin_failed
 {Installation of pkgin failed, possibly because no binary packages  exist.  Please check the package path and try again.}
 message failed {Failed}
 
-
+message notsupported {Operacja nie jest obs³ugiwana!}
 message askfsmountadv {Montowania lub "raid" lub "cgd" lub "lvm"?}
 message partman {Partycje rozszerzone}
 message editbsdpart {Edytuj partycje BSD}
@@ -1063,7 +1063,6 @@ message create_vg {Utwórz grupê woluminów (LVM VG)}
 message create_lv {      Utwórz wolumin logiczny}
 message create_raid {Utwórz oprogramowania RAID}
 message updpmlist {Aktualizuj listê urz±dzeñ}
-
 message savepm {Zapisz zmiany}
 message pmblocked {ZABLOK.}
 message pmunchanged {BEZ ZMIAN}
@@ -1071,6 +1070,7 @@ message pmsetboot {BOOT}
 message pmused {U¯YWANE}
 message pmmounted {(zamontowany)}
 message pmunused {(nieu¿ywany)}
+message pmgptdisk {Dysku z GPT}
 
 message finishpm {Zakoñcz partycjonowanie}
 message limitcount {Limit liczby urz±dzeñ zosta³ osi±gniêty!}

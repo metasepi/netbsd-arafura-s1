@@ -1029,6 +1029,7 @@ exist.  Please check the package path and try again.}
 message failed {Failed}
 
 
+message notsupported {Operation not supported!}
 message askfsmountadv {Mountpoint or 'raid' or 'cgd' or 'lvm'?}
 message partman {Extended partitioning}
 message editbsdpart {Edit BSD partitions}
@@ -1062,7 +1063,9 @@ message removepartswarn {This remove all partitions on disk. Do you want to cont
 message saveprompt {Save changes before finishing?}
 message cantsave {Changes cannot be saved.}
 message noroot {No root partition defined, cannot continue\n}
-message wannaunblock {Device is blocked. Do you want to force unblock it and continue?}
+message wannaunblock {
+Device is blocked. It's editing may cause problems.
+Do you want to force unblock it and continue?}
 message wannatry {Do you want to try?}
 message create_cgd {Create cryptographic volume (CGD)}
 message create_cnd {Create virtual disk image (VND)}
@@ -1077,6 +1080,7 @@ message pmsetboot {BOOT}
 message pmused {USED}
 message pmmounted {(mounted)}
 message pmunused {(unused)}
+message pmgptdisk {GPT-labeled disk}
 
 message finishpm {Finish partitioning}
 message limitcount {Limit for the devices count was reached!}

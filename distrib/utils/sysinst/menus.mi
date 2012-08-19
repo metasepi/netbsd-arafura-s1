@@ -527,7 +527,7 @@ menu pmdiskentry, x=50, y=5, exit, default exit;
 											md_make_bsd_partitions();
 											pm_cgd_edit(0, &(part_entry_t)
 												{.dev_ptr = pm, .dev_num = PART_E}
-								); };
+											); };
 	option MSG_setbootable,	exit, action { pm->unsaved = 1;
 											pm->bootable = !pm->bootable; };
 	option MSG_erase,		next menu shred_modes;
@@ -548,30 +548,45 @@ menu pmpartentry, x=50, y=5, exit, default exit;
 										pm_partusage(pm, *(int*)arg, 1);
 								};
 	option MSG_fmtasraid,	exit, action {
+									if (pm->gpt || pm->isspecial) {
+										process_menu(MENU_ok, deconst(MSG_notsupported));
+										return -1;
+									}
 									pm->unsaved = 1;
 									pm_partusage(pm, *(int*)arg, 1);
 									pm_setfstype(pm, *(int*)arg, FS_RAID);
-									};
+								};
 	option MSG_fmtaslvm,	exit, action {
+									if (pm->gpt || pm->isspecial) {
+										process_menu(MENU_ok, deconst(MSG_notsupported));
+										return -1;
+									}
 									pm->unsaved = 1;
 									pm_partusage(pm, *(int*)arg, 1);
 									pm_setfstype(pm, *(int*)arg, FS_BSDFFS);
 								    pm->bsdlabel[*(int*)arg].lvmpv = 1;
-									};
+								};
 	option MSG_encrypt,		exit, action {
+									if (pm->gpt || pm->isspecial) {
+										process_menu(MENU_ok, deconst(MSG_notsupported));
+										return -1;
+									}
 									pm->unsaved = 1;
 									pm_partusage(pm, *(int*)arg, 1);
 									pm_setfstype(pm, *(int*)arg, FS_CGD);
 									pm_cgd_edit(0,
 										&(part_entry_t){.dev_ptr = pm,
 														.dev_num = *(int*)arg});
-									};
+								};
 	option MSG_erase,		next menu shred_modes;
 	option MSG_doumount,	exit, action { pm_umount(pm, *(int*)arg); };
 	option MSG_Delete_partition,	exit, action {
 									pm->unsaved = 1;
 									pm_partusage(pm, *(int*)arg, 1);
-									pm->bsdlabel[*(int*)arg].pi_fstype = FS_UNUSED;
+									if (pm->isspecial)
+										pm_unconfigure(pm);
+									else
+										pm->bsdlabel[*(int*)arg].pi_fstype = FS_UNUSED;
 									};
 
 menu pmgptentry, x=50, y=8, exit, default exit;
