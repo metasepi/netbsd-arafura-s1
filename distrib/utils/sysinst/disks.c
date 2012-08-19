@@ -864,6 +864,9 @@ make_fstab(void)
 			   pm_i->bsdlabel[i].pi_flags & PIF_NOEXEC ? ",noexec" : "",
 			   pm_i->bsdlabel[i].pi_flags & PIF_NOSUID ? ",nosuid" : "",
 			   dump_freq, fsck_pass);
+	 		if (pm_i->isspecial)
+	 			/* Special device (such as dk*) have only one partition */
+	 			break;
 		}
 		/* Simple install, only one disk */
 		if (!partman_go)

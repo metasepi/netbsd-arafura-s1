@@ -295,7 +295,7 @@ pm_dev_list(int type)
 			if (ok && pm_partusage(pm_i, i, 0) == 0) {
 				disk_entries[num_devs].dev_ptr = pm_i;
 				disk_entries[num_devs].dev_num = i;
-				pm_getdevstring(disk_entries[num_devs].fullname, SSTRSIZE, pm, i);
+				pm_getdevstring(disk_entries[num_devs].fullname, SSTRSIZE, pm_i, i);
 
 				menu_entries[num_devs] = (struct menu_ent) {
 					.opt_name = disk_entries[num_devs].fullname,
@@ -322,6 +322,7 @@ pm_dev_list(int type)
 	return disk_entries[dev_num];
 }
 
+/* Get unused raid*, cgd* or vnd* device */
 static int
 pm_manage_getfreenode(void *node, const char *d, structinfo_t *s)
 {
@@ -1780,10 +1781,11 @@ pm_wedge_create(int num, pm_devs_t **pm_dk)
 		wedges[num].pm->blocked++;
 		if (pm_dk != NULL) {
 			*pm_dk = malloc(sizeof(pm_devs_t));
+			memset(*pm_dk, 0, sizeof **pm_dk);
 			memcpy(&(*pm_dk)->bsdlabel[0], p, sizeof (*pm_dk)->bsdlabel[0]);
 			(*pm_dk)->found = -1;
 			(*pm_dk)->isspecial = 1;
-			(*pm_dk)->sectorsize = 1;
+			(*pm_dk)->sectorsize = 512; /* XXX: xxx */
 			(*pm_dk)->dlcylsize = MEG;
 			(*pm_dk)->refdev = wedges[num].pm;
 			snprintf((*pm_dk)->diskdev, SSTRSIZE, "dk%d", num);
@@ -2075,6 +2077,7 @@ pm_shred(pm_devs_t *pm_cur, int part, int shredtype)
 		default:
 			return -1;
 	}
+	pm_partusage(pm_cur, -1, 1);
 	memset(&pm_cur->oldlabel, 0, sizeof pm_cur->oldlabel);
 	memset(&pm_cur->bsdlabel, 0, sizeof pm_cur->bsdlabel);
 	return error;
@@ -2116,10 +2119,13 @@ pm_mountall(void)
 				snprintf(mnts[num_devs].dev, STRSIZE, "/dev/%s", dev);
 			}
 			mnts[num_devs].on = pm_i->bsdlabel[i].pi_mount;
-			if (strcmp(pm_i->bsdlabel[i].pi_mount, "/") == 0)
+			if (strcmp(pm_i->bsdlabel[i].pi_mount, "/") == 0) {
+				if (pm_i->isspecial)
+					pm_i->bootable = 1;
 				/* Use disk with / as a default if the user has 
 				the sets on a local disk */
 				strlcpy(localfs_dev, pm_i->diskdev, SSTRSIZE);
+			}
 			num_devs++;
 			ok = 1;
 		}
@@ -2335,7 +2341,7 @@ pm_savebootsector(void)
 {
 	pm_devs_t *pm_i;
 	SLIST_FOREACH(pm_i, &pm_head, l)
-		if (pm_i->bootable && ! pm_i->isspecial) {
+		if (pm_i->bootable) {
 			if (! strncmp("raid", pm_i->diskdev, 4))
 				if (run_program(RUN_DISPLAY | RUN_PROGRESS,
 					"raidctl -v -A root %s", pm_i->diskdev) != 0) {
@@ -2344,7 +2350,7 @@ pm_savebootsector(void)
 							pm_i->diskdev);
 					continue;
 				}
-			if (pm_i->gpt) {
+			if (pm_i->gpt && ! pm_i->isspecial) {
 				if (pm_i->rootpart < 0 ||
 					run_program(RUN_DISPLAY | RUN_PROGRESS,
 					"gpt biosboot -i %d %s",
