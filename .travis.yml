@@ -20,6 +20,8 @@ before_install:
   - gcc --version
 script:
   - cd $TRAVIS_BUILD_DIR
+  - pwd
+  - echo $PATH
   - make
 after_script:
   - date
