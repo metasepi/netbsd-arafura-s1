@@ -1,0 +1,9 @@
+*.o
+*.a
+*~
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+.gdbinit
+/obj/
