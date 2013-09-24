@@ -3,25 +3,27 @@ ARCH = i386
 CURDIR = $(shell pwd)
 TOOLDIR = obj/tooldir
 NUMCPU = $(shell cat /proc/cpuinfo | grep -c "^processor")
-BUILDSH = sh build.sh -j ${NUMCPU}
+BUILDSH = sh build.sh -U -N 0 -j ${NUMCPU}
 NBMAKE = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
 NBCONFIG =${CURDIR}/${TOOLDIR}/bin/nbconfig
 NBGCC = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gcc
 NBGDB = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 
-all: ${TOOLDIR}/build.stamp sys/arch/${ARCH}/compile/GENERIC_TINY/Makefile
-	cd sys/arch/${ARCH}/stand/cdboot && ${NBMAKE}
-	cd sys/arch/${ARCH}/stand/boot/biosboot && ${NBMAKE}
-	cd sys/arch/${ARCH}/compile/GENERIC_TINY && ${NBMAKE}
+all: ${TOOLDIR}/build.stamp sys/arch/${ARCH}/compile/GENERIC/Makefile
+	cd sys/arch/${ARCH}/compile/GENERIC && ${NBMAKE}
 
-sys/arch/${ARCH}/compile/GENERIC_TINY/Makefile: sys/arch/${ARCH}/conf/GENERIC_TINY
-	cd sys/arch/${ARCH}/conf && ${NBCONFIG} GENERIC_TINY
+sys/arch/${ARCH}/compile/GENERIC/Makefile: sys/arch/${ARCH}/conf/GENERIC
+	cd sys/arch/${ARCH}/conf && ${NBCONFIG} GENERIC
 
 ### Build and install NetBSD tools.
 ${TOOLDIR}/build.stamp:
-	env MKCROSSGDB=yes ${BUILDSH} -j ${NUMCPU} -T ${TOOLDIR} -m ${ARCH} tools
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools
 	touch ${TOOLDIR}/build.stamp
+
+live-image: ${TOOLDIR}/build.stamp
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} release
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} live-image
 
 ### Run bootimage on qemu
 bootimage/boot.iso: all
@@ -51,4 +53,4 @@ clean:
 	rm -f *~
 	rm -rf bootimage
 
-.PHONY: clean qemu
+.PHONY: clean qemu qemucurses qemugdb live-image
