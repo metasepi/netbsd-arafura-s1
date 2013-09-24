@@ -1,0 +1,24 @@
+before_install:
+  - date
+  - uname -a
+  - ulimit -a
+  - cat /proc/cpuinfo
+  - cat /proc/meminfo
+  - cat /etc/apt/sources.list
+  - git fetch --tags
+  - sudo apt-get -qq update
+  - sudo apt-get -qq -y install make locales libwww-perl haskell-platform cpphs gcc wget
+  - sudo apt-get -qq -y install libghc-temporary-dev libghc-haskeline-dev libghc-utf8-string-dev libghc-hssyck-dev libghc-test-framework-th-dev libghc-test-framework-hunit-dev libghc-test-framework-quickcheck2-dev libghc-uniplate-dev
+  - cabal update || cabal update
+  - cabal install derive || cabal install derive
+  - export PATH=$HOME/.cabal/bin:$PATH
+  - git clone https://github.com/ajhc/ajhc.git
+  - cd ajhc && autoreconf -i && ./configure && make install
+  - git --version
+  - ghc --version
+  - ajhc --version
+  - gcc --version
+script:
+  - make
+after_script:
+  - date
