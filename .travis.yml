@@ -5,7 +5,7 @@ before_install:
   - export PATH=$HOME/.cabal/bin:$PATH
   - git clone https://github.com/ajhc/ajhc.git
   - cd ajhc && ./travis-ci/setup.sh && ./travis-ci/build.sh
-  - cd $TRAVIS_BUILD_DIR && /travis-ci/show_setting.sh
+  - cd $TRAVIS_BUILD_DIR && ./travis-ci/show_setting.sh
 script:
   - cd $TRAVIS_BUILD_DIR
   - ./travis-ci/build.sh
