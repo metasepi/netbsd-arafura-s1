@@ -1,28 +1,13 @@
 before_install:
   - date
-  - uname -a
-  - ulimit -a
-  - cat /proc/cpuinfo
-  - cat /proc/meminfo
-  - cat /etc/apt/sources.list
-  - git fetch --tags
+  - ./travis-ci/setup.sh
   - export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-  - sudo apt-get -qq update
-  - sudo apt-get -qq -y install make locales libwww-perl haskell-platform cpphs gcc wget
-  - sudo apt-get -qq -y install libghc-temporary-dev libghc-haskeline-dev libghc-utf8-string-dev libghc-hssyck-dev libghc-test-framework-th-dev libghc-test-framework-hunit-dev libghc-test-framework-quickcheck2-dev libghc-uniplate-dev
-  - cabal update || cabal update
-  - cabal install derive || cabal install derive
   - export PATH=$HOME/.cabal/bin:$PATH
   - git clone https://github.com/ajhc/ajhc.git
-  - cd ajhc && autoreconf -i && ./configure && make install
-  - git --version
-  - ghc --version
-  - ajhc --version
-  - gcc --version
+  - cd ajhc && ./travis-ci/setup.sh && ./travis-ci/build.sh
+  - cd $TRAVIS_BUILD_DIR && /travis-ci/show_setting.sh
 script:
   - cd $TRAVIS_BUILD_DIR
-  - pwd
-  - echo $PATH
-  - make
+  - ./travis-ci/build.sh
 after_script:
   - date
