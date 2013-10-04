@@ -27,12 +27,24 @@ ${TOOLDIR}/build.stamp:
 
 ### Run bootimage on qemu
 bootimage/boot.img: all
-	mkdir -p bootimage
-	cd bootimage && rm -rf work
-	cd bootimage && mkdir -p work
-	cp sys/arch/${ARCH}/stand/boot/biosboot/boot bootimage/work/
-	cp sys/arch/${ARCH}/compile/GENERIC/netbsd   bootimage/work/
-	cd bootimage && mv boot_tmp.img boot.img
+	# Dummy setting for Makefile.bootimage
+	mkdir -p obj/releasedir/${ARCH}/binary/sets
+	rm -rf distrib/${ARCH}/liveimage/miniimage/work
+	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/var/spool/ftp/hidden
+	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/etc/mtree
+	touch distrib/${ARCH}/liveimage/miniimage/work/etc/rc.conf
+	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/dev
+	cp etc/MAKEDEV distrib/${ARCH}/liveimage/miniimage/work/dev
+	cd sys/arch/${ARCH}/compile/GENERIC && \
+	  tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
+
+	cd distrib/${ARCH}/liveimage/miniimage && ${NBMAKE}
+#	mkdir -p bootimage
+#	cd bootimage && rm -rf work
+#	cd bootimage && mkdir -p work
+#	cp sys/arch/${ARCH}/stand/boot/biosboot/boot bootimage/work/
+#	cp sys/arch/${ARCH}/compile/GENERIC/netbsd   bootimage/work/
+#	cd bootimage && mv boot_tmp.img boot.img
 
 qemu: bootimage/boot.img
 	qemu-system-i386 -hda bootimage/boot.img
