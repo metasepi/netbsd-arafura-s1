@@ -6,7 +6,7 @@ RELEASEDIR = obj/releasedir
 SETSDIR = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR = obj/destdir.${ARCH}
 NUMCPU = $(shell cat /proc/cpuinfo | grep -c "^processor")
-BUILDSH = sh build.sh -U -N 1 -j ${NUMCPU}
+BUILDSH = sh build.sh -U -u -N 1 -j ${NUMCPU}
 NBMAKE = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
 NBCONFIG =${CURDIR}/${TOOLDIR}/bin/nbconfig
@@ -16,6 +16,7 @@ MINIIMG = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage/${ARCH}-mini.img
 
 all: sys/arch/${ARCH}/compile/GENERIC/Makefile
 	cd sys/arch/${ARCH}/compile/GENERIC && ${NBMAKE}
+	mkdir -p ${CURDIR}/obj/releasedir/${ARCH}/binary/sets
 	cd sys/arch/${ARCH}/compile/GENERIC && tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
 
 sys/arch/${ARCH}/compile/GENERIC/Makefile: sys/arch/${ARCH}/conf/GENERIC obj/build_tools.stamp
