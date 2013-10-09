@@ -12,7 +12,7 @@ NBMAKEFS = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
 NBCONFIG =${CURDIR}/${TOOLDIR}/bin/nbconfig
 NBGCC = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gcc
 NBGDB = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
-MINIIMG = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage/${ARCH}-mini.img
+MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 
 all: sys/arch/${ARCH}/compile/GENERIC/Makefile
 	cd sys/arch/${ARCH}/compile/GENERIC && ${NBMAKE}
@@ -36,13 +36,10 @@ obj/build_sets.stamp: obj/build_dist.stamp
 	touch obj/build_sets.stamp
 
 miniimage: all obj/build_sets.stamp
-	cd distrib/${ARCH}/liveimage/miniimage && ${NBMAKE} live_image
+	cd ${MINIIMGDIR} && ${NBMAKE} live_image
 
 qemu:
-	qemu-system-i386 -hda ${MINIIMG}
-
-qemucurses:
-	qemu-system-i386 -curses -hda ${MINIIMG}
+	env QEMU_AUDIO_DRV=alsa qemu-system-i386 -m 1024 -soundhw ac97 -hdachs 390,16,63,lba -hda ${MINIIMGDIR}/${ARCH}-mini.img
 
 clean:
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir

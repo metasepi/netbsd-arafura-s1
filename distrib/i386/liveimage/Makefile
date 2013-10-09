@@ -3,6 +3,7 @@
 SUBDIR=
 SUBDIR+=	emuimage
 SUBDIR+=	usbimage
+SUBDIR+=	miniimage
 
 TARGETS+=	release live_image
 

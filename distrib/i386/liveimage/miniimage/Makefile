@@ -9,6 +9,13 @@ SECONDARY_BOOT=		boot
 SECONDARY_BOOT_ARG=	# unnecessary
 SETS=			base etc
 
+IMAGEMB=		192
+SWAPMB=			16
+HEADS=			16
+SECTORS=		63
+MBRHEADS=		16
+MBRSECTORS=		63
+
 USE_MBR=		yes
 
 .include "${.CURDIR}/../../../common/bootimage/Makefile.liveimage"
