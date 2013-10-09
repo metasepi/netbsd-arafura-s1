@@ -44,6 +44,7 @@ qemucurses:
 	qemu-system-i386 -curses -hda ${MINIIMG}
 
 clean:
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
 	rm -f *~
 
 .PHONY: clean miniimage qemu qemucurses qemugdb
