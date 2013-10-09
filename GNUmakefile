@@ -2,6 +2,9 @@
 ARCH = i386
 CURDIR = $(shell pwd)
 TOOLDIR = obj/tooldir
+RELEASEDIR = obj/releasedir
+SETSDIR = ${RELEASEDIR}/${ARCH}/binary/sets
+DESTDIR = obj/destdir.${ARCH}
 NUMCPU = $(shell cat /proc/cpuinfo | grep -c "^processor")
 BUILDSH = sh build.sh -U -N 1 -j ${NUMCPU}
 NBMAKE = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
@@ -9,55 +12,38 @@ NBMAKEFS = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
 NBCONFIG =${CURDIR}/${TOOLDIR}/bin/nbconfig
 NBGCC = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gcc
 NBGDB = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
+MINIIMG = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage/${ARCH}-mini.img
 
-all: ${TOOLDIR}/build.stamp sys/arch/${ARCH}/compile/GENERIC/Makefile
-	cd sys/arch/${ARCH}/stand/mbr/mbr             && ${NBMAKE}
-	cd sys/arch/${ARCH}/stand/bootxx/bootxx_ffsv1 && ${NBMAKE}
-	cd sys/arch/${ARCH}/stand/boot/biosboot       && ${NBMAKE}
-	cd etc                                        && ${NBMAKE} MAKEDEV
-	cd sys/arch/${ARCH}/compile/GENERIC           && ${NBMAKE}
+all: sys/arch/${ARCH}/compile/GENERIC/Makefile
+	cd sys/arch/${ARCH}/compile/GENERIC && ${NBMAKE}
+	cd sys/arch/${ARCH}/compile/GENERIC && tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
 
-sys/arch/${ARCH}/compile/GENERIC/Makefile: sys/arch/${ARCH}/conf/GENERIC
+sys/arch/${ARCH}/compile/GENERIC/Makefile: sys/arch/${ARCH}/conf/GENERIC obj/build_tools.stamp
 	cd sys/arch/${ARCH}/conf && ${NBCONFIG} GENERIC
 
-### Build and install NetBSD tools.
-${TOOLDIR}/build.stamp:
+### Build and install NetBSD.
+obj/build_tools.stamp:
 	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools
-	touch ${TOOLDIR}/build.stamp
+	touch obj/build_tools.stamp
 
-### Run bootimage on qemu
-bootimage/boot.img: all
-	# Dummy setting for Makefile.bootimage
-	mkdir -p obj/releasedir/${ARCH}/binary/sets
-	rm -rf distrib/${ARCH}/liveimage/miniimage/work
-	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/var/spool/ftp/hidden
-	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/etc/mtree
-	touch distrib/${ARCH}/liveimage/miniimage/work/etc/rc.conf
-	mkdir -p distrib/${ARCH}/liveimage/miniimage/work/dev
-	cp etc/MAKEDEV distrib/${ARCH}/liveimage/miniimage/work/dev
-	cd sys/arch/${ARCH}/compile/GENERIC && \
-	  tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
+obj/build_dist.stamp: obj/build_tools.stamp
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution
+	touch obj/build_dist.stamp
 
-	cd distrib/${ARCH}/liveimage/miniimage && ${NBMAKE}
-#	mkdir -p bootimage
-#	cd bootimage && rm -rf work
-#	cd bootimage && mkdir -p work
-#	cp sys/arch/${ARCH}/stand/boot/biosboot/boot bootimage/work/
-#	cp sys/arch/${ARCH}/compile/GENERIC/netbsd   bootimage/work/
-#	cd bootimage && mv boot_tmp.img boot.img
+obj/build_sets.stamp: obj/build_dist.stamp
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
+	touch obj/build_sets.stamp
 
-qemu: bootimage/boot.img
-	qemu-system-i386 -hda bootimage/boot.img
+miniimage: all obj/build_sets.stamp
+	cd distrib/${ARCH}/liveimage/miniimage && ${NBMAKE} live_image
 
-qemucurses: bootimage/boot.img
-	qemu-system-i386 -curses -hda bootimage/boot.img
+qemu:
+	qemu-system-i386 -hda ${MINIIMG}
 
-qemugdb: bootimage/boot.img
-	${NBGDB} -x metasepi-arafura/gdb.boot
+qemucurses:
+	qemu-system-i386 -curses -hda ${MINIIMG}
 
 clean:
-	cd sys/arch/${ARCH}/stand/boot/biosboot && ${NBMAKE} clean
 	rm -f *~
-	rm -rf bootimage
 
-.PHONY: clean qemu qemucurses qemugdb
+.PHONY: clean miniimage qemu qemucurses qemugdb

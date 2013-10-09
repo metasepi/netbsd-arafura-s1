@@ -1,10 +1,14 @@
-IMGBASE=	NetBSD-${DISTRIBVER}-i386-mini-wd0root	# gives ${IMGBASE}.img
+.include <bsd.own.mk>
 
-BOOTDISK=	wd0			# for QEMU etc.
-SETS= # xxx NEED xxx
-IMAGEMB?=	64		# 64MB
-SWAPMB?=	1		# 1MB
+LIVEIMGBASE=		i386-mini	# gives ${IMGBASE}.img
 
-.include "${.CURDIR}/../../../common/bootimage/Makefile.bootimage"
+KERN_SET=		kern-GENERIC
+BOOTDISK=		wd0		# for emulators
+PRIMARY_BOOT=		bootxx_ffsv1
+SECONDARY_BOOT=		boot
+SECONDARY_BOOT_ARG=	# unnecessary
+SETS=			base etc
 
-all: ${IMGBASE}.img
+USE_MBR=		yes
+
+.include "${.CURDIR}/../../../common/bootimage/Makefile.liveimage"
