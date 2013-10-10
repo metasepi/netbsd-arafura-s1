@@ -1,0 +1,6 @@
+/dev/@@BOOTDISK@@a	/		ffs	rw,log		1 1
+/dev/@@BOOTDISK@@b	none		none	sw		0 0
+/dev/cd0a		/mnt		cd9660	ro		0 0
+ptyfs		/dev/pts	ptyfs	rw		0 0
+kernfs		/kern		kernfs	rw		0 0
+procfs		/proc		procfs	rw		0 0
