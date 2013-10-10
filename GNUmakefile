@@ -14,6 +14,7 @@ NBCONFIG   = ${CURDIR}/${TOOLDIR}/bin/nbconfig
 NBGCC      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gcc
 NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
+QEMUOPTS   = -m 1024 -soundhw ac97 -hdachs 390,16,63,lba -hda ${MINIIMGDIR}/${ARCH}-mini.img -cdrom ${MEDIACDDIR}/cd.iso
 
 ### Build kernel
 all: sys/arch/${ARCH}/compile/GENERIC/Makefile
@@ -65,7 +66,10 @@ qemu:
 		echo "Missing \"${MEDIACDDIR}/cd.iso\" file, aborting.";		\
 		false; 									\
 	fi
-	env QEMU_AUDIO_DRV=alsa qemu-system-i386 -m 1024 -soundhw ac97 -hdachs 390,16,63,lba -hda ${MINIIMGDIR}/${ARCH}-mini.img -cdrom ${MEDIACDDIR}/cd.iso
+	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS}
+
+qemucurses:
+	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
 clean:
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
