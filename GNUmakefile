@@ -1,5 +1,6 @@
 # Makefile for metasepi system.
 ARCH       = i386
+KERNCONF   = GENERIC_HS
 CURDIR     = $(shell pwd)
 TOOLDIR    = obj/tooldir
 RELEASEDIR = obj/releasedir
@@ -16,14 +17,21 @@ NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -hdachs 390,16,63,lba -hda ${MINIIMGDIR}/${ARCH}-mini.img -cdrom ${MEDIACDDIR}/cd.iso
 
-### Build kernel
-all: sys/arch/${ARCH}/compile/GENERIC/Makefile
-	cd sys/arch/${ARCH}/compile/GENERIC && ${NBMAKE}
-	mkdir -p ${CURDIR}/obj/releasedir/${ARCH}/binary/sets
-	cd sys/arch/${ARCH}/compile/GENERIC && tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
+HSBUILD = metasepi/hsbuild
+HSSRC   = metasepi/hssrc
+HSCODE  = $(wildcard $(HSSRC)/*.hs $(HSSRC)/*/*.hs $(HSSRC)/*/*/*.hs $(HSSRC)/*/*/*/*.hs)
 
-sys/arch/${ARCH}/compile/GENERIC/Makefile: sys/arch/${ARCH}/conf/GENERIC obj/build_tools.stamp
-	cd sys/arch/${ARCH}/conf && ${NBCONFIG} GENERIC
+### Build kernel
+all: sys/arch/${ARCH}/compile/${KERNCONF}/Makefile ${HSBUILD}/hsmain.c
+	cd sys/arch/${ARCH}/compile/${KERNCONF} && ${NBMAKE} depend && ${NBMAKE}
+	mkdir -p ${CURDIR}/obj/releasedir/${ARCH}/binary/sets
+	cd sys/arch/${ARCH}/compile/${KERNCONF} && tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
+
+${HSBUILD}/hsmain.c: ${HSCODE}
+	ajhc -fffi --include=hs_src --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
+
+sys/arch/${ARCH}/compile/${KERNCONF}/Makefile: sys/arch/${ARCH}/conf/${KERNCONF} obj/build_tools.stamp
+	cd sys/arch/${ARCH}/conf && ${NBCONFIG} ${KERNCONF}
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
@@ -72,6 +80,9 @@ qemucurses:
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
 clean:
+	rm -rf sys/arch/${ARCH}/compile/${KERNCONF} ${HSBUILD}
+
+distclean: clean
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
 	rm -f *~
 
