@@ -18,5 +18,5 @@ PROG	usr/bin/tip
 SPECIAL	ed		srcdir	distrib/utils/x_ed
 SPECIAL	more		srcdir	distrib/utils/more
 
-COPY	${NETBSDSRCDIR}/usr.bin/audio/play/obj/audioplay usr/bin/audioplay 0555
-COPY	${CURDIR}/play.sh                                play.sh           0555
+COPY	${NETBSDSRCDIR}/obj/audioplay usr/bin/audioplay 0555
+COPY	${CURDIR}/play.sh             play.sh           0555

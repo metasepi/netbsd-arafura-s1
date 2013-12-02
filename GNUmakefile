@@ -69,12 +69,15 @@ ${BOOTCDDIR}/cd/boot: obj/build_dist.stamp
 ${BOOTCDDIR}/cd/boot.cfg:
 	echo "timeout=0\nload=/miniroot.kmod" > $@
 
-${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp
-	${NBMAKE} -C usr.bin/audio clean
-	${NBMAKE} -C usr.bin/audio LDSTATIC=-static
+${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp obj/audioplay
 	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay
 	${NBMAKE} -C distrib/i386/kmod-audioplay
 	cp distrib/i386/kmod-audioplay/miniroot.kmod $@
+
+obj/audioplay:
+	${NBMAKE} -C usr.bin/audio clean
+	${NBMAKE} -C usr.bin/audio LDSTATIC=-static
+	cp usr.bin/audio/play/obj/audioplay $@
 
 ### Run QEMU image
 qemu: bootcd
