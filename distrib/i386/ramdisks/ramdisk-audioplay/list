@@ -1,0 +1,22 @@
+PROG	bin/chio
+PROG	bin/dd
+PROG	bin/df
+PROG	bin/ed
+PROG	bin/mt
+PROG	bin/rcmd
+PROG	bin/sync
+
+PROG	sbin/fdisk
+PROG	sbin/mbrlabel
+PROG	sbin/restore	sbin/rrestore
+PROG	sbin/scsictl
+PROG	sbin/shutdown
+
+PROG	usr/bin/more	usr/bin/less
+PROG	usr/bin/tip
+
+SPECIAL	ed		srcdir	distrib/utils/x_ed
+SPECIAL	more		srcdir	distrib/utils/more
+
+COPY	${NETBSDSRCDIR}/usr.bin/audio/play/obj/audioplay usr/bin/audioplay 0555
+COPY	${CURDIR}/play.sh                                play.sh           0555
