@@ -36,23 +36,23 @@ obj/build_dist.stamp: obj/build_tools.stamp
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution
 	touch obj/build_dist.stamp
 
-obj/build_sets.stamp: obj/build_dist.stamp
-	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
-	touch obj/build_sets.stamp
+#obj/build_sets.stamp: obj/build_dist.stamp
+#	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
+#	touch obj/build_sets.stamp
 
 ### Setup Wav file
 setup:
-	@if [ "${WAVFILE}" = "" ]; then 			\
-		echo "Need to set WAVFILE value.";		\
+	@if [ "${WAV}" = "" ]; then 			\
+		echo "Need to set WAV value.";		\
 		false;						\
 	fi
-	@if [ ! -f ${WAVFILE} ]; then 				\
-		echo "Missing \"${WAVFILE}\" file, aborting.";	\
+	@if [ ! -f ${WAV} ]; then 				\
+		echo "Missing \"${WAV}\" file, aborting.";	\
 		false; 						\
 	fi
 	rm -rf ${BOOTCDDIR}
 	mkdir -p ${BOOTCDDIR}/cd
-	cp ${WAVFILE} ${BOOTCDDIR}/cd/test.wav
+	cp ${WAV} ${BOOTCDDIR}/cd/test.wav
 
 ### Build QEMU image
 bootcd: ${BOOTCDDIR}/cd/test.wav ${BOOTCDDIR}/bootxx_cd9660 ${BOOTCDDIR}/cd/boot \
@@ -60,18 +60,17 @@ bootcd: ${BOOTCDDIR}/cd/test.wav ${BOOTCDDIR}/bootxx_cd9660 ${BOOTCDDIR}/cd/boot
 	gzip -c sys/arch/${ARCH}/compile/obj/${KERNCONF}/netbsd > ${BOOTCDDIR}/cd/netbsd
 	cd ${BOOTCDDIR} && ${NBMAKEFS} ${MAKEFSOPTS} cd.iso cd
 
-${BOOTCDDIR}/bootxx_cd9660: obj/build_tools.stamp
-	${NBMAKE} -C sys/arch/i386/stand/cdboot
-	cp sys/arch/i386/stand/cdboot/obj/bootxx_cd9660 $@
+${BOOTCDDIR}/bootxx_cd9660: obj/build_dist.stamp
+	cp ${DESTDIR}/usr/mdec/bootxx_cd9660 $@
 
-${BOOTCDDIR}/cd/boot: obj/build_tools.stamp
-	${NBMAKE} -C sys/arch/i386/stand/boot/biosboot
-	cp sys/arch/i386/stand/boot/biosboot/obj/boot $@
+${BOOTCDDIR}/cd/boot: obj/build_dist.stamp
+	cp ${DESTDIR}/usr/mdec/boot $@
 
 ${BOOTCDDIR}/cd/boot.cfg:
 	echo "timeout=0\nload=/miniroot.kmod" > $@
 
-${BOOTCDDIR}/cd/miniroot.kmod: obj/build_tools.stamp
+${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp
+	${NBMAKE} -C usr.bin/audio clean
 	${NBMAKE} -C usr.bin/audio LDSTATIC=-static
 	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay
 	${NBMAKE} -C distrib/i386/kmod-audioplay
@@ -88,7 +87,7 @@ clean:
 	rm -rf sys/arch/${ARCH}/compile/${KERNCONF} ${HSBUILD}
 
 distclean: clean
-	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
 	rm -f *~
 
 .PHONY: setup bootcd clean distclean qemu qemucurses
