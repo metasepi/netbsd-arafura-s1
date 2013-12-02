@@ -6,32 +6,26 @@ TOOLDIR    = obj/tooldir
 RELEASEDIR = obj/releasedir
 SETSDIR    = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR    = obj/destdir.${ARCH}
-MEDIACDDIR = obj/mediacd
+BOOTCDDIR  = obj/bootcd
 NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
 BUILDSH    = sh build.sh -U -u -N 1 -j ${NUMCPU}
 NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
-NBCONFIG   = ${CURDIR}/${TOOLDIR}/bin/nbconfig
-NBGCC      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gcc
 NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
-QEMUOPTS   = -m 1024 -soundhw ac97 -hdachs 390,16,63,lba -hda ${MINIIMGDIR}/${ARCH}-mini.img -cdrom ${MEDIACDDIR}/cd.iso
+QEMUOPTS   = -m 1024 -soundhw ac97 -cdrom ${BOOTCDDIR}/cd.iso
+MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
 
 HSBUILD = metasepi/hsbuild
 HSSRC   = metasepi/hssrc
 HSCODE  = $(wildcard $(HSSRC)/*.hs $(HSSRC)/*/*.hs $(HSSRC)/*/*/*.hs $(HSSRC)/*/*/*/*.hs)
 
 ### Build kernel
-all: sys/arch/${ARCH}/compile/${KERNCONF}/Makefile ${HSBUILD}/hsmain.c
-	cd sys/arch/${ARCH}/compile/${KERNCONF} && ${NBMAKE} depend && ${NBMAKE}
-	mkdir -p ${CURDIR}/obj/releasedir/${ARCH}/binary/sets
-	cd sys/arch/${ARCH}/compile/${KERNCONF} && tar cfz ${CURDIR}/obj/releasedir/${ARCH}/binary/sets/kern-GENERIC.tgz ./netbsd
+all: obj/build_tools.stamp ${HSBUILD}/hsmain.c
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} kernel=${KERNCONF}
 
 ${HSBUILD}/hsmain.c: ${HSCODE}
 	ajhc -fffi --include=hs_src --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
-
-sys/arch/${ARCH}/compile/${KERNCONF}/Makefile: sys/arch/${ARCH}/conf/${KERNCONF} obj/build_tools.stamp
-	cd sys/arch/${ARCH}/conf && ${NBCONFIG} ${KERNCONF}
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
@@ -46,11 +40,8 @@ obj/build_sets.stamp: obj/build_dist.stamp
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
 	touch obj/build_sets.stamp
 
-### Build QEMU image
-miniimage: all obj/build_sets.stamp
-	cd ${MINIIMGDIR} && ${NBMAKE} live_image
-
-mediacd:
+### Setup Wav file
+setup:
 	@if [ "${WAVFILE}" = "" ]; then 			\
 		echo "Need to set WAVFILE value.";		\
 		false;						\
@@ -59,24 +50,38 @@ mediacd:
 		echo "Missing \"${WAVFILE}\" file, aborting.";	\
 		false; 						\
 	fi
-	rm -rf ${MEDIACDDIR}
-	mkdir -p ${MEDIACDDIR}/cd
-	cp ${WAVFILE} ${MEDIACDDIR}/cd/test.wav
-	cd ${MEDIACDDIR} && ${NBMAKEFS} -t cd9660 cd.iso cd
+	rm -rf ${BOOTCDDIR}
+	mkdir -p ${BOOTCDDIR}/cd
+	cp ${WAVFILE} ${BOOTCDDIR}/cd/test.wav
+
+### Build QEMU image
+bootcd: ${BOOTCDDIR}/cd/test.wav ${BOOTCDDIR}/bootxx_cd9660 ${BOOTCDDIR}/cd/boot \
+	  ${BOOTCDDIR}/cd/boot.cfg ${BOOTCDDIR}/cd/miniroot.kmod all
+	gzip -c sys/arch/${ARCH}/compile/obj/${KERNCONF}/netbsd > ${BOOTCDDIR}/cd/netbsd
+	cd ${BOOTCDDIR} && ${NBMAKEFS} ${MAKEFSOPTS} cd.iso cd
+
+${BOOTCDDIR}/bootxx_cd9660: obj/build_tools.stamp
+	${NBMAKE} -C sys/arch/i386/stand/cdboot
+	cp sys/arch/i386/stand/cdboot/obj/bootxx_cd9660 $@
+
+${BOOTCDDIR}/cd/boot: obj/build_tools.stamp
+	${NBMAKE} -C sys/arch/i386/stand/boot/biosboot
+	cp sys/arch/i386/stand/boot/biosboot/obj/boot $@
+
+${BOOTCDDIR}/cd/boot.cfg:
+	echo "timeout=0\nload=/miniroot.kmod" > $@
+
+${BOOTCDDIR}/cd/miniroot.kmod: obj/build_tools.stamp
+	${NBMAKE} -C usr.bin/audio LDSTATIC=-static
+	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay
+	${NBMAKE} -C distrib/i386/kmod-audioplay
+	cp distrib/i386/kmod-audioplay/miniroot.kmod $@
 
 ### Run QEMU image
-qemu:
-	@if [ ! -f ${MINIIMGDIR}/${ARCH}-mini.img ]; then 				\
-		echo "Missing \"${MINIIMGDIR}/${ARCH}-mini.img\" file, aborting.";	\
-		false; 									\
-	fi
-	@if [ ! -f ${MEDIACDDIR}/cd.iso ]; then 					\
-		echo "Missing \"${MEDIACDDIR}/cd.iso\" file, aborting.";		\
-		false; 									\
-	fi
+qemu: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS}
 
-qemucurses:
+qemucurses: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
 clean:
@@ -86,4 +91,4 @@ distclean: clean
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
 	rm -f *~
 
-.PHONY: clean miniimage qemu qemucurses qemugdb
+.PHONY: setup bootcd clean distclean qemu qemucurses
