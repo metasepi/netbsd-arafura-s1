@@ -1,4 +1,4 @@
-defflag	  	HASKELL
+defflag	 opt_haskell.h 	HASKELL
 
 file	../metasepi/sys/hsbuild/rts/rts_support.c	haskell
 file	../metasepi/sys/hsbuild/rts/jhc_rts.c		haskell

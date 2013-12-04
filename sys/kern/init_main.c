@@ -113,6 +113,7 @@ __KERNEL_RCSID(0, "$NetBSD: init_main.c,v 1.441.2.3 2013/03/14 16:33:10 riz Exp 
 #include "opt_compat_netbsd.h"
 #include "opt_wapbl.h"
 #include "opt_ptrace.h"
+#include "opt_haskell.h"
 
 #include "drvctl.h"
 #include "ksyms.h"
@@ -240,6 +241,12 @@ __KERNEL_RCSID(0, "$NetBSD: init_main.c,v 1.441.2.3 2013/03/14 16:33:10 riz Exp 
 #include <prop/proplib.h>
 
 #include <sys/userconf.h>
+
+#ifdef HASKELL
+extern void __dummy4jhc_init(void);
+extern void hs_init (int *argc, const char **argv[]);
+extern void _amain(void);
+#endif /* HASKELL */
 
 extern struct lwp lwp0;
 extern time_t rootfstime;
@@ -512,6 +519,17 @@ main(void)
 
 	/* Initialize sockets thread(s) */
 	soinit1();
+
+#ifdef HASKELL
+	// Init jhc runtime
+	int hsargc = 1;
+	const char *hsargv = "q";
+	const char **hsargvp = &hsargv;
+	__dummy4jhc_init();
+	hs_init(&hsargc, &hsargvp);
+	_amain();
+	/* Do not call hs_exit() */
+#endif /* HASKELL */
 
 	/* Configure the system hardware.  This will enable interrupts. */
 	configure();
