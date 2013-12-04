@@ -6,3 +6,4 @@ file	../metasepi/sys/hsbuild/rts/gc_jgc.c		haskell
 file	../metasepi/sys/hsbuild/rts/stableptr.c		haskell
 file	../metasepi/sys/hsbuild/rts/conc.c		haskell
 file	../metasepi/sys/hsbuild/hsmain.c		haskell
+file	../metasepi/sys/hsdummy/__dummy4jhc.c		haskell

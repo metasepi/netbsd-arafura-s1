@@ -14,7 +14,7 @@ typedef _BSD_WCHAR_T_	wchar_t; // xxx Simple "char" type is better?
 typedef label_t *	jmp_buf;
 typedef int		FILE;
 
-// XXX Should impl us!!!
+void __dummy4jhc_init(void);
 void abort(void);
 void *malloc(size_t size);
 void *realloc(void *ptr, size_t size);

@@ -1674,4 +1674,4 @@ options 	PAX_MPROTECT=0		# PaX mprotect(2) restrictions
 options 	PAX_ASLR=0		# PaX Address Space Layout Randomization
 
 # Haskell
-#options		HASKELL
+options		HASKELL
