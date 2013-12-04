@@ -157,6 +157,15 @@ NORMAL_S?=	@${_MKSHMSG} "compile  ${.CURDIR:T}/${.TARGET}" && \
 		${CC} ${AFLAGS} ${AFLAGS.${<:T}} ${CPPFLAGS} -c $<
 
 ##
+## (2.5) Haskell settings
+##
+OPT_HASKELL=	%HASKELL%
+.if !empty(OPT_HASKELL)
+CFLAGS+=	-falign-functions=4 -fno-strict-aliasing # xxx
+INCLUDES+=	-I${S}/../metasepi/sys/hsbuild/cbits -I${S}/../metasepi/sys/hsbuild -I${S}/../metasepi/sys/hsdummy
+.endif
+
+##
 ## (3) libkern and compat
 ##
 ## Set KERN_AS in the port Makefile to "obj" or "library".  The

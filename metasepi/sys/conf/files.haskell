@@ -1,0 +1,8 @@
+defflag	  	HASKELL
+
+file	../metasepi/sys/hsbuild/rts/rts_support.c	haskell
+file	../metasepi/sys/hsbuild/rts/jhc_rts.c		haskell
+file	../metasepi/sys/hsbuild/rts/gc_jgc.c		haskell
+file	../metasepi/sys/hsbuild/rts/stableptr.c		haskell
+file	../metasepi/sys/hsbuild/rts/conc.c		haskell
+file	../metasepi/sys/hsbuild/hsmain.c		haskell

@@ -16,8 +16,8 @@ MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
 
-HSBUILD = metasepi/hsbuild
-HSSRC   = metasepi/hssrc
+HSBUILD = metasepi/sys/hsbuild
+HSSRC   = metasepi/sys/hssrc
 HSCODE  = $(wildcard $(HSSRC)/*.hs $(HSSRC)/*/*.hs $(HSSRC)/*/*/*.hs $(HSSRC)/*/*/*/*.hs)
 
 ### Build kernel
@@ -26,6 +26,7 @@ all: obj/build_tools.stamp ${HSBUILD}/hsmain.c
 
 ${HSBUILD}/hsmain.c: ${HSCODE}
 	ajhc -fffi --include=hs_src --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
+	rm -f $(HSBUILD)/sys/queue.h # Use queue.h at NetBSD side
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
@@ -87,10 +88,12 @@ qemucurses: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
 clean:
-	rm -rf sys/arch/${ARCH}/compile/${KERNCONF} ${HSBUILD}
+	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD}
 
 distclean: clean
 	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+	${NBMAKE} -C distrib/i386/kmod-audioplay clean
+	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
 	rm -f *~
 
 .PHONY: setup bootcd clean distclean qemu qemucurses
