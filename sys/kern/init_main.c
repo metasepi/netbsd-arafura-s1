@@ -521,7 +521,7 @@ main(void)
 	soinit1();
 
 #ifdef HASKELL
-	// Init jhc runtime
+	/* Initialize jhc runtime */
 	int hsargc = 1;
 	const char *hsargv = "q";
 	const char **hsargvp = &hsargv;

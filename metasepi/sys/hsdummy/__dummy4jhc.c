@@ -50,6 +50,7 @@ void
 abort(void)
 {
 	panic("abort@dummy4jhc: abort");
+	/* NOTREACHED */
 }
 
 char *
@@ -62,6 +63,7 @@ void
 exit(int status)
 {
 	panic("exit@dummy4jhc: exit with status=%d", status);
+	/* NOTREACHED */
 }
 
 int
@@ -116,4 +118,10 @@ int
 jhc_utf8_putc(int ch, FILE *f)
 {
 	return 0;
+}
+
+int
+uname(struct utsname *name)
+{
+	return -1;
 }

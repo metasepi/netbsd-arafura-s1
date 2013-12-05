@@ -25,7 +25,7 @@ all: obj/build_tools.stamp ${HSBUILD}/hsmain.c
 	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} kernel=${KERNCONF}
 
 ${HSBUILD}/hsmain.c: ${HSCODE}
-	ajhc -fffi --include=hs_src --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
+	ajhc -fffi -fcustomthread --include=hs_src --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
 	rm -f $(HSBUILD)/sys/queue.h # Use queue.h at NetBSD side
 
 ### Setup NetBSD environment

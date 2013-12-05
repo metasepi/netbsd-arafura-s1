@@ -2,13 +2,6 @@
 #define __DUMMY_4_JHC_H
 #include <sys/param.h>
 
-#define _GNU_SOURCE
-#define NDEBUG
-#define _JHC_GC		_JHC_GC_JGC
-#define _JHC_CONC	_JHC_CONC_NONE
-#define _JHC_USE_OWN_STDIO
-#define _JHC_STANDALONE	0
-
 #define LC_ALL		0
 typedef _BSD_WCHAR_T_	wchar_t; // xxx Simple "char" type is better?
 typedef label_t *	jmp_buf;
