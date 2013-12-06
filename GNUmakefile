@@ -84,12 +84,12 @@ qemucurses: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
 clean:
-	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD}
+	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD} ${BOOTCDDIR} *~
 
-distclean: clean
-	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
-	${NBMAKE} -C distrib/i386/kmod-audioplay clean
-	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
-	rm -f *~
+#distclean: clean
+#	rm -f obj/build_dist.stamp *~
+#	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+#	${NBMAKE} -C distrib/i386/kmod-audioplay clean
+#	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
 
 .PHONY: setup bootcd clean distclean qemu qemucurses
