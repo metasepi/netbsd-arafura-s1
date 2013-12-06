@@ -8,7 +8,8 @@ SETSDIR    = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR    = obj/destdir.${ARCH}
 BOOTCDDIR  = obj/bootcd
 NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
-BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU}
+MKVARS     = -V MKGCC=no -V MKPCC=no -V MKCOMPAT=no -V MKX11=no -V MKEXTSRC=no
+BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU} ${MKVARS}
 NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
 NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
@@ -93,10 +94,10 @@ qemuvnc: bootcd
 clean:
 	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD} ${BOOTCDDIR} *~
 
-#distclean: clean
-#	rm -f obj/build_dist.stamp *~
-#	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
-#	${NBMAKE} -C distrib/i386/kmod-audioplay clean
-#	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
+distclean: clean
+	rm -f obj/build_dist.stamp *~
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+	${NBMAKE} -C distrib/i386/kmod-audioplay clean
+	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
 
 .PHONY: setup bootcd clean distclean qemu qemucurses
