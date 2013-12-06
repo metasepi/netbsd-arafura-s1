@@ -56,10 +56,11 @@ This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unport
 
 http://creativecommons.org/licenses/by-sa/3.0/
 
-Following links to know about Epopsan.
+Following links to know about Epopsan and the music.
 
-* https://twitter.com/epopsan
+* http://www.jamendo.com/en/track/771128/signal
 * http://www.jamendo.com/en/artist/368504/epopsan
+* https://twitter.com/epopsan
 
 ### The others
 
