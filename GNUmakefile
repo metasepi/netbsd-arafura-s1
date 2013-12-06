@@ -83,6 +83,9 @@ qemu: bootcd
 qemucurses: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
+qemuvnc: bootcd
+	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -vnc :0
+
 clean:
 	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD} ${BOOTCDDIR} *~
 
