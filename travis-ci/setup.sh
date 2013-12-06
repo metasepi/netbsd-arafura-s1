@@ -1,2 +1,3 @@
 #!/usr/bin/env sh
-echo Skip.
+sudo apt-get -qq update
+sudo apt-get -qq -y install ffmpeg
