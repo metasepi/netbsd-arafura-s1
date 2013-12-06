@@ -7,6 +7,7 @@
 /distrib/i386/ramdisks/ramdisk-audioplay/*.cro.syms
 /distrib/i386/ramdisks/ramdisk-audioplay/*.fs
 /distrib/i386/ramdisks/ramdisk-audioplay/*/
+/distrib/i386/ramdisks/ramdisk-audioplay/devices.*
 /distrib/i386/ramdisks/ramdisk-audioplay/ramdiskbin*
 /distrib/i386/ramdisks/ramdisk-audioplay/work*
 /metasepi/sys/hsbuild/

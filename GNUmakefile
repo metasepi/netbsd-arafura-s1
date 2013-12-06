@@ -65,7 +65,7 @@ ${BOOTCDDIR}/cd/boot.cfg:
 	mkdir -p ${BOOTCDDIR}/cd
 	echo "timeout=0\nload=/miniroot.kmod" > $@
 
-${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp obj/audioplay
+${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp obj/audioplay distrib/i386/ramdisks/ramdisk-audioplay/Makefile distrib/i386/ramdisks/ramdisk-audioplay/list
 	mkdir -p ${BOOTCDDIR}/cd
 	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay
 	${NBMAKE} -C distrib/i386/kmod-audioplay
