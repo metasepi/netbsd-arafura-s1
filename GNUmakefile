@@ -16,6 +16,7 @@ MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -no-reboot -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
 MP3FILE    = metasepi/sound/Epopsan-signal.mp3
+LOGFILTER  = -e "===>" -e "^nbgmake"
 
 HSBUILD = metasepi/sys/hsbuild
 HSSRC   = metasepi/sys/hssrc
@@ -31,15 +32,15 @@ ${HSBUILD}/hsmain.c: ${HSCODE}
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
-	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep "===>"
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep ${LOGFILTER}
 	touch obj/build_tools.stamp
 
 obj/build_dist.stamp: obj/build_tools.stamp
-	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution | grep "===>"
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution | grep ${LOGFILTER}
 	touch obj/build_dist.stamp
 
 #obj/build_sets.stamp: obj/build_dist.stamp
-#	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets | grep "===>"
+#	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets | grep ${LOGFILTER}
 #	touch obj/build_sets.stamp
 
 ### Build QEMU image
