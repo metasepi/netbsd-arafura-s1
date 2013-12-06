@@ -8,7 +8,7 @@ SETSDIR    = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR    = obj/destdir.${ARCH}
 BOOTCDDIR  = obj/bootcd
 NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
-MKVARS     = -V MKGCC=no -V MKPCC=no -V MKCOMPAT=no -V MKX11=no -V MKEXTSRC=no
+MKVARS     = -V MKPCC=no -V MKCOMPAT=no -V MKX11=no -V MKEXTSRC=no
 BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU} ${MKVARS}
 NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
@@ -18,6 +18,7 @@ QEMUOPTS   = -m 1024 -soundhw ac97 -no-reboot -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
 MP3FILE    = metasepi/sound/Epopsan-signal.mp3
 LOGFILTER  = -e "===>" -e "^nbgmake"
+#LOGFILTER  = ""
 
 HSBUILD = metasepi/sys/hsbuild
 HSSRC   = metasepi/sys/hssrc
