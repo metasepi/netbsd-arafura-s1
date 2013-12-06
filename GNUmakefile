@@ -31,15 +31,15 @@ ${HSBUILD}/hsmain.c: ${HSCODE}
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
-	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep "===>"
 	touch obj/build_tools.stamp
 
 obj/build_dist.stamp: obj/build_tools.stamp
-	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} distribution | grep "===>"
 	touch obj/build_dist.stamp
 
 #obj/build_sets.stamp: obj/build_dist.stamp
-#	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
+#	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets | grep "===>"
 #	touch obj/build_sets.stamp
 
 ### Build QEMU image
