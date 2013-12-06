@@ -15,6 +15,7 @@ NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
+MP3FILE    = metasepi/sound/Epopsan-signal.mp3
 
 HSBUILD = metasepi/sys/hsbuild
 HSSRC   = metasepi/sys/hssrc
@@ -41,36 +42,31 @@ obj/build_dist.stamp: obj/build_tools.stamp
 #	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} sets
 #	touch obj/build_sets.stamp
 
-### Setup Wav file
-setup:
-	@if [ "${WAV}" = "" ]; then 			\
-		echo "Need to set WAV value.";		\
-		false;						\
-	fi
-	@if [ ! -f ${WAV} ]; then 				\
-		echo "Missing \"${WAV}\" file, aborting.";	\
-		false; 						\
-	fi
-	rm -rf ${BOOTCDDIR}
-	mkdir -p ${BOOTCDDIR}/cd
-	cp ${WAV} ${BOOTCDDIR}/cd/test.wav
-
 ### Build QEMU image
 bootcd: ${BOOTCDDIR}/cd/test.wav ${BOOTCDDIR}/bootxx_cd9660 ${BOOTCDDIR}/cd/boot \
 	  ${BOOTCDDIR}/cd/boot.cfg ${BOOTCDDIR}/cd/miniroot.kmod all
 	gzip -c sys/arch/${ARCH}/compile/obj/${KERNCONF}/netbsd > ${BOOTCDDIR}/cd/netbsd
 	cd ${BOOTCDDIR} && ${NBMAKEFS} ${MAKEFSOPTS} cd.iso cd
 
+${BOOTCDDIR}/cd/test.wav: ${MP3FILE}
+	mkdir -p ${BOOTCDDIR}/cd
+	rm -f $@
+	ffmpeg -i ${MP3FILE} $@
+
 ${BOOTCDDIR}/bootxx_cd9660: obj/build_dist.stamp
+	mkdir -p ${BOOTCDDIR}
 	cp ${DESTDIR}/usr/mdec/bootxx_cd9660 $@
 
 ${BOOTCDDIR}/cd/boot: obj/build_dist.stamp
+	mkdir -p ${BOOTCDDIR}
 	cp ${DESTDIR}/usr/mdec/boot $@
 
 ${BOOTCDDIR}/cd/boot.cfg:
+	mkdir -p ${BOOTCDDIR}/cd
 	echo "timeout=0\nload=/miniroot.kmod" > $@
 
 ${BOOTCDDIR}/cd/miniroot.kmod: obj/build_dist.stamp obj/audioplay
+	mkdir -p ${BOOTCDDIR}/cd
 	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay
 	${NBMAKE} -C distrib/i386/kmod-audioplay
 	cp distrib/i386/kmod-audioplay/miniroot.kmod $@
