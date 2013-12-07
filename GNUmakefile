@@ -8,7 +8,8 @@ SETSDIR    = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR    = obj/destdir.${ARCH}
 BOOTCDDIR  = obj/bootcd
 NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
-MKVARS     = -V MKPCC=no -V MKEXTSRC=no -V MKMAN=no -V MKINFO=no -V MKATF=no -V MKCATPAGES=no -V MKCVS=no -V MKDOC=no -V MKHTML=no -V MKIPFILTER=no -V MKLVM=no -V MKNLS=no -V MKPF=no -V MKPOSTFIX=no -V MKRUMP=no -V MKX11FONTS==no -V MKX11=no -V MKYP=no -V MKZFS=no -V MKSKEY=no -V MKHESIOD=no -V MKLDAP=no -V MKMDNS=no
+# See share/man/man5/mk.conf.5 to know following vars
+MKVARS     = -V MKPCC=no -V MKEXTSRC=no -V MKMAN=no -V MKINFO=no -V MKATF=no -V MKCATPAGES=no -V MKCVS=no -V MKDOC=no -V MKHTML=no -V MKIPFILTER=no -V MKLVM=no -V MKNLS=no -V MKPF=no -V MKPOSTFIX=no -V MKRUMP=no -V MKX11FONTS==no -V MKX11=no -V MKYP=no -V MKZFS=no -V MKSKEY=no -V MKHESIOD=no -V MKLDAP=no -V MKMDNS=no -V MKGCCCMDS=no
 BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU} ${MKVARS}
 NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
