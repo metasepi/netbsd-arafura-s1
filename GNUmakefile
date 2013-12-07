@@ -8,7 +8,7 @@ SETSDIR    = ${RELEASEDIR}/${ARCH}/binary/sets
 DESTDIR    = obj/destdir.${ARCH}
 BOOTCDDIR  = obj/bootcd
 NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
-MKVARS     = -V MKPCC=no -V MKCOMPAT=no -V MKX11=no -V MKEXTSRC=no
+MKVARS     = -V MKCROSSGDB=yes -V MKPCC=no -V MKEXTSRC=no -V MKMAN=no -V MKINFO=no -V MKATF=no -V MKCATPAGES=no -V MKCVS=no -V MKDOC=no -V MKGDB=no -V MKHTML=no -V MKIPFILTER=no -V MKLVM=no -V MKNLS=no -V MKPF=no -V MKPOSTFIX=no -V MKRUMP=no -V MKX11FONTS==no -V MKX11=no -V MKYP=no -V MKZFS=no -V MKSKEY=no -V MKHESIOD=no -V MKLDAP=no -V MKMDNS=no
 BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU} ${MKVARS}
 NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
 NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
@@ -17,7 +17,7 @@ MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -no-reboot -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
 MP3FILE    = metasepi/sound/Epopsan-signal.mp3
-LOGFILTER  = -e "===>" -e "^nbgmake"
+LOGFILTER  = -A 2 -B 2 -e "===>" -e "^nbgmake" -e "error"
 #LOGFILTER  = ""
 
 HSBUILD = metasepi/sys/hsbuild
@@ -34,7 +34,7 @@ ${HSBUILD}/hsmain.c: ${HSCODE}
 
 ### Setup NetBSD environment
 obj/build_tools.stamp:
-	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep ${LOGFILTER}
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep ${LOGFILTER}
 	touch obj/build_tools.stamp
 
 obj/build_dist.stamp: obj/build_tools.stamp
@@ -96,8 +96,8 @@ clean:
 	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD} ${BOOTCDDIR} *~
 
 distclean: clean
-	rm -f obj/build_dist.stamp *~
-	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+	rm -f obj/build_dist.stamp ${DESTDIR} *~
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
 	${NBMAKE} -C distrib/i386/kmod-audioplay clean
 	${NBMAKE} -C distrib/i386/ramdisks/ramdisk-audioplay clean
 
