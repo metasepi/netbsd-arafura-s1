@@ -48,6 +48,20 @@ later version.
 
 http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
+### Music located at metasepi/sound/TheMojitoofFluorescence.mp3
+
+Copyright (c) 2013 Fumiaki Kinoshita.
+
+This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License.
+
+http://creativecommons.org/licenses/by-sa/3.0/
+
+Following links to know about Fumiaki and the music.
+
+* https://soundcloud.com/fumieval
+* https://github.com/fumieval
+* https://twitter.com/fumieval
+
 ### Music located at metasepi/sound/Epopsan-signal.mp3
 
 Copyright (c) 2011 Epopsan.
