@@ -2,11 +2,13 @@
 
 ## How to build
 
-Get your own Debian PC.
+Get your own Debian PC. Install some Debian packages.
 
     $ uname -a
     Linux casper 3.11-2-amd64 #1 SMP Debian 3.11.8-1 (2013-11-13) x86_64 GNU/Linux
+    $ sudo apt-get install ffmpeg qemu
 
+Install Ajhc. (See https://github.com/ajhc/ajhc.)
 And git clone me.
 
     $ git clone https://github.com/metasepi/netbsd-arafura-s1.git
