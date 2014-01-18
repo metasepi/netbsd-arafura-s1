@@ -502,7 +502,8 @@ file	dev/pci/auacer.c		auacer
 # Intel ICH AC'97 audio
 device	auich: audiobus, auconv, mulaw, ac97, aurateconv
 attach	auich at pci
-file	dev/pci/auich.c			auich
+#file	dev/pci/auich.c			auich
+file	dev/pci/auich_SNATCHED.c	auich
 
 # VIA VT82C686A/VT8233/VT8235 AC'97 Audio
 device	auvia: audiobus, auconv, mulaw, ac97, aurateconv
