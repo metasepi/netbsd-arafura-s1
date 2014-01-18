@@ -914,6 +914,8 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
+
+extern int auichOpen(void *addr, int flags);
 static int
 auich_open(void *addr, int flags)
 {
@@ -923,7 +925,7 @@ auich_open(void *addr, int flags)
 	mutex_spin_exit(&sc->sc_intr_lock);
 	sc->codec_if->vtbl->lock(sc->codec_if);
 	mutex_spin_enter(&sc->sc_intr_lock);
-	return 0;
+	return auichOpen(addr, flags);
 }
 
 static void
