@@ -17,8 +17,8 @@ NBGDB      = ${CURDIR}/${TOOLDIR}/bin/i486--netbsdelf-gdb
 MINIIMGDIR = ${CURDIR}/distrib/${ARCH}/liveimage/miniimage
 QEMUOPTS   = -m 1024 -soundhw ac97 -no-reboot -cdrom ${BOOTCDDIR}/cd.iso
 MAKEFSOPTS = -t cd9660 -o 'bootimage=i386;bootxx_cd9660,no-emul-boot'
-MP3FILE    = metasepi/sound/TheMojitoofFluorescence.mp3
-#MP3FILE    = metasepi/sound/Epopsan-signal.mp3
+#MP3FILE    = metasepi/sound/TheMojitoofFluorescence.mp3
+MP3FILE    = metasepi/sound/Epopsan-signal.mp3
 LOGFILTER  = -e "===>" -e "^nbgmake" -B 5 -e "Error code"
 #LOGFILTER  = ""
 
