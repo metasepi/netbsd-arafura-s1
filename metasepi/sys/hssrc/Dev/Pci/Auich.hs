@@ -10,9 +10,9 @@ auichOpen sc flags = do
   mutexp <- p_AuichSoftc_sc_intr_lock sc
   codeif <- peek =<< p_AuichSoftc_codec_if sc
   lock <- peek =<< p_Ac97CodecIfVtbl_lock =<< peek =<< p_Ac97CodecIf_vtbl codeif
-  c_mutex_spin_exit mutexp
+  mutexSpinExit mutexp
   call_Ac97CodecIfVtbl_lock lock codeif
-  c_mutex_spin_enter mutexp
+  mutexSpinEnter mutexp
   return 0
 
 -------------------------------------------------------
@@ -31,7 +31,7 @@ newtype {-# CTYPE "struct ac97_codec_if_vtbl" #-} Ac97CodecIfVtbl = Ac97CodecIfV
 foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, lock)"
   offsetOf_Ac97CodecIfVtbl_lock :: Int
 type Ac97CodecIfVtbl_lock = Ptr Ac97CodecIf -> IO (Ptr ())
-foreign import ccall "funptr_ac97_codec_if_vtbl_lock" call_Ac97CodecIfVtbl_lock ::
+foreign import ccall "funptr_apply_p1" call_Ac97CodecIfVtbl_lock ::
   FunPtr (Ac97CodecIfVtbl_lock) -> Ptr Ac97CodecIf -> IO ()
 
 -- Pointer combinator
