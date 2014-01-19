@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	auich_close(void *);
 static int	auich_query_encoding(void *, struct audio_encoding *);
 static int	auich_set_params(void *, int, int, audio_params_t *,
 		    audio_params_t *, stream_filter_list_t *,
@@ -203,10 +202,11 @@ static int	auich_reset_codec(void *);
 static enum ac97_host_flags	auich_flags_codec(void *);
 static void	auich_spdif_event(void *, bool);
 
-extern int auichOpen(void *addr, int flags);
+extern int	auichOpen(void *addr, int flags);
+extern void	auichClose(void *);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
-	auich_close,
+	auichClose,
 	NULL,			/* drain */
 	auich_query_encoding,
 	auich_set_params,
@@ -815,17 +815,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static void
-auich_close(void *addr)
-{
-	struct auich_softc *sc;
-
-	sc = (struct auich_softc *)addr;
-	mutex_spin_exit(&sc->sc_intr_lock);
-	sc->codec_if->vtbl->unlock(sc->codec_if);
-	mutex_spin_enter(&sc->sc_intr_lock);
 }
 
 static int

@@ -15,6 +15,16 @@ auichOpen sc flags = do
   mutexSpinEnter mutexp
   return 0
 
+foreign export ccall "auichClose" auichClose :: Ptr AuichSoftc -> IO ()
+auichClose :: Ptr AuichSoftc -> IO ()
+auichClose sc = do
+  mutexp <- p_AuichSoftc_sc_intr_lock sc
+  codeif <- peek =<< p_AuichSoftc_codec_if sc
+  unlock <- peek =<< p_Ac97CodecIfVtbl_unlock =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  mutexSpinExit mutexp
+  call_Ac97CodecIfVtbl_unlock unlock codeif
+  mutexSpinEnter mutexp
+
 -------------------------------------------------------
 -- Following code should be generated automatically. --
 -------------------------------------------------------
@@ -30,9 +40,14 @@ foreign import primitive "const.offsetof(struct ac97_codec_if, vtbl)"
 newtype {-# CTYPE "struct ac97_codec_if_vtbl" #-} Ac97CodecIfVtbl = Ac97CodecIfVtbl ()
 foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, lock)"
   offsetOf_Ac97CodecIfVtbl_lock :: Int
+foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, unlock)"
+  offsetOf_Ac97CodecIfVtbl_unlock :: Int
 type Ac97CodecIfVtbl_lock = Ptr Ac97CodecIf -> IO (Ptr ())
+type Ac97CodecIfVtbl_unlock = Ptr Ac97CodecIf -> IO (Ptr ())
 foreign import ccall "funptr_apply_p1" call_Ac97CodecIfVtbl_lock ::
   FunPtr (Ac97CodecIfVtbl_lock) -> Ptr Ac97CodecIf -> IO ()
+foreign import ccall "funptr_apply_p1" call_Ac97CodecIfVtbl_unlock ::
+  FunPtr (Ac97CodecIfVtbl_unlock) -> Ptr Ac97CodecIf -> IO ()
 
 -- Pointer combinator
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
@@ -43,3 +58,5 @@ p_Ac97CodecIf_vtbl :: Ptr Ac97CodecIf -> IO (Ptr (Ptr Ac97CodecIfVtbl))
 p_Ac97CodecIf_vtbl p = return $ plusPtr p offsetOf_Ac97CodecIf_vtbl
 p_Ac97CodecIfVtbl_lock :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr Ac97CodecIfVtbl_lock))
 p_Ac97CodecIfVtbl_lock p = return $ plusPtr p offsetOf_Ac97CodecIfVtbl_lock
+p_Ac97CodecIfVtbl_unlock :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr Ac97CodecIfVtbl_unlock))
+p_Ac97CodecIfVtbl_unlock p = return $ plusPtr p offsetOf_Ac97CodecIfVtbl_unlock
