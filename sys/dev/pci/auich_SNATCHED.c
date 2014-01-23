@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_query_encoding(void *, struct audio_encoding *);
 static int	auich_set_params(void *, int, int, audio_params_t *,
 		    audio_params_t *, stream_filter_list_t *,
 		    stream_filter_list_t *);
@@ -204,11 +203,12 @@ static void	auich_spdif_event(void *, bool);
 
 extern int	auichOpen(void *addr, int flags);
 extern void	auichClose(void *);
+extern int	auichQueryEncoding(void *, struct audio_encoding *);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
 	auichClose,
 	NULL,			/* drain */
-	auich_query_encoding,
+	auichQueryEncoding,
 	auich_set_params,
 	auich_round_blocksize,
 	NULL,			/* commit_setting */
@@ -815,16 +815,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static int
-auich_query_encoding(void *v, struct audio_encoding *aep)
-{
-	struct auich_softc *sc;
-
-	sc = (struct auich_softc *)v;
-	return auconv_query_encoding(
-	    sc->sc_spdif ? sc->sc_spdif_encodings : sc->sc_encodings, aep);
 }
 
 static int
