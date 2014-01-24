@@ -201,7 +201,7 @@ static int	auich_reset_codec(void *);
 static enum ac97_host_flags	auich_flags_codec(void *);
 static void	auich_spdif_event(void *, bool);
 
-extern int	auichOpen(void *addr, int flags);
+extern int	auichOpen(void *, int);
 extern void	auichClose(void *);
 extern int	auichQueryEncoding(void *, struct audio_encoding *);
 static const struct audio_hw_if auich_hw_if = {
@@ -843,6 +843,7 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	return ret;
 }
 
+extern int	auichSetParams(void *, int, audio_params_t *);
 static int
 auich_set_params(void *v, int setmode, int usemode,
     audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
@@ -852,7 +853,6 @@ auich_set_params(void *v, int setmode, int usemode,
 	audio_params_t *p;
 	stream_filter_list_t *fil;
 	int mode, index;
-	uint32_t control;
 
 	sc = v;
 	for (mode = AUMODE_RECORD; mode != -1;
@@ -899,19 +899,7 @@ auich_set_params(void *v, int setmode, int usemode,
 					  p->sample_rate);
 			auich_write_codec(sc, AC97_REG_LINE1_LEVEL, 0);
 		}
-		if (mode == AUMODE_PLAY &&
-		    sc->sc_codectype == AC97_CODEC_TYPE_AUDIO) {
-			control = bus_space_read_4(sc->iot, sc->aud_ioh,
-			    ICH_GCTRL + sc->sc_modem_offset);
-				control &= ~sc->sc_pcm246_mask;
-			if (p->channels == 4) {
-				control |= sc->sc_pcm4;
-			} else if (p->channels == 6) {
-				control |= sc->sc_pcm6;
-			}
-			bus_space_write_4(sc->iot, sc->aud_ioh,
-			    ICH_GCTRL + sc->sc_modem_offset, control);
-		}
+		auichSetParams(sc, mode, p);
 	}
 
 	return 0;
