@@ -92,22 +92,6 @@ foreign import primitive "const.offsetof(struct auich_softc, sc_pcm4)"
 foreign import primitive "const.offsetof(struct auich_softc, sc_pcm6)"
   offsetOf_AuichSoftc_sc_pcm6 :: Int
 
-newtype {-# CTYPE "struct ac97_codec_if" #-} Ac97CodecIf = Ac97CodecIf ()
-foreign import primitive "const.offsetof(struct ac97_codec_if, vtbl)"
-  offsetOf_Ac97CodecIf_vtbl :: Int
-
-newtype {-# CTYPE "struct ac97_codec_if_vtbl" #-} Ac97CodecIfVtbl = Ac97CodecIfVtbl ()
-foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, lock)"
-  offsetOf_Ac97CodecIfVtbl_lock :: Int
-foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, unlock)"
-  offsetOf_Ac97CodecIfVtbl_unlock :: Int
-type Ac97CodecIfVtbl_lock = Ptr Ac97CodecIf -> IO (Ptr ())
-type Ac97CodecIfVtbl_unlock = Ptr Ac97CodecIf -> IO (Ptr ())
-foreign import ccall "dynamic" call_Ac97CodecIfVtbl_lock ::
-  FunPtr (Ac97CodecIfVtbl_lock) -> Ac97CodecIfVtbl_lock
-foreign import ccall "dynamic" call_Ac97CodecIfVtbl_unlock ::
-  FunPtr (Ac97CodecIfVtbl_unlock) -> Ac97CodecIfVtbl_unlock
-
 -- Pointer combinator
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -133,10 +117,3 @@ p_AuichSoftc_sc_pcm4 :: Ptr AuichSoftc -> IO (Ptr Word32)
 p_AuichSoftc_sc_pcm4 p = return $ plusPtr p offsetOf_AuichSoftc_sc_pcm4
 p_AuichSoftc_sc_pcm6 :: Ptr AuichSoftc -> IO (Ptr Word32)
 p_AuichSoftc_sc_pcm6 p = return $ plusPtr p offsetOf_AuichSoftc_sc_pcm6
-
-p_Ac97CodecIf_vtbl :: Ptr Ac97CodecIf -> IO (Ptr (Ptr Ac97CodecIfVtbl))
-p_Ac97CodecIf_vtbl p = return $ plusPtr p offsetOf_Ac97CodecIf_vtbl
-p_Ac97CodecIfVtbl_lock :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr Ac97CodecIfVtbl_lock))
-p_Ac97CodecIfVtbl_lock p = return $ plusPtr p offsetOf_Ac97CodecIfVtbl_lock
-p_Ac97CodecIfVtbl_unlock :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr Ac97CodecIfVtbl_unlock))
-p_Ac97CodecIfVtbl_unlock p = return $ plusPtr p offsetOf_Ac97CodecIfVtbl_unlock
