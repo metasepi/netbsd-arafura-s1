@@ -103,10 +103,10 @@ foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, unlock)"
   offsetOf_Ac97CodecIfVtbl_unlock :: Int
 type Ac97CodecIfVtbl_lock = Ptr Ac97CodecIf -> IO (Ptr ())
 type Ac97CodecIfVtbl_unlock = Ptr Ac97CodecIf -> IO (Ptr ())
-foreign import ccall "hs_extern.h funptr_apply_p1" call_Ac97CodecIfVtbl_lock ::
-  FunPtr (Ac97CodecIfVtbl_lock) -> Ptr Ac97CodecIf -> IO ()
-foreign import ccall "hs_extern.h funptr_apply_p1" call_Ac97CodecIfVtbl_unlock ::
-  FunPtr (Ac97CodecIfVtbl_unlock) -> Ptr Ac97CodecIf -> IO ()
+foreign import ccall "dynamic" call_Ac97CodecIfVtbl_lock ::
+  FunPtr (Ac97CodecIfVtbl_lock) -> Ac97CodecIfVtbl_lock
+foreign import ccall "dynamic" call_Ac97CodecIfVtbl_unlock ::
+  FunPtr (Ac97CodecIfVtbl_unlock) -> Ac97CodecIfVtbl_unlock
 
 -- Pointer combinator
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
