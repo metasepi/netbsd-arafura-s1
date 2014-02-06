@@ -887,18 +887,6 @@ auich_set_params(void *v, int setmode, int usemode,
 		if (fil->req_size > 0)
 			p = &fil->filters[0].param;
 		/* p represents HW encoding */
-		if (sc->sc_codectype == AC97_CODEC_TYPE_AUDIO) {
-			if (sc->sc_audio_formats[index].frequency_type != 1
-			    && auich_set_rate(sc, mode, p->sample_rate))
-				return EINVAL;
-		} else {
-			if (sc->sc_modem_formats[index].frequency_type != 1
-			    && auich_set_rate(sc, mode, p->sample_rate))
-				return EINVAL;
-			auich_write_codec(sc, AC97_REG_LINE1_RATE,
-					  p->sample_rate);
-			auich_write_codec(sc, AC97_REG_LINE1_LEVEL, 0);
-		}
 		auichSetParams(sc, mode, p, index);
 	}
 

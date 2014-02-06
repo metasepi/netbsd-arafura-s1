@@ -51,7 +51,8 @@ auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> IO Int
 auichSetParams sc mode p index = do
   -- xxx NOT_YET_ALL
   codectype <- peek =<< p_AuichSoftc_sc_codectype sc
-  f8 codectype >> f9 codectype -- xxxxxxxxxxxxxxxxxxxxxx
+  r <- f8 codectype >>? f9 codectype
+  either return (const $ return 0) r
   where
     f8 :: Int -> IO (Either Int ())
     f8 codectype = do
@@ -73,7 +74,7 @@ auichSetParams sc mode p index = do
             c_auich_write_codec sc e_AC97_REG_LINE1_LEVEL 0
             return $ Right ()
         else return $ Right ()
-    f9 :: Int -> IO Int
+    f9 :: Int -> IO (Either Int ())
     f9 codectype = do
       when (mode == e_AudioInfoT_mode_AUMODE_PLAY && codectype == e_AC97_CODEC_TYPE_AUDIO) $ do
         iot <- peek =<< p_AuichSoftc_iot sc
@@ -86,7 +87,7 @@ auichSetParams sc mode p index = do
         scPcm6 <- peek =<< p_AuichSoftc_sc_pcm6 sc
         let control' = control .&. (complement scPcm246Mask) .|. (if channels == 4 then scPcm4 else scPcm6)
         busSpaceWrite4 iot aud_ioh (e_ICH_GCTRL + modem_offset) control'
-      return 0
+      return $ Right ()
 
 foreign import ccall "hs_extern.h auich_set_rate"
   c_auich_set_rate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
