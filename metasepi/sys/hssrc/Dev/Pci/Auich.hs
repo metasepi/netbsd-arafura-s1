@@ -14,6 +14,7 @@ import Dev.Ic.Ac97reg
 import Dev.Ic.Ac97var
 import Dev.AudioIf
 import Dev.Auconv
+import Metasepi.EitherIO
 
 foreign export ccall "auichOpen" auichOpen :: Ptr AuichSoftc -> Int -> IO Int
 auichOpen :: Ptr AuichSoftc -> Int -> IO Int
