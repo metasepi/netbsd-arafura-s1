@@ -125,7 +125,7 @@ acpi_wakeup_low.o busfunc.o kvm86call.o: assym.h
 .include "$S/arch/x86/acpi/Makefile.wakecode.inc"
 
 # For Haskell + Ajhc
-CWARNFLAGS+=	-Wno-unused-value -Wno-unused-parameter
+CWARNFLAGS+=	-Wno-unused-value -Wno-unused-parameter -Wno-cast-qual
 
 ##
 ## (10) Appending make options.

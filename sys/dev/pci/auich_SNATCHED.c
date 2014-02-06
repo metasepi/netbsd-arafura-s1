@@ -188,7 +188,7 @@ static int	auich_allocmem(struct auich_softc *, size_t, size_t,
 static int	auich_freemem(struct auich_softc *, struct auich_dma *);
 
 static bool	auich_resume(device_t, const pmf_qual_t *);
-static int	auich_set_rate(struct auich_softc *, int, u_long);
+int	auich_set_rate(struct auich_softc *, int, u_long);
 static int	auich_sysctl_verify(SYSCTLFN_ARGS);
 static void	auich_finish_attach(device_t);
 static void	auich_calibrate(struct auich_softc *);
@@ -196,7 +196,7 @@ static void	auich_clear_cas(struct auich_softc *);
 
 static int	auich_attach_codec(void *, struct ac97_codec_if *);
 static int	auich_read_codec(void *, uint8_t, uint16_t *);
-static int	auich_write_codec(void *, uint8_t, uint16_t);
+int	auich_write_codec(void *, uint8_t, uint16_t);
 static int	auich_reset_codec(void *);
 static enum ac97_host_flags	auich_flags_codec(void *);
 static void	auich_spdif_event(void *, bool);
@@ -724,7 +724,7 @@ auich_read_codec(void *v, uint8_t reg, uint16_t *val)
 	}
 }
 
-static int
+int
 auich_write_codec(void *v, uint8_t reg, uint16_t val)
 {
 	struct auich_softc *sc;
@@ -817,7 +817,7 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-static int
+int
 auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 {
 	int ret;
@@ -843,7 +843,7 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	return ret;
 }
 
-extern int	auichSetParams(void *, int, audio_params_t *);
+extern int	auichSetParams(void *, int, audio_params_t *, int);
 static int
 auich_set_params(void *v, int setmode, int usemode,
     audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
@@ -899,7 +899,7 @@ auich_set_params(void *v, int setmode, int usemode,
 					  p->sample_rate);
 			auich_write_codec(sc, AC97_REG_LINE1_LEVEL, 0);
 		}
-		auichSetParams(sc, mode, p);
+		auichSetParams(sc, mode, p, index);
 	}
 
 	return 0;
