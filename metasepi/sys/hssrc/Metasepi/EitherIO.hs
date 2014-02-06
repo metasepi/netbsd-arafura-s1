@@ -16,6 +16,12 @@ instance Monad (EitherIO e) where
       Right r -> runEitherIO (k r)
   fail = EitherIO . fail
 
+failEitherIO :: e -> EitherIO e a
+failEitherIO e = EitherIO $ return (Left e)
+
+liftEitherIO :: IO a -> EitherIO e a
+liftEitherIO io = EitherIO $ io >>= return . Right
+
 {--
 ask :: EitherIO String String
 ask = EitherIO $ do
