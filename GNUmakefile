@@ -88,6 +88,9 @@ qemu: bootcd
 qemucurses: bootcd
 	env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses
 
+qemugnometerm: bootcd
+	gnome-terminal -e "env QEMU_AUDIO_DRV=alsa qemu-system-i386 ${QEMUOPTS} -curses"
+
 qemuvnc: bootcd
 	@echo '####################################'
 	@echo '### Run "gvncviewer localhost:0" ###'
