@@ -6,17 +6,13 @@
 #undef malloc
 #undef free
 #undef realloc
-#include <sys/pool.h>
 
 MALLOC_DECLARE(M_HASKELL);
 MALLOC_DEFINE(M_HASKELL, "hsalloc", "alloc for haskell");
 
-static struct pool haskell_pl;
-
 void
 __dummy4jhc_init(void)
 {
-        pool_init(&haskell_pl, MEGABLOCK_SIZE, BLOCK_SIZE, 0, 0, "haskellpl", NULL, IPL_HIGH);
 }
 
 void *
@@ -40,9 +36,13 @@ free(void *ptr)
 int
 posix_memalign(void **ptr, size_t alignment, size_t size)
 {
+	intptr_t p;
+
 	assert(BLOCK_SIZE == alignment);
 	assert(MEGABLOCK_SIZE == size);
-	*ptr = pool_get(&haskell_pl, PR_WAITOK);
+
+	p = (intptr_t) malloc(MEGABLOCK_SIZE + BLOCK_SIZE);
+	*ptr = (void *) ((p + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1));
 	return 0;
 }
 
