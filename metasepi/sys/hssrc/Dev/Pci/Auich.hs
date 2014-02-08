@@ -47,23 +47,32 @@ auichQueryEncoding sc aep = do
   return =<< auconvQueryEncoding encodings aep
 
 foreign export ccall "auichSetParams"
-  auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> IO Int
-auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> IO Int
-auichSetParams sc mode p index = do
+  auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> Ptr StreamFilterList -> IO Int
+auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> Ptr StreamFilterList -> IO Int
+auichSetParams sc mode p index fil = do
   -- xxx NOT_YET_ALL
   codectype <- peek =<< p_AuichSoftc_sc_codectype sc
-  r <- f8 codectype >>? f9 codectype
+  r <- f7 p >>=? f8 codectype >>=? f9 codectype
   either return (const $ return 0) r
   where
-    f8 :: Int -> IO (Either Int ())
-    f8 codectype = do
+    f7 :: Ptr AudioParamsT -> IO (Either Int (Ptr AudioParamsT))
+    f7 param =
+      if index < 0 then return $ Left e_EINVAL
+      else do
+        s <- peek =<< p_StreamFilterList_req_size fil
+        if s > 0 then do
+          p' <- p_StreamFilterReq_param =<< p_StreamFilterList_filters fil 0
+          return $ Right p'
+        else return $ Right param
+    f8 :: Int -> Ptr AudioParamsT -> IO (Either Int (Ptr AudioParamsT))
+    f8 codectype param = do
       if (codectype == e_AC97_CODEC_TYPE_AUDIO) then do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_audio_formats sc index
         if ft /= 1 then do
           rate <- peek =<< p_AudioParams_sample_rate p
           r <- c_auich_set_rate sc mode $ fromIntegral rate
-          if r /= 0 then return $ Left e_EINVAL else return $ Right ()
-        else return $ Right ()
+          if r /= 0 then return $ Left e_EINVAL else return $ Right param
+        else return $ Right param
       else do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_modem_formats sc index
         if ft /= 1 then do
@@ -73,16 +82,16 @@ auichSetParams sc mode p index = do
           else do
             c_auich_write_codec sc e_AC97_REG_LINE1_RATE $ fromIntegral rate
             c_auich_write_codec sc e_AC97_REG_LINE1_LEVEL 0
-            return $ Right ()
-        else return $ Right ()
-    f9 :: Int -> IO (Either Int ())
-    f9 codectype = do
+            return $ Right param
+        else return $ Right param
+    f9 :: Int -> Ptr AudioParamsT -> IO (Either Int ())
+    f9 codectype param = do
       when (mode == e_AudioInfoT_mode_AUMODE_PLAY && codectype == e_AC97_CODEC_TYPE_AUDIO) $ do
         iot <- peek =<< p_AuichSoftc_iot sc
         aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
         modem_offset <- peek =<< p_AuichSoftc_sc_modem_offset sc
         control <- busSpaceRead4 iot aud_ioh (e_ICH_GCTRL + modem_offset)
-        channels <- peek =<< p_AudioParamsT_channels p
+        channels <- peek =<< p_AudioParamsT_channels param
         scPcm246Mask <- peek =<< p_AuichSoftc_sc_pcm246_mask sc
         scPcm4 <- peek =<< p_AuichSoftc_sc_pcm4 sc
         scPcm6 <- peek =<< p_AuichSoftc_sc_pcm6 sc

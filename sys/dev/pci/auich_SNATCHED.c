@@ -843,7 +843,7 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	return ret;
 }
 
-extern int	auichSetParams(void *, int, audio_params_t *, int);
+extern int	auichSetParams(void *, int, audio_params_t *, int, stream_filter_list_t *);
 static int
 auich_set_params(void *v, int setmode, int usemode,
     audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
@@ -882,12 +882,7 @@ auich_set_params(void *v, int setmode, int usemode,
 			index = auconv_set_converter(sc->sc_modem_formats,
 			    AUICH_MODEM_NFORMATS, mode, p, TRUE, fil);
 		}
-		if (index < 0)
-			return EINVAL;
-		if (fil->req_size > 0)
-			p = &fil->filters[0].param;
-		/* p represents HW encoding */
-		auichSetParams(sc, mode, p, index);
+		auichSetParams(sc, mode, p, index, fil);
 	}
 
 	return 0;
