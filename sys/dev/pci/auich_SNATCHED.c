@@ -847,29 +847,21 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	return ret;
 }
 
-extern int	auichSetParams(void *, int, audio_params_t *, stream_filter_list_t *);
+extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *, int);
 static int
 auich_set_params(void *v, int setmode, int usemode,
     audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
     stream_filter_list_t *rfil)
 {
 	struct auich_softc *sc;
-	audio_params_t *p;
-	stream_filter_list_t *fil;
 	int mode;
 
 	sc = v;
 	for (mode = AUMODE_RECORD; mode != -1;
 	     mode = mode == AUMODE_RECORD ? AUMODE_PLAY : -1) {
-		if ((setmode & mode) == 0)
-			continue;
-
-		p = mode == AUMODE_PLAY ? play : rec;
-		fil = mode == AUMODE_PLAY ? pfil : rfil;
-		if (p == NULL)
-			continue;
-
-		auichSetParams(sc, mode, p, fil); // Haskell code
+		int r;
+		r = auichSetParams(sc, setmode, usemode, play, rec, pfil, rfil, mode); // Haskell code
+		if (r != 0) return r;
 	}
 
 	return 0;
