@@ -132,7 +132,6 @@ auichSetParams' sc setmode usemode play record pfil rfil mode = do
         busSpaceWrite4 iot aud_ioh (e_ICH_GCTRL + modem_offset) control'
       return $ Right ()
 
-foreign export ccall "auichSetRate" auichSetRate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
 auichSetRate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
 auichSetRate sc mode srate = do
   codeif <- peek =<< p_AuichSoftc_codec_if sc
