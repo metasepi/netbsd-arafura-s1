@@ -123,4 +123,7 @@ struct auich_softc {
 	struct audio_encoding_set *sc_spdif_encodings;
 };
 
+#define AUICH_SPDIF_NFORMATS	1
+struct audio_format *get_auich_spdif_formats(void);
+
 #endif /* _DEV_PCI_AUICH_EXTERN_H_ */

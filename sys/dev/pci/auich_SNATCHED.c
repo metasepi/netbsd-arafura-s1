@@ -247,7 +247,6 @@ static const struct audio_format auich_audio_formats[AUICH_AUDIO_NFORMATS] = {
 	 6, AUFMT_DOLBY_5_1, 0, {8000, 48000}},
 };
 
-#define AUICH_SPDIF_NFORMATS	1
 static const struct audio_format auich_spdif_formats[AUICH_SPDIF_NFORMATS] = {
 	{NULL, AUMODE_PLAY | AUMODE_RECORD, AUDIO_ENCODING_SLINEAR_LE, 16, 16,
 	 2, AUFMT_STEREO, 1, {48000}},
@@ -322,6 +321,11 @@ static const struct auich_devtype auich_modem_devices[] = {
 #endif
 	{ 0,		NULL,				NULL },
 };
+
+struct audio_format *
+get_auich_spdif_formats(void) {
+	return (struct audio_format *) auich_spdif_formats;
+}
 
 static const struct auich_devtype *
 auich_lookup(struct pci_attach_args *pa, const struct auich_devtype *auich_devices)
@@ -843,7 +847,7 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	return ret;
 }
 
-extern int	auichSetParams(void *, int, audio_params_t *, int, stream_filter_list_t *);
+extern int	auichSetParams(void *, int, audio_params_t *, stream_filter_list_t *);
 static int
 auich_set_params(void *v, int setmode, int usemode,
     audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
@@ -852,7 +856,7 @@ auich_set_params(void *v, int setmode, int usemode,
 	struct auich_softc *sc;
 	audio_params_t *p;
 	stream_filter_list_t *fil;
-	int mode, index;
+	int mode;
 
 	sc = v;
 	for (mode = AUMODE_RECORD; mode != -1;
@@ -865,24 +869,7 @@ auich_set_params(void *v, int setmode, int usemode,
 		if (p == NULL)
 			continue;
 
-		if (sc->sc_codectype == AC97_CODEC_TYPE_AUDIO) {
-			if (p->sample_rate <  8000 ||
-			    p->sample_rate > 48000)
-				return EINVAL;
-
-			if (!sc->sc_spdif)
-				index = auconv_set_converter(sc->sc_audio_formats,
-				    AUICH_AUDIO_NFORMATS, mode, p, TRUE, fil);
-			else
-				index = auconv_set_converter(auich_spdif_formats,
-				    AUICH_SPDIF_NFORMATS, mode, p, TRUE, fil);
-		} else {
-			if (p->sample_rate != 8000 && p->sample_rate != 16000)
-				return EINVAL;
-			index = auconv_set_converter(sc->sc_modem_formats,
-			    AUICH_MODEM_NFORMATS, mode, p, TRUE, fil);
-		}
-		auichSetParams(sc, mode, p, index, fil);
+		auichSetParams(sc, mode, p, fil); // Haskell code
 	}
 
 	return 0;

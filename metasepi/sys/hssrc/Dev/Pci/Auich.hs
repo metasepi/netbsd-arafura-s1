@@ -6,6 +6,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Foreign.C.Types
 import Kern.KernMutex
+import Sys.Types
 import Sys.Errno
 import Sys.Audioio
 import Sys.Bus
@@ -47,32 +48,53 @@ auichQueryEncoding sc aep = do
   return =<< auconvQueryEncoding encodings aep
 
 foreign export ccall "auichSetParams"
-  auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> Ptr StreamFilterList -> IO Int
-auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Int -> Ptr StreamFilterList -> IO Int
-auichSetParams sc mode p index fil = do
+  auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Ptr StreamFilterList -> IO Int
+auichSetParams :: Ptr AuichSoftc -> Int -> Ptr AudioParamsT -> Ptr StreamFilterList -> IO Int
+auichSetParams sc mode p fil = do
   -- xxx NOT_YET_ALL
   codectype <- peek =<< p_AuichSoftc_sc_codectype sc
-  r <- f7 p >>=? f8 codectype >>=? f9 codectype
+  r <- f6 codectype p >>=? f7 >>=? f8 codectype >>=? f9 codectype
   either return (const $ return 0) r
   where
-    f7 :: Ptr AudioParamsT -> IO (Either Int (Ptr AudioParamsT))
-    f7 param =
+    f6 :: Int -> Ptr AudioParamsT -> IO (Either Int (Ptr AudioParamsT, Int))
+    f6 codectype param = do
+      rate <- peek =<< p_AudioParams_sample_rate p
+      if (codectype == e_AC97_CODEC_TYPE_AUDIO) then
+        if rate <  8000 || rate > 48000 then return $ Left e_EINVAL
+        else do
+          spdif <- peek =<< p_AuichSoftc_sc_spdif sc
+          if spdif then do
+            fmt <- c_get_auich_spdif_formats
+            index <- auconvSetConverter fmt e_AUICH_SPDIF_NFORMATS mode p bTRUE fil
+            return $ Right (param, index)
+          else do
+            fmt <- p_AuichSoftc_sc_audio_formats sc 0
+            index <- auconvSetConverter fmt e_AUICH_AUDIO_NFORMATS mode p bTRUE fil
+            return $ Right (param, index)
+      else do
+        if rate /=  8000 || rate /= 16000 then return $ Left e_EINVAL
+        else do
+          fmt <- p_AuichSoftc_sc_modem_formats sc 0
+          index <- auconvSetConverter fmt e_AUICH_MODEM_NFORMATS mode p bTRUE fil
+          return $ Right (param, index)
+    f7 :: (Ptr AudioParamsT, Int) -> IO (Either Int (Ptr AudioParamsT, Int))
+    f7 (param, index) =
       if index < 0 then return $ Left e_EINVAL
       else do
         s <- peek =<< p_StreamFilterList_req_size fil
         if s > 0 then do
           p' <- p_StreamFilterReq_param =<< p_StreamFilterList_filters fil 0
-          return $ Right p'
-        else return $ Right param
-    f8 :: Int -> Ptr AudioParamsT -> IO (Either Int (Ptr AudioParamsT))
-    f8 codectype param = do
+          return $ Right (p', index)
+        else return $ Right (param, index)
+    f8 :: Int -> (Ptr AudioParamsT, Int) -> IO (Either Int (Ptr AudioParamsT, Int))
+    f8 codectype (param, index) = do
       if (codectype == e_AC97_CODEC_TYPE_AUDIO) then do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_audio_formats sc index
         if ft /= 1 then do
           rate <- peek =<< p_AudioParams_sample_rate p
           r <- c_auich_set_rate sc mode $ fromIntegral rate
-          if r /= 0 then return $ Left e_EINVAL else return $ Right param
-        else return $ Right param
+          if r /= 0 then return $ Left e_EINVAL else return $ Right (param, index)
+        else return $ Right (param, index)
       else do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_modem_formats sc index
         if ft /= 1 then do
@@ -82,10 +104,10 @@ auichSetParams sc mode p index fil = do
           else do
             c_auich_write_codec sc e_AC97_REG_LINE1_RATE $ fromIntegral rate
             c_auich_write_codec sc e_AC97_REG_LINE1_LEVEL 0
-            return $ Right param
-        else return $ Right param
-    f9 :: Int -> Ptr AudioParamsT -> IO (Either Int ())
-    f9 codectype param = do
+            return $ Right (param, index)
+        else return $ Right (param, index)
+    f9 :: Int -> (Ptr AudioParamsT, Int) -> IO (Either Int ())
+    f9 codectype (param, index) = do
       when (mode == e_AudioInfoT_mode_AUMODE_PLAY && codectype == e_AC97_CODEC_TYPE_AUDIO) $ do
         iot <- peek =<< p_AuichSoftc_iot sc
         aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
@@ -103,6 +125,12 @@ foreign import ccall "hs_extern.h auich_set_rate"
   c_auich_set_rate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
 foreign import ccall "hs_extern.h auich_write_codec"
   c_auich_write_codec :: Ptr AuichSoftc -> Word8 -> Word16 -> IO Int
+foreign import ccall "hs_extern.h get_auich_spdif_formats"
+  c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
+
+foreign import primitive "const.AUICH_AUDIO_NFORMATS" e_AUICH_AUDIO_NFORMATS :: Int
+foreign import primitive "const.AUICH_MODEM_NFORMATS" e_AUICH_MODEM_NFORMATS :: Int
+foreign import primitive "const.AUICH_SPDIF_NFORMATS" e_AUICH_SPDIF_NFORMATS :: Int
 
 --------------------------------------------------------------------------
 -- Following code is generated by struct2hs command semi-automatically. --
