@@ -159,7 +159,6 @@ foreign export ccall "auichWriteCodec"
   auichWriteCodec :: Ptr AuichSoftc -> Word8 -> Word16 -> IO Int
 auichWriteCodec :: Ptr AuichSoftc -> Word8 -> Word16 -> IO Int
 auichWriteCodec sc reg val = do
-  -- xxx Not yet all
   iot <- peek =<< p_AuichSoftc_iot sc
   audIoh <- peek =<< p_AuichSoftc_aud_ioh sc
   modemOffset <- peek =<< p_AuichSoftc_sc_modem_offset sc
@@ -182,6 +181,12 @@ auichWriteCodec sc reg val = do
       dev <- peek =<< p_AuichSoftc_sc_dev sc
       aprintNormalDev0 dev "write_codec timeout\n"
       return (-1)
+
+foreign export ccall "auichRoundBlocksize"
+  auichRoundBlocksize :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> IO Int
+auichRoundBlocksize :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> IO Int
+auichRoundBlocksize sc blk mode param = do
+  return $ blk .&. complement 0x3f
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)

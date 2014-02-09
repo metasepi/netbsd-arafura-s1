@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_round_blocksize(void *, int, int, const audio_params_t *);
 static void	auich_halt_pipe(struct auich_softc *, int);
 static int	auich_halt_output(void *);
 static int	auich_halt_input(void *);
@@ -201,13 +200,14 @@ extern void	auichClose(void *);
 extern int	auichQueryEncoding(void *, struct audio_encoding *);
 extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *);
 extern int	auichWriteCodec(void *, uint8_t, uint16_t);
+extern int	auichRoundBlocksize(void *, int, int, const audio_params_t *);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
 	auichClose,
 	NULL,			/* drain */
 	auichQueryEncoding,
 	auichSetParams,
-	auich_round_blocksize,
+	auichRoundBlocksize,
 	NULL,			/* commit_setting */
 	NULL,			/* init_output */
 	NULL,			/* init_input */
@@ -791,14 +791,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static int
-auich_round_blocksize(void *v, int blk, int mode,
-    const audio_params_t *param)
-{
-
-	return blk & ~0x3f;		/* keep good alignment */
 }
 
 static void
