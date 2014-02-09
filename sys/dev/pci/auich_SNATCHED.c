@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_halt_input(void *);
 static int	auich_getdev(void *, struct audio_device *);
 static int	auich_set_port(void *, mixer_ctrl_t *);
 static int	auich_get_port(void *, mixer_ctrl_t *);
@@ -201,6 +200,7 @@ extern int	auichWriteCodec(void *, uint8_t, uint16_t);
 extern int	auichRoundBlocksize(void *, int, int, const audio_params_t *);
 extern void	auichHaltPipe(struct auich_softc *, int);
 extern int	auichHaltOutput(void *);
+extern int	auichHaltInput(void *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -215,7 +215,7 @@ static const struct audio_hw_if auich_hw_if = {
 	NULL,			/* start_output */
 	NULL,			/* start_input */
 	auichHaltOutput,
-	auich_halt_input,
+	auichHaltInput,
 	NULL,			/* speaker_ctl */
 	auich_getdev,
 	NULL,			/* getfd */
@@ -792,20 +792,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static int
-auich_halt_input(void *v)
-{
-	struct auich_softc *sc;
-
-	sc = v;
-	DPRINTF(ICH_DEBUG_DMA, ("%s: halt_input\n", device_xname(sc->sc_dev)));
-
-	auichHaltPipe(sc, ICH_PCMI);
-	sc->pcmi.intr = NULL;
-
-	return 0;
 }
 
 static int

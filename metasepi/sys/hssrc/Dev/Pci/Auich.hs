@@ -213,6 +213,15 @@ auichHaltOutput sc = do
   poke (castPtr intr) (0::IntPtr)
   return 0
 
+foreign export ccall "auichHaltInput"
+  auichHaltInput :: Ptr AuichSoftc -> IO Int
+auichHaltInput :: Ptr AuichSoftc -> IO Int
+auichHaltInput sc = do
+  auichHaltPipe sc e_ICH_PCMI
+  intr <- p_AuichRing_intr =<< p_AuichSoftc_pcmi sc
+  poke (castPtr intr) (0::IntPtr)
+  return 0
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
