@@ -5,6 +5,7 @@ import Data.Bits
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.C.Types
+import Foreign.Marshal.Alloc
 import Kern.KernMutex
 import Sys.Types
 import Sys.Errno
@@ -102,14 +103,14 @@ auichSetParams' sc setmode usemode play record pfil rfil mode = do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_audio_formats sc index
         if ft /= 1 then do
           rate <- peek =<< p_AudioParams_sample_rate param
-          r <- c_auich_set_rate sc mode $ fromIntegral rate
+          r <- auichSetRate sc mode $ fromIntegral rate
           if r /= 0 then return $ Left e_EINVAL else return $ Right (param, fil, index)
         else return $ Right (param, fil, index)
       else do
         ft <- peek =<< p_AudioFormat_frequency_type =<< p_AuichSoftc_sc_modem_formats sc index
         if ft /= 1 then do
           rate <- peek =<< p_AudioParams_sample_rate param
-          r <- c_auich_set_rate sc mode $ fromIntegral rate
+          r <- auichSetRate sc mode $ fromIntegral rate
           if r /= 0 then return $ Left e_EINVAL
           else do
             c_auich_write_codec sc e_AC97_REG_LINE1_RATE $ fromIntegral rate
@@ -131,8 +132,26 @@ auichSetParams' sc setmode usemode play record pfil rfil mode = do
         busSpaceWrite4 iot aud_ioh (e_ICH_GCTRL + modem_offset) control'
       return $ Right ()
 
-foreign import ccall "hs_extern.h auich_set_rate"
-  c_auich_set_rate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
+foreign export ccall "auichSetRate" auichSetRate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
+auichSetRate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
+auichSetRate sc mode srate = do
+  codeif <- peek =<< p_AuichSoftc_codec_if sc
+  sc97Clock <- peek =<< p_AuichSoftc_sc_ac97_clock sc
+  setClock <- peek =<< p_Ac97CodecIfVtbl_set_clock =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  call_Ac97CodecIfVtbl_set_clock setClock codeif (fromIntegral sc97Clock)
+  setRatePtr <- peek =<< p_Ac97CodecIfVtbl_set_rate =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  let setRate = call_Ac97CodecIfVtbl_set_rate setRatePtr
+  if e_AudioInfoT_mode_AUMODE_RECORD == mode then
+    alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_LR_ADC_RATE p
+  else do
+    r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_FRONT_DAC_RATE p
+    if r /= 0 then return r
+    else do
+      r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_SURR_DAC_RATE p
+      if r /= 0 then return r
+      else
+        alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_LFE_DAC_RATE p
+
 foreign import ccall "hs_extern.h auich_write_codec"
   c_auich_write_codec :: Ptr AuichSoftc -> Word8 -> Word16 -> IO Int
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
@@ -175,6 +194,8 @@ foreign import primitive "const.offsetof(struct auich_softc, sc_audio_formats)"
   offsetOf_AuichSoftc_sc_audio_formats :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_modem_formats)"
   offsetOf_AuichSoftc_sc_modem_formats :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_ac97_clock)"
+  offsetOf_AuichSoftc_sc_ac97_clock :: Int
 
 -- Pointer combinator
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
@@ -205,3 +226,5 @@ p_AuichSoftc_sc_audio_formats :: Ptr AuichSoftc -> Int -> IO (Ptr AudioFormat)
 p_AuichSoftc_sc_audio_formats p i = return $ plusPtr p $ offsetOf_AuichSoftc_sc_audio_formats + i * sizeOf_AudioFormat
 p_AuichSoftc_sc_modem_formats :: Ptr AuichSoftc -> Int -> IO (Ptr AudioFormat)
 p_AuichSoftc_sc_modem_formats p i = return $ plusPtr p $ offsetOf_AuichSoftc_sc_modem_formats + i * sizeOf_AudioFormat
+p_AuichSoftc_sc_ac97_clock :: Ptr AuichSoftc -> IO (Ptr Word32)
+p_AuichSoftc_sc_ac97_clock p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_ac97_clock

@@ -185,7 +185,6 @@ static int	auich_allocmem(struct auich_softc *, size_t, size_t,
 static int	auich_freemem(struct auich_softc *, struct auich_dma *);
 
 static bool	auich_resume(device_t, const pmf_qual_t *);
-int	auich_set_rate(struct auich_softc *, int, u_long);
 static int	auich_sysctl_verify(SYSCTLFN_ARGS);
 static void	auich_finish_attach(device_t);
 static void	auich_calibrate(struct auich_softc *);
@@ -817,32 +816,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-int
-auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
-{
-	int ret;
-	u_int ratetmp;
-
-	sc->codec_if->vtbl->set_clock(sc->codec_if, sc->sc_ac97_clock);
-	ratetmp = srate;
-	if (mode == AUMODE_RECORD)
-		return sc->codec_if->vtbl->set_rate(sc->codec_if,
-		    AC97_REG_PCM_LR_ADC_RATE, &ratetmp);
-	ret = sc->codec_if->vtbl->set_rate(sc->codec_if,
-	    AC97_REG_PCM_FRONT_DAC_RATE, &ratetmp);
-	if (ret)
-		return ret;
-	ratetmp = srate;
-	ret = sc->codec_if->vtbl->set_rate(sc->codec_if,
-	    AC97_REG_PCM_SURR_DAC_RATE, &ratetmp);
-	if (ret)
-		return ret;
-	ratetmp = srate;
-	ret = sc->codec_if->vtbl->set_rate(sc->codec_if,
-	    AC97_REG_PCM_LFE_DAC_RATE, &ratetmp);
-	return ret;
 }
 
 static int
