@@ -157,9 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_set_params(void *, int, int, audio_params_t *,
-		    audio_params_t *, stream_filter_list_t *,
-		    stream_filter_list_t *);
 static int	auich_round_blocksize(void *, int, int, const audio_params_t *);
 static void	auich_halt_pipe(struct auich_softc *, int);
 static int	auich_halt_output(void *);
@@ -204,12 +201,13 @@ static void	auich_spdif_event(void *, bool);
 extern int	auichOpen(void *, int);
 extern void	auichClose(void *);
 extern int	auichQueryEncoding(void *, struct audio_encoding *);
+extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
 	auichClose,
 	NULL,			/* drain */
 	auichQueryEncoding,
-	auich_set_params,
+	auichSetParams,
 	auich_round_blocksize,
 	NULL,			/* commit_setting */
 	NULL,			/* init_output */
@@ -845,26 +843,6 @@ auich_set_rate(struct auich_softc *sc, int mode, u_long srate)
 	ret = sc->codec_if->vtbl->set_rate(sc->codec_if,
 	    AC97_REG_PCM_LFE_DAC_RATE, &ratetmp);
 	return ret;
-}
-
-extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *, int);
-static int
-auich_set_params(void *v, int setmode, int usemode,
-    audio_params_t *play, audio_params_t *rec, stream_filter_list_t *pfil,
-    stream_filter_list_t *rfil)
-{
-	struct auich_softc *sc;
-	int mode;
-
-	sc = v;
-	for (mode = AUMODE_RECORD; mode != -1;
-	     mode = mode == AUMODE_RECORD ? AUMODE_PLAY : -1) {
-		int r;
-		r = auichSetParams(sc, setmode, usemode, play, rec, pfil, rfil, mode); // Haskell code
-		if (r != 0) return r;
-	}
-
-	return 0;
 }
 
 static int

@@ -48,19 +48,23 @@ auichQueryEncoding sc aep = do
   return =<< auconvQueryEncoding encodings aep
 
 foreign export ccall "auichSetParams"
-  auichSetParams :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> Ptr AudioParamsT -> Ptr StreamFilterList -> Ptr StreamFilterList -> Int -> IO Int
-auichSetParams :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> Ptr AudioParamsT -> Ptr StreamFilterList -> Ptr StreamFilterList -> Int -> IO Int
-auichSetParams sc setmode usemode play record pfil rfil mode = do
-  -- xxx NOT_YET_ALL
-  if setmode .&. mode == 0 then return 0 -- xxx continue;
+  auichSetParams :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> Ptr AudioParamsT -> Ptr StreamFilterList -> Ptr StreamFilterList -> IO Int
+auichSetParams :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> Ptr AudioParamsT -> Ptr StreamFilterList -> Ptr StreamFilterList -> IO Int
+auichSetParams sc setmode usemode play record pfil rfil = do
+  let f = auichSetParams' sc setmode usemode play record pfil rfil
+  r <- f e_AudioInfoT_mode_AUMODE_RECORD >>? f e_AudioInfoT_mode_AUMODE_PLAY
+  either return (const $ return 0) r
+
+auichSetParams' :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> Ptr AudioParamsT -> Ptr StreamFilterList -> Ptr StreamFilterList -> Int -> IO (Either Int ())
+auichSetParams' sc setmode usemode play record pfil rfil mode = do
+  if setmode .&. mode == 0 then return $ Right () -- continue
   else do
     let param = if mode == e_AudioInfoT_mode_AUMODE_PLAY then play else record
         fil   = if mode == e_AudioInfoT_mode_AUMODE_PLAY then pfil else rfil
-    if param == nullPtr then return 0 -- xxx continue;
+    if param == nullPtr then return $ Right () -- continue
     else do
       codectype <- peek =<< p_AuichSoftc_sc_codectype sc
-      r <- f6 codectype (param, fil) >>=? f7 >>=? f8 codectype >>=? f9 codectype
-      either return (const $ return 0) r
+      f6 codectype (param, fil) >>=? f7 >>=? f8 codectype >>=? f9 codectype
   where
     f6 :: Int -> (Ptr AudioParamsT, Ptr StreamFilterList) -> IO (Either Int (Ptr AudioParamsT, Ptr StreamFilterList, Int))
     f6 codectype (param, fil) = do
