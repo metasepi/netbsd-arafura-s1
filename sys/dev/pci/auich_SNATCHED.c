@@ -192,7 +192,6 @@ static void	auich_clear_cas(struct auich_softc *);
 
 static int	auich_attach_codec(void *, struct ac97_codec_if *);
 static int	auich_read_codec(void *, uint8_t, uint16_t *);
-int	auich_write_codec(void *, uint8_t, uint16_t);
 static int	auich_reset_codec(void *);
 static enum ac97_host_flags	auich_flags_codec(void *);
 static void	auich_spdif_event(void *, bool);
@@ -201,6 +200,7 @@ extern int	auichOpen(void *, int);
 extern void	auichClose(void *);
 extern int	auichQueryEncoding(void *, struct audio_encoding *);
 extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *);
+extern int	auichWriteCodec(void *, uint8_t, uint16_t);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
 	auichClose,
@@ -495,7 +495,7 @@ map_done:
 	sc->host_if.arg = sc;
 	sc->host_if.attach = auich_attach_codec;
 	sc->host_if.read = auich_read_codec;
-	sc->host_if.write = auich_write_codec;
+	sc->host_if.write = auichWriteCodec;
 	sc->host_if.reset = auich_reset_codec;
 	sc->host_if.flags = auich_flags_codec;
 	sc->host_if.spdif_event = auich_spdif_event;
@@ -681,7 +681,6 @@ auich_finish_attach(device_t self)
 	return;
 }
 
-#define ICH_CODECIO_INTERVAL	10
 static int
 auich_read_codec(void *v, uint8_t reg, uint16_t *val)
 {
@@ -721,30 +720,6 @@ auich_read_codec(void *v, uint8_t reg, uint16_t *val)
 		aprint_normal_dev(sc->sc_dev, "read_codec timeout\n");
 		if (reg == AC97_REG_GPIO_STATUS)
 			auich_clear_cas(sc);
-		return -1;
-	}
-}
-
-int
-auich_write_codec(void *v, uint8_t reg, uint16_t val)
-{
-	struct auich_softc *sc;
-	int i;
-
-	DPRINTF(ICH_DEBUG_CODECIO, ("auich_write_codec(%x, %x)\n", reg, val));
-	sc = v;
-	/* wait for an access semaphore */
-	for (i = ICH_SEMATIMO / ICH_CODECIO_INTERVAL; i-- &&
-	    bus_space_read_1(sc->iot, sc->aud_ioh,
-		ICH_CAS + sc->sc_modem_offset) & 1;
-	    DELAY(ICH_CODECIO_INTERVAL));
-
-	if (i > 0) {
-		bus_space_write_2(sc->iot, sc->mix_ioh,
-		    reg + (sc->sc_codecnum * ICH_CODEC_OFFSET), val);
-		return 0;
-	} else {
-		aprint_normal_dev(sc->sc_dev, "write_codec timeout\n");
 		return -1;
 	}
 }

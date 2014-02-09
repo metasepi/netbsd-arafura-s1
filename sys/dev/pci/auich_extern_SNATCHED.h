@@ -126,4 +126,6 @@ struct auich_softc {
 #define AUICH_SPDIF_NFORMATS	1
 struct audio_format *get_auich_spdif_formats(void);
 
+#define ICH_CODECIO_INTERVAL	10
+
 #endif /* _DEV_PCI_AUICH_EXTERN_H_ */
