@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	auich_halt_pipe(struct auich_softc *, int);
 static int	auich_halt_output(void *);
 static int	auich_halt_input(void *);
 static int	auich_getdev(void *, struct audio_device *);
@@ -201,6 +200,7 @@ extern int	auichQueryEncoding(void *, struct audio_encoding *);
 extern int	auichSetParams(void *, int, int, audio_params_t *, audio_params_t *, stream_filter_list_t *, stream_filter_list_t *);
 extern int	auichWriteCodec(void *, uint8_t, uint16_t);
 extern int	auichRoundBlocksize(void *, int, int, const audio_params_t *);
+extern void	auichHaltPipe(struct auich_softc *, int);
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
 	auichClose,
@@ -793,27 +793,6 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-static void
-auich_halt_pipe(struct auich_softc *sc, int pipe)
-{
-	int i;
-	uint32_t status;
-
-	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_CTRL, 0);
-	for (i = 0; i < 100; i++) {
-		status = bus_space_read_4(sc->iot, sc->aud_ioh, pipe + ICH_STS);
-		if (status & ICH_DCH)
-			break;
-		DELAY(1);
-	}
-	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_CTRL, ICH_RR);
-
-#if AUICH_DEBUG
-	if (i > 0)
-		printf("auich_halt_pipe: halt took %d cycles\n", i);
-#endif
-}
-
 static int
 auich_halt_output(void *v)
 {
@@ -822,7 +801,7 @@ auich_halt_output(void *v)
 	sc = v;
 	DPRINTF(ICH_DEBUG_DMA, ("%s: halt_output\n", device_xname(sc->sc_dev)));
 
-	auich_halt_pipe(sc, ICH_PCMO);
+	auichHaltPipe(sc, ICH_PCMO);
 	sc->pcmo.intr = NULL;
 
 	return 0;
@@ -836,7 +815,7 @@ auich_halt_input(void *v)
 	sc = v;
 	DPRINTF(ICH_DEBUG_DMA, ("%s: halt_input\n", device_xname(sc->sc_dev)));
 
-	auich_halt_pipe(sc, ICH_PCMI);
+	auichHaltPipe(sc, ICH_PCMI);
 	sc->pcmi.intr = NULL;
 
 	return 0;

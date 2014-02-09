@@ -170,7 +170,7 @@ auichWriteCodec sc reg val = do
                 return $ Right ()
       waitSemaphore10 = foldl' (>>?) (return $ Right ()) (replicate 10 waitSemaphore)
       t = fromIntegral $ e_ICH_SEMATIMO `div` e_ICH_CODECIO_INTERVAL `div` 10
-  r <- foldl' (>>?) (return $ Right ()) (replicate t waitSemaphore)
+  r <- foldl' (>>?) (return $ Right ()) (replicate t waitSemaphore10)
   case r of
     Left () -> do
       mixIoh <- peek =<< p_AuichSoftc_mix_ioh sc
@@ -187,6 +187,22 @@ foreign export ccall "auichRoundBlocksize"
 auichRoundBlocksize :: Ptr AuichSoftc -> Int -> Int -> Ptr AudioParamsT -> IO Int
 auichRoundBlocksize sc blk mode param = do
   return $ blk .&. complement 0x3f
+
+foreign export ccall "auichHaltPipe"
+  auichHaltPipe :: Ptr AuichSoftc -> Int -> IO ()
+auichHaltPipe :: Ptr AuichSoftc -> Int -> IO ()
+auichHaltPipe sc pipe = do
+  iot <- peek =<< p_AuichSoftc_iot sc
+  audIoh <- peek =<< p_AuichSoftc_aud_ioh sc
+  busSpaceWrite1 iot audIoh (fromIntegral pipe + e_ICH_CTRL) 0
+  let f :: IO (Either () ())
+      f = do
+        s <- busSpaceRead4 iot audIoh $ fromIntegral pipe + e_ICH_STS
+        if s .&. e_ICH_DCH /= 0 then return $ Left ()
+        else delay 1 >> (return $ Right ())
+      f10 = foldl' (>>?) (return $ Right ()) (replicate 10 f)
+  foldl' (>>?) (return $ Right ()) (replicate 10 f10)
+  busSpaceWrite1 iot audIoh (fromIntegral pipe + e_ICH_CTRL) e_ICH_RR
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
