@@ -11,3 +11,5 @@ foreign import primitive "const.ICH_CTRL" e_ICH_CTRL :: BusSizeT
 foreign import primitive "const.ICH_STS" e_ICH_STS :: BusSizeT
 foreign import primitive "const.ICH_DCH" e_ICH_DCH :: Word32
 foreign import primitive "const.ICH_RR" e_ICH_RR :: Word8
+foreign import primitive "const.ICH_PCMI" e_ICH_PCMI :: Int
+foreign import primitive "const.ICH_PCMO" e_ICH_PCMO :: Int
