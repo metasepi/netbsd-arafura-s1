@@ -247,6 +247,14 @@ auichGetPort sc cp = do
   f <- peek =<< p_Ac97CodecIfVtbl_mixer_get_port =<< peek =<< p_Ac97CodecIf_vtbl codecif
   call_Ac97CodecIfVtbl_mixer_get_port f codecif cp
 
+foreign export ccall "auichQueryDevinfo"
+  auichQueryDevinfo :: Ptr AuichSoftc -> Ptr MixerDevinfo -> IO Int
+auichQueryDevinfo :: Ptr AuichSoftc -> Ptr MixerDevinfo -> IO Int
+auichQueryDevinfo sc dp = do
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
+  f <- peek =<< p_Ac97CodecIfVtbl_query_devinfo =<< peek =<< p_Ac97CodecIf_vtbl codecif
+  call_Ac97CodecIfVtbl_query_devinfo f codecif dp
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 

@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_query_devinfo(void *, mixer_devinfo_t *);
 static void	*auich_allocm(void *, int, size_t);
 static void	auich_freem(void *, void *, size_t);
 static size_t	auich_round_buffersize(void *, int, size_t);
@@ -201,6 +200,7 @@ extern int	auichHaltInput(void *);
 extern int	auichGetdev(void *, struct audio_device *);
 extern int	auichSetPort(void *, mixer_ctrl_t *);
 extern int	auichGetPort(void *, mixer_ctrl_t *);
+extern int	auichQueryDevinfo(void *, mixer_devinfo_t *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -221,7 +221,7 @@ static const struct audio_hw_if auich_hw_if = {
 	NULL,			/* getfd */
 	auichSetPort,
 	auichGetPort,
-	auich_query_devinfo,
+	auichQueryDevinfo,
 	auich_allocm,
 	auich_freem,
 	auich_round_buffersize,
@@ -792,15 +792,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static int
-auich_query_devinfo(void *v, mixer_devinfo_t *dp)
-{
-	struct auich_softc *sc;
-
-	sc = v;
-	return sc->codec_if->vtbl->query_devinfo(sc->codec_if, dp);
 }
 
 static void *

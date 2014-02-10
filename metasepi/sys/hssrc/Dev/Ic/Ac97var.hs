@@ -59,3 +59,10 @@ p_Ac97CodecIfVtbl_mixer_set_port :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr ((Ptr
 p_Ac97CodecIfVtbl_mixer_set_port p = return $ plusPtr p $ offsetOf_Ac97CodecIfVtbl_mixer_set_port
 foreign import ccall "dynamic" call_Ac97CodecIfVtbl_mixer_set_port ::
   FunPtr ((Ptr Ac97CodecIf) -> Ptr MixerCtrl -> IO Int) -> (Ptr Ac97CodecIf) -> Ptr MixerCtrl -> IO Int
+
+foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, query_devinfo)"
+  offsetOf_Ac97CodecIfVtbl_query_devinfo :: Int
+p_Ac97CodecIfVtbl_query_devinfo :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr ((Ptr Ac97CodecIf) -> Ptr MixerDevinfo -> IO Int)))
+p_Ac97CodecIfVtbl_query_devinfo p = return $ plusPtr p $ offsetOf_Ac97CodecIfVtbl_query_devinfo
+foreign import ccall "dynamic" call_Ac97CodecIfVtbl_query_devinfo ::
+  FunPtr ((Ptr Ac97CodecIf) -> Ptr MixerDevinfo -> IO Int) -> (Ptr Ac97CodecIf) -> Ptr MixerDevinfo -> IO Int
