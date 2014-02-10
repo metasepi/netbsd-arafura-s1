@@ -10,3 +10,7 @@ newtype {-# CTYPE "struct audio_device" #-} AudioDevice = AudioDevice ()
 type AudioDeviceT = AudioDevice
 foreign import primitive "const.sizeof(struct audio_device)"
   sizeOf_AudioDevice :: Int
+
+newtype {-# CTYPE "struct mixer_ctrl" #-} MixerCtrl = MixerCtrl ()
+foreign import primitive "const.sizeof(struct mixer_ctrl)"
+  sizeOf_MixerCtrl :: Int

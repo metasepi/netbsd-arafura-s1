@@ -27,10 +27,10 @@ foreign export ccall "auichOpen" auichOpen :: Ptr AuichSoftc -> Int -> IO Int
 auichOpen :: Ptr AuichSoftc -> Int -> IO Int
 auichOpen sc flags = do
   mutexp <- p_AuichSoftc_sc_intr_lock sc
-  codeif <- peek =<< p_AuichSoftc_codec_if sc
-  lock <- peek =<< p_Ac97CodecIfVtbl_lock =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
+  lock <- peek =<< p_Ac97CodecIfVtbl_lock =<< peek =<< p_Ac97CodecIf_vtbl codecif
   mutexSpinExit mutexp
-  call_Ac97CodecIfVtbl_lock lock codeif
+  call_Ac97CodecIfVtbl_lock lock codecif
   mutexSpinEnter mutexp
   return 0
 
@@ -38,10 +38,10 @@ foreign export ccall "auichClose" auichClose :: Ptr AuichSoftc -> IO ()
 auichClose :: Ptr AuichSoftc -> IO ()
 auichClose sc = do
   mutexp <- p_AuichSoftc_sc_intr_lock sc
-  codeif <- peek =<< p_AuichSoftc_codec_if sc
-  unlock <- peek =<< p_Ac97CodecIfVtbl_unlock =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
+  unlock <- peek =<< p_Ac97CodecIfVtbl_unlock =<< peek =<< p_Ac97CodecIf_vtbl codecif
   mutexSpinExit mutexp
-  call_Ac97CodecIfVtbl_unlock unlock codeif
+  call_Ac97CodecIfVtbl_unlock unlock codecif
   mutexSpinEnter mutexp
 
 foreign export ccall "auichQueryEncoding"
@@ -139,22 +139,22 @@ auichSetParams' sc setmode usemode play record pfil rfil mode = do
 
 auichSetRate :: Ptr AuichSoftc -> Int -> CULong -> IO Int
 auichSetRate sc mode srate = do
-  codeif <- peek =<< p_AuichSoftc_codec_if sc
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
   sc97Clock <- peek =<< p_AuichSoftc_sc_ac97_clock sc
-  setClock <- peek =<< p_Ac97CodecIfVtbl_set_clock =<< peek =<< p_Ac97CodecIf_vtbl codeif
-  call_Ac97CodecIfVtbl_set_clock setClock codeif (fromIntegral sc97Clock)
-  setRatePtr <- peek =<< p_Ac97CodecIfVtbl_set_rate =<< peek =<< p_Ac97CodecIf_vtbl codeif
+  setClock <- peek =<< p_Ac97CodecIfVtbl_set_clock =<< peek =<< p_Ac97CodecIf_vtbl codecif
+  call_Ac97CodecIfVtbl_set_clock setClock codecif (fromIntegral sc97Clock)
+  setRatePtr <- peek =<< p_Ac97CodecIfVtbl_set_rate =<< peek =<< p_Ac97CodecIf_vtbl codecif
   let setRate = call_Ac97CodecIfVtbl_set_rate setRatePtr
   if e_AudioInfoT_mode_AUMODE_RECORD == mode then
-    alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_LR_ADC_RATE p
+    alloca $ \p -> poke p (fromIntegral srate) >> setRate codecif e_AC97_REG_PCM_LR_ADC_RATE p
   else do
-    r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_FRONT_DAC_RATE p
+    r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codecif e_AC97_REG_PCM_FRONT_DAC_RATE p
     if r /= 0 then return r
     else do
-      r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_SURR_DAC_RATE p
+      r <- alloca $ \p -> poke p (fromIntegral srate) >> setRate codecif e_AC97_REG_PCM_SURR_DAC_RATE p
       if r /= 0 then return r
       else
-        alloca $ \p -> poke p (fromIntegral srate) >> setRate codeif e_AC97_REG_PCM_LFE_DAC_RATE p
+        alloca $ \p -> poke p (fromIntegral srate) >> setRate codecif e_AC97_REG_PCM_LFE_DAC_RATE p
 
 foreign export ccall "auichWriteCodec"
   auichWriteCodec :: Ptr AuichSoftc -> Word8 -> Word16 -> IO Int
@@ -230,6 +230,14 @@ auichGetdev sc adp = do
   audev <- p_AuichSoftc_sc_audev sc
   memcpy adp audev $ fromIntegral sizeOf_AudioDevice
   return 0
+
+foreign export ccall "auichSetPort"
+  auichSetPort :: Ptr AuichSoftc -> Ptr MixerCtrl -> IO Int
+auichSetPort :: Ptr AuichSoftc -> Ptr MixerCtrl -> IO Int
+auichSetPort sc cp = do
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
+  f <- peek =<< p_Ac97CodecIfVtbl_mixer_set_port =<< peek =<< p_Ac97CodecIf_vtbl codecif
+  call_Ac97CodecIfVtbl_mixer_set_port f codecif cp
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
