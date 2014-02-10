@@ -255,6 +255,31 @@ auichQueryDevinfo sc dp = do
   f <- peek =<< p_Ac97CodecIfVtbl_query_devinfo =<< peek =<< p_Ac97CodecIf_vtbl codecif
   call_Ac97CodecIfVtbl_query_devinfo f codecif dp
 
+foreign export ccall "auichAllocmem"
+  auichAllocmem :: Ptr AuichSoftc -> CSize -> CSize -> Ptr AuichDma -> IO Int
+auichAllocmem :: Ptr AuichSoftc -> CSize -> CSize -> Ptr AuichDma -> IO Int
+auichAllocmem sc size align p = do
+  pS <- p_AuichDma_size p
+  poke pS size
+  -- xxx Not yet xxx
+  return 0
+
+foreign export ccall "auichFreemem"
+  auichFreemem :: Ptr AuichSoftc -> Ptr AuichDma -> IO Int
+auichFreemem :: Ptr AuichSoftc -> Ptr AuichDma -> IO Int
+auichFreemem sc p = do
+  dmat <- peek =<< p_AuichSoftc_dmat sc
+  map <- peek =<< p_AuichDma_map p
+  addr <- peek =<< p_AuichDma_addr p
+  size <- peek =<< p_AuichDma_size p
+  segs <- p_AuichDma_segs p 0
+  nsegs <- peek =<< p_AuichDma_nsegs p
+  busDmamapUnload dmat map
+  busDmamapDestroy dmat map
+  busDmamemUnmap dmat addr size
+  busDmamemFree dmat segs nsegs
+  return 0
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
@@ -309,6 +334,8 @@ foreign import primitive "const.offsetof(struct auich_softc, pcmi)"
   offsetOf_AuichSoftc_pcmi :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_audev)"
   offsetOf_AuichSoftc_sc_audev :: Int
+foreign import primitive "const.offsetof(struct auich_softc, dmat)"
+  offsetOf_AuichSoftc_dmat :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -352,6 +379,8 @@ p_AuichSoftc_pcmi :: Ptr AuichSoftc -> IO (Ptr AuichRing)
 p_AuichSoftc_pcmi p = return $ plusPtr p $ offsetOf_AuichSoftc_pcmi
 p_AuichSoftc_sc_audev :: Ptr AuichSoftc -> IO (Ptr AudioDevice)
 p_AuichSoftc_sc_audev p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_audev
+p_AuichSoftc_dmat :: Ptr AuichSoftc -> IO (Ptr BusDmaTagT)
+p_AuichSoftc_dmat p = return $ plusPtr p $ offsetOf_AuichSoftc_dmat
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"
@@ -362,3 +391,27 @@ p_AuichRing_intr :: Ptr AuichRing -> IO (Ptr (FunPtr ((Ptr ()) -> IO ())))
 p_AuichRing_intr p = return $ plusPtr p $ offsetOf_AuichRing_intr
 foreign import ccall "dynamic" call_AuichRing_intr ::
   FunPtr ((Ptr ()) -> IO ()) -> (Ptr ()) -> IO ()
+
+newtype {-# CTYPE "struct auich_dma" #-} AuichDma = AuichDma ()
+foreign import primitive "const.sizeof(struct auich_dma)"
+  sizeOf_AuichDma :: Int
+foreign import primitive "const.offsetof(struct auich_dma, size)"
+  offsetOf_AuichDma_size :: Int
+p_AuichDma_size :: Ptr AuichDma -> IO (Ptr CSize)
+p_AuichDma_size p = return $ plusPtr p $ offsetOf_AuichDma_size
+foreign import primitive "const.offsetof(struct auich_dma, segs)"
+  offsetOf_AuichDma_segs :: Int
+p_AuichDma_segs :: Ptr AuichDma -> Int -> IO (Ptr BusDmaSegmentT)
+p_AuichDma_segs p i = return $ plusPtr p $ offsetOf_AuichDma_segs + i * sizeOf_BusDmaSegmentT
+foreign import primitive "const.offsetof(struct auich_dma, nsegs)"
+  offsetOf_AuichDma_nsegs :: Int
+p_AuichDma_nsegs :: Ptr AuichDma -> IO (Ptr Int)
+p_AuichDma_nsegs p = return $ plusPtr p $ offsetOf_AuichDma_nsegs
+foreign import primitive "const.offsetof(struct auich_dma, addr)"
+  offsetOf_AuichDma_addr :: Int
+p_AuichDma_addr :: Ptr AuichDma -> IO (Ptr (Ptr ()))
+p_AuichDma_addr p = return $ plusPtr p $ offsetOf_AuichDma_addr
+foreign import primitive "const.offsetof(struct auich_dma, map)"
+  offsetOf_AuichDma_map :: Int
+p_AuichDma_map :: Ptr AuichDma -> IO (Ptr BusDmamapT)
+p_AuichDma_map p = return $ plusPtr p $ offsetOf_AuichDma_map

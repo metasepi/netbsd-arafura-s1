@@ -1,8 +1,12 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module Sys.Bus (busSpaceRead4, busSpaceWrite4, busSpaceRead2, busSpaceWrite2, busSpaceRead1, busSpaceWrite1,
-                BusSpaceTagT, BusSpaceHandleT, BusSizeT) where
+                busDmamemAlloc, busDmamemFree, busDmamemMap, busDmamemUnmap, busDmamapCreate, busDmamapDestroy, busDmamapLoad, busDmamapUnload,
+                BusSpaceTagT, BusSpaceHandleT, BusSizeT, BusDmaSegmentT, BusDmamapT, BusDmaTagT,
+                sizeOf_BusDmaSegmentT) where
 import Data.Word
 import Foreign.Ptr
+import Foreign.C.Types
+import Sys.Proc
 import Arch.I386.Include.BusDefs
 
 busSpaceRead4 = c_bus_space_read_4
@@ -25,3 +29,31 @@ foreign import ccall "hs_extern.h bus_space_read_1" c_bus_space_read_1 ::
   BusSpaceTagT -> BusSpaceHandleT -> BusSizeT -> IO Word8
 foreign import ccall "hs_extern.h bus_space_write_1" c_bus_space_write_1 ::
   BusSpaceTagT -> BusSpaceHandleT -> BusSizeT -> Word8 -> IO ()
+
+busDmamemAlloc = c_bus_dmamem_alloc
+busDmamemFree = c_bus_dmamem_free
+foreign import ccall "hs_extern.h bus_dmamem_alloc" c_bus_dmamem_alloc ::
+  BusDmaTagT -> BusSizeT -> BusSizeT -> BusSizeT -> Ptr BusDmaSegmentT -> Int -> Ptr Int -> Int -> IO Int
+foreign import ccall "hs_extern.h bus_dmamem_free" c_bus_dmamem_free ::
+  BusDmaTagT -> Ptr BusDmaSegmentT -> Int -> IO ()
+
+busDmamemMap = c_bus_dmamem_map
+busDmamemUnmap = c_bus_dmamem_unmap
+foreign import ccall "hs_extern.h bus_dmamem_map" c_bus_dmamem_map ::
+  BusDmaTagT -> Ptr BusDmaSegmentT -> Int -> CSize -> Ptr (Ptr ()) -> Int -> IO Int
+foreign import ccall "hs_extern.h bus_dmamem_unmap" c_bus_dmamem_unmap ::
+  BusDmaTagT -> Ptr () -> CSize -> IO ()
+
+busDmamapCreate = c_bus_dmamap_create
+busDmamapDestroy = c_bus_dmamap_destroy
+foreign import ccall "hs_extern.h bus_dmamap_create" c_bus_dmamap_create ::
+  BusDmaTagT -> BusSizeT -> Int -> BusSizeT -> BusSizeT -> Int -> Ptr BusDmamapT -> IO Int
+foreign import ccall "hs_extern.h bus_dmamap_destroy" c_bus_dmamap_destroy ::
+  BusDmaTagT -> BusDmamapT -> IO ()
+
+busDmamapLoad = c_bus_dmamap_load
+busDmamapUnload = c_bus_dmamap_unload
+foreign import ccall "hs_extern.h bus_dmamap_load" c_bus_dmamap_load ::
+  BusDmaTagT -> BusDmamapT -> Ptr () -> BusSizeT -> Ptr Proc -> Int -> IO Int
+foreign import ccall "hs_extern.h bus_dmamap_unload" c_bus_dmamap_unload ::
+  BusDmaTagT -> BusDmamapT -> IO ()

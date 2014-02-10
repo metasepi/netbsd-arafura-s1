@@ -174,7 +174,6 @@ static int	auich_alloc_cdata(struct auich_softc *);
 
 static int	auich_allocmem(struct auich_softc *, size_t, size_t,
 		    struct auich_dma *);
-static int	auich_freemem(struct auich_softc *, struct auich_dma *);
 
 static bool	auich_resume(device_t, const pmf_qual_t *);
 static int	auich_sysctl_verify(SYSCTLFN_ARGS);
@@ -201,6 +200,7 @@ extern int	auichGetdev(void *, struct audio_device *);
 extern int	auichSetPort(void *, mixer_ctrl_t *);
 extern int	auichGetPort(void *, mixer_ctrl_t *);
 extern int	auichQueryDevinfo(void *, mixer_devinfo_t *);
+extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -830,7 +830,7 @@ auich_freem(void *v, void *ptr, size_t size)
 	sc = v;
 	for (pp = &sc->sc_dmas; (p = *pp) != NULL; pp = &p->next) {
 		if (KERNADDR(p) == ptr) {
-			auich_freemem(sc, p);
+			auichFreemem(sc, p);
 			*pp = p->next;
 			kmem_free(p, sizeof(*p));
 			return;
@@ -1169,17 +1169,6 @@ auich_allocmem(struct auich_softc *sc, size_t size, size_t align,
  free:
 	bus_dmamem_free(sc->dmat, p->segs, p->nsegs);
 	return error;
-}
-
-static int
-auich_freemem(struct auich_softc *sc, struct auich_dma *p)
-{
-
-	bus_dmamap_unload(sc->dmat, p->map);
-	bus_dmamap_destroy(sc->dmat, p->map);
-	bus_dmamem_unmap(sc->dmat, p->addr, p->size);
-	bus_dmamem_free(sc->dmat, p->segs, p->nsegs);
-	return 0;
 }
 
 static int
