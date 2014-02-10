@@ -15,6 +15,7 @@ import Sys.Errno
 import Sys.Audioio
 import Sys.Bus
 import Sys.Device
+import Lib.Libkern.Libkern
 import Dev.Pci.Auichreg
 import Dev.Ic.Ac97reg
 import Dev.Ic.Ac97var
@@ -222,6 +223,14 @@ auichHaltInput sc = do
   poke (castPtr intr) (0::IntPtr)
   return 0
 
+foreign export ccall "auichGetdev"
+  auichGetdev :: Ptr AuichSoftc -> Ptr AudioDevice -> IO Int
+auichGetdev :: Ptr AuichSoftc -> Ptr AudioDevice -> IO Int
+auichGetdev sc adp = do
+  audev <- p_AuichSoftc_sc_audev sc
+  memcpy adp audev $ fromIntegral sizeOf_AudioDevice
+  return 0
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
@@ -274,6 +283,8 @@ foreign import primitive "const.offsetof(struct auich_softc, pcmo)"
   offsetOf_AuichSoftc_pcmo :: Int
 foreign import primitive "const.offsetof(struct auich_softc, pcmi)"
   offsetOf_AuichSoftc_pcmi :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_audev)"
+  offsetOf_AuichSoftc_sc_audev :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -315,6 +326,8 @@ p_AuichSoftc_pcmo :: Ptr AuichSoftc -> IO (Ptr AuichRing)
 p_AuichSoftc_pcmo p = return $ plusPtr p $ offsetOf_AuichSoftc_pcmo
 p_AuichSoftc_pcmi :: Ptr AuichSoftc -> IO (Ptr AuichRing)
 p_AuichSoftc_pcmi p = return $ plusPtr p $ offsetOf_AuichSoftc_pcmi
+p_AuichSoftc_sc_audev :: Ptr AuichSoftc -> IO (Ptr AudioDevice)
+p_AuichSoftc_sc_audev p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_audev
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"
