@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	auich_freem(void *, void *, size_t);
 static size_t	auich_round_buffersize(void *, int, size_t);
 static paddr_t	auich_mappage(void *, void *, off_t, int);
 static int	auich_get_props(void *);
@@ -200,6 +199,7 @@ extern int	auichAllocmem(struct auich_softc *, size_t, size_t,
 		    struct auich_dma *);
 extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
 extern void	*auichAllocm(void *, int, size_t);
+extern void	auichFreem(void *, void *, size_t);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -222,7 +222,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichGetPort,
 	auichQueryDevinfo,
 	auichAllocm,
-	auich_freem,
+	auichFreem,
 	auich_round_buffersize,
 	auich_mappage,
 	auich_get_props,
@@ -793,23 +793,6 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-static void
-auich_freem(void *v, void *ptr, size_t size)
-{
-	struct auich_softc *sc;
-	struct auich_dma *p, **pp;
-
-	sc = v;
-	for (pp = &sc->sc_dmas; (p = *pp) != NULL; pp = &p->next) {
-		if (KERNADDR(p) == ptr) {
-			auichFreemem(sc, p);
-			*pp = p->next;
-			kmem_free(p, sizeof(*p));
-			return;
-		}
-	}
-}
-
 static size_t
 auich_round_buffersize(void *v, int direction, size_t size)
 {
@@ -1273,7 +1256,7 @@ auich_calibrate(struct auich_softc *sc)
 	/* turn time delta into us */
 	wait_us = ((t2.tv_sec - t1.tv_sec) * 1000000) + t2.tv_usec - t1.tv_usec;
 
-	auich_freem(sc, temp_buffer, bytes);
+	auichFreem(sc, temp_buffer, bytes);
 
 	if (nciv == ociv) {
 		printf("%s: ac97 link rate calibration timed out after %"

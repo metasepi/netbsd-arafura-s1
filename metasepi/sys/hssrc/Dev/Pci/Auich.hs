@@ -332,6 +332,24 @@ auichAllocm sc direction size =
         poke dmas_p p
         kernAddr_AuichDma p
 
+foreign export ccall "auichFreem"
+  auichFreem :: Ptr AuichSoftc -> Ptr () -> CSize -> IO ()
+auichFreem :: Ptr AuichSoftc -> Ptr () -> CSize -> IO ()
+auichFreem sc ptr size =
+  let while :: Ptr (Ptr AuichDma) -> IO ()
+      while pp = do
+        p <- peek pp
+        if p == nullPtr then return ()
+        else do
+          a <- kernAddr_AuichDma p
+          if a == ptr then do
+            next <- peek =<< p_AuichDma_next p
+            poke pp next
+            kmemFree (castPtr p) (fromIntegral sizeOf_AuichDma)
+            return ()
+          else p_AuichDma_next p >>= while
+  in p_AuichSoftc_sc_dmas sc >>= while
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
