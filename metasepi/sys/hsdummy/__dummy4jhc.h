@@ -1,6 +1,7 @@
 #ifndef __DUMMY_4_JHC_H
 #define __DUMMY_4_JHC_H
 #include <sys/param.h>
+#include <machine/types.h>
 
 #define LC_ALL		0
 typedef _BSD_WCHAR_T_	wchar_t; // xxx Simple "char" type is better?
@@ -15,5 +16,11 @@ void free(void *ptr);
 int posix_memalign(void **ptr, size_t alignment, size_t size);
 char *setlocale(int category, const char *locale);
 void exit(int status);
+
+#ifdef PAE
+#error "Assume sizeof(paddr_t) == 4"
+#else
+/* OK */
+#endif
 
 #endif /* __DUMMY_4_JHC_H */

@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static paddr_t	auich_mappage(void *, void *, off_t, int);
 static int	auich_get_props(void *);
 static void	auich_trigger_pipe(struct auich_softc *, int, struct auich_ring *);
 static void	auich_intr_pipe(struct auich_softc *, int, struct auich_ring *);
@@ -200,6 +199,7 @@ extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
 extern void	*auichAllocm(void *, int, size_t);
 extern void	auichFreem(void *, void *, size_t);
 extern size_t	auichRoundBuffersize(void *, int, size_t);
+extern paddr_t	auichMappage(void *, void *, off_t, int);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -224,7 +224,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichAllocm,
 	auichFreem,
 	auichRoundBuffersize,
-	auich_mappage,
+	auichMappage,
 	auich_get_props,
 	auich_trigger_output,
 	auich_trigger_input,
@@ -791,23 +791,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static paddr_t
-auich_mappage(void *v, void *mem, off_t off, int prot)
-{
-	struct auich_softc *sc;
-	struct auich_dma *p;
-
-	if (off < 0)
-		return -1;
-	sc = v;
-	for (p = sc->sc_dmas; p && KERNADDR(p) != mem; p = p->next)
-		continue;
-	if (!p)
-		return -1;
-	return bus_dmamem_mmap(sc->dmat, p->segs, p->nsegs,
-	    off, prot, BUS_DMA_WAITOK);
 }
 
 static int

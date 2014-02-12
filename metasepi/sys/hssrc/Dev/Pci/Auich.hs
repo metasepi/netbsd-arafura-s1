@@ -10,6 +10,7 @@ import Foreign.Marshal.Alloc
 import Kern.KernMutex
 import Kern.SubrPrf
 import Arch.I386.Include.Cpu
+import Arch.I386.Include.Types
 import Sys.Types
 import Sys.Errno
 import Sys.Audioio
@@ -356,6 +357,30 @@ auichRoundBuffersize :: Ptr AuichSoftc -> Int -> CSize -> IO CSize
 auichRoundBuffersize sc direction size =
   let m = fromIntegral e_ICH_DMALIST_MAX * fromIntegral e_ICH_DMASEG_MAX
   in return $ if size > m then m else size
+
+foreign export ccall "auichMappage"
+  auichMappage :: Ptr AuichSoftc -> Ptr () -> OffT -> Int -> IO PaddrT
+auichMappage :: Ptr AuichSoftc -> Ptr () -> OffT -> Int -> IO PaddrT
+auichMappage sc mem off prot =
+  if off < 0 then return (-1)
+  else
+    p_AuichSoftc_sc_dmas sc >>= peek >>= while
+  where
+    while :: Ptr AuichDma -> IO PaddrT
+    while p =
+      if p /= nullPtr then do
+        a <- kernAddr_AuichDma p
+        if a /= mem then p_AuichDma_next p >>= peek >>= while
+        else go p
+      else go p
+    go :: Ptr AuichDma -> IO PaddrT
+    go p =
+      if p == nullPtr then return (-1)
+      else do
+        dmat <- peek =<< p_AuichSoftc_dmat sc
+        segs <- p_AuichDma_segs p 0
+        nsegs <- peek =<< p_AuichDma_nsegs p
+        busDmamemMmap dmat segs nsegs off prot e_BUS_DMA_WAITOK
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)

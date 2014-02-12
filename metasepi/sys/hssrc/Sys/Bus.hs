@@ -1,6 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module Sys.Bus (busSpaceRead4, busSpaceWrite4, busSpaceRead2, busSpaceWrite2, busSpaceRead1, busSpaceWrite1,
-                busDmamemAlloc, busDmamemFree, busDmamemMap, busDmamemUnmap, busDmamapCreate, busDmamapDestroy, busDmamapLoad, busDmamapUnload,
+                busDmamemAlloc, busDmamemFree, busDmamemMap, busDmamemUnmap, busDmamapCreate, busDmamapDestroy, busDmamapLoad, busDmamapUnload, busDmamemMmap,
                 BusSpaceTagT, BusSpaceHandleT, BusSizeT, BusDmaSegmentT, BusDmamapT, BusDmaTagT,
                 sizeOf_BusDmaSegmentT, e_BUS_DMA_WAITOK) where
 import Data.Word
@@ -8,6 +8,7 @@ import Foreign.Ptr
 import Foreign.C.Types
 import Sys.Proc
 import Arch.I386.Include.BusDefs
+import Arch.I386.I386.BusDma
 
 foreign import primitive "const.BUS_DMA_WAITOK" e_BUS_DMA_WAITOK :: Int
 
