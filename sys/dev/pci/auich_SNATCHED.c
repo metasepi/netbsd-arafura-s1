@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static size_t	auich_round_buffersize(void *, int, size_t);
 static paddr_t	auich_mappage(void *, void *, off_t, int);
 static int	auich_get_props(void *);
 static void	auich_trigger_pipe(struct auich_softc *, int, struct auich_ring *);
@@ -200,6 +199,7 @@ extern int	auichAllocmem(struct auich_softc *, size_t, size_t,
 extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
 extern void	*auichAllocm(void *, int, size_t);
 extern void	auichFreem(void *, void *, size_t);
+extern size_t	auichRoundBuffersize(void *, int, size_t);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -223,7 +223,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichQueryDevinfo,
 	auichAllocm,
 	auichFreem,
-	auich_round_buffersize,
+	auichRoundBuffersize,
 	auich_mappage,
 	auich_get_props,
 	auich_trigger_output,
@@ -791,16 +791,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static size_t
-auich_round_buffersize(void *v, int direction, size_t size)
-{
-
-	if (size > (ICH_DMALIST_MAX * ICH_DMASEG_MAX))
-		size = ICH_DMALIST_MAX * ICH_DMASEG_MAX;
-
-	return size;
 }
 
 static paddr_t

@@ -350,6 +350,13 @@ auichFreem sc ptr size =
           else p_AuichDma_next p >>= while
   in p_AuichSoftc_sc_dmas sc >>= while
 
+foreign export ccall "auichRoundBuffersize"
+  auichRoundBuffersize :: Ptr AuichSoftc -> Int -> CSize -> IO CSize
+auichRoundBuffersize :: Ptr AuichSoftc -> Int -> CSize -> IO CSize
+auichRoundBuffersize sc direction size =
+  let m = fromIntegral e_ICH_DMALIST_MAX * fromIntegral e_ICH_DMASEG_MAX
+  in return $ if size > m then m else size
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
