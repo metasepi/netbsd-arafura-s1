@@ -464,6 +464,18 @@ auichTriggerOutput sc start end blksize intr arg param =
       auichTriggerPipe sc e_ICH_PCMO pcmo
       return 0
 
+-- INTR
+foreign export ccall "auichIntrPipe"
+  auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> Int -> IO ()
+auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> Int -> IO ()
+auichIntrPipe sc pipe ring qptr = do
+  -- xxx Not yet snatch all
+  (flip poke) qptr =<< p_AuichRing_qptr ring
+  iot <- peek =<< p_AuichSoftc_iot sc
+  aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
+  busSpaceWrite1 iot aud_ioh (fromIntegral pipe + e_ICH_LVI) $
+    (fromIntegral qptr - 1) .&. e_ICH_LVI_MASK
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 

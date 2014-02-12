@@ -912,6 +912,7 @@ auich_intr(void *v)
 	return ret;
 }
 
+extern void	auichIntrPipe(struct auich_softc *, int, struct auich_ring *, int);
 static void
 auich_intr_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
 {
@@ -939,10 +940,7 @@ auich_intr_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
 		if (ring->intr)
 			ring->intr(ring->arg);
 	}
-	ring->qptr = qptr;
-
-	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_LVI,
-	    (qptr - 1) & ICH_LVI_MASK);
+	auichIntrPipe(sc, pipe, ring, qptr); // xxx Haskell code
 }
 
 static int
