@@ -1,8 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module Sys.Bus (busSpaceRead4, busSpaceWrite4, busSpaceRead2, busSpaceWrite2, busSpaceRead1, busSpaceWrite1,
-                busDmamemAlloc, busDmamemFree, busDmamemMap, busDmamemUnmap, busDmamapCreate, busDmamapDestroy, busDmamapLoad, busDmamapUnload, busDmamemMmap,
-                BusSpaceTagT, BusSpaceHandleT, BusSizeT, BusDmaSegmentT, BusDmamapT, BusDmaTagT,
-                sizeOf_BusDmaSegmentT, e_BUS_DMA_WAITOK) where
+module Sys.Bus (module Sys.Bus, module Arch.I386.Include.BusDefs, module Arch.I386.I386.BusDma) where
 import Data.Word
 import Foreign.Ptr
 import Foreign.C.Types

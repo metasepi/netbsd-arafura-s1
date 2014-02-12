@@ -433,6 +433,37 @@ auichTriggerPipe sc pipe ring = do
         busSpaceWrite1 iot aud_ioh (fromIntegral pipe + e_ICH_CTRL) $ e_ICH_IOCE .|. e_ICH_FEIE .|. e_ICH_RPBM
   while 0
 
+foreign export ccall "auichTriggerOutput"
+  auichTriggerOutput :: Ptr AuichSoftc -> Ptr () -> Ptr () -> Int -> (FunPtr ((Ptr ()) -> IO ())) -> Ptr () -> Ptr AudioParamsT -> IO Int
+auichTriggerOutput :: Ptr AuichSoftc -> Ptr () -> Ptr () -> Int -> (FunPtr ((Ptr ()) -> IO ())) -> Ptr () -> Ptr AudioParamsT -> IO Int
+auichTriggerOutput sc start end blksize intr arg param =
+  p_AuichSoftc_sc_dmas sc >>= peek >>= while
+  where
+    while :: Ptr AuichDma -> IO Int
+    while p | p /= nullPtr = do a <- kernAddr_AuichDma p
+                                if a /= start then p_AuichDma_next p >>= peek >>= while
+                                else go p
+            | otherwise = go p
+    go :: Ptr AuichDma -> IO Int
+    go p | p == nullPtr = printfP1 "auich_trigger_output: bad addr %p\n" start >> return e_EINVAL
+    go p = do
+      let size = fromIntegral $ end `minusPtr` start
+      pcmo <- p_AuichSoftc_pcmo sc
+      (flip poke) intr =<< p_AuichRing_intr pcmo
+      (flip poke) arg =<< p_AuichRing_arg pcmo
+      daddr <- fmap fromIntegral $ dmaAddr p
+      (flip poke) daddr =<< p_AuichRing_start pcmo
+      (flip poke) daddr =<< p_AuichRing_p pcmo
+      (flip poke) (daddr + size) =<< p_AuichRing_end pcmo
+      (flip poke) blksize =<< p_AuichRing_blksize pcmo
+      iot <- peek =<< p_AuichSoftc_iot sc
+      aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
+      cddma <- dmaMapAddr =<< peek =<< p_AuichSoftc_sc_cddmamap sc
+      busSpaceWrite4 iot aud_ioh (fromIntegral (e_ICH_PCMO + e_ICH_BDBAR)) $
+        fromIntegral (cddma + fromIntegral (f_ICH_PCMO_OFF 0))
+      auichTriggerPipe sc e_ICH_PCMO pcmo
+      return 0
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
@@ -498,6 +529,8 @@ foreign import primitive "const.offsetof(struct auich_softc, sc_lock)"
   offsetOf_AuichSoftc_sc_lock :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_sample_shift)"
   offsetOf_AuichSoftc_sc_sample_shift :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_cddmamap)"
+  offsetOf_AuichSoftc_sc_cddmamap :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -551,6 +584,8 @@ p_AuichSoftc_sc_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_lock p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_lock
 p_AuichSoftc_sc_sample_shift :: Ptr AuichSoftc -> IO (Ptr Int)
 p_AuichSoftc_sc_sample_shift p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_sample_shift
+p_AuichSoftc_sc_cddmamap :: Ptr AuichSoftc -> IO (Ptr BusDmamapT)
+p_AuichSoftc_sc_cddmamap p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_cddmamap
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"
@@ -585,6 +620,10 @@ foreign import primitive "const.offsetof(struct auich_ring, qptr)"
   offsetOf_AuichRing_qptr :: Int
 p_AuichRing_qptr :: Ptr AuichRing -> IO (Ptr Int)
 p_AuichRing_qptr p = return $ plusPtr p $ offsetOf_AuichRing_qptr
+foreign import primitive "const.offsetof(struct auich_ring, arg)"
+  offsetOf_AuichRing_arg :: Int
+p_AuichRing_arg :: Ptr AuichRing -> IO (Ptr (Ptr ()))
+p_AuichRing_arg p = return $ plusPtr p $ offsetOf_AuichRing_arg
 
 newtype {-# CTYPE "struct auich_dma" #-} AuichDma = AuichDma ()
 foreign import primitive "const.sizeof(struct auich_dma)"
@@ -626,5 +665,33 @@ foreign import primitive "const.offsetof(struct auich_dmalist, len)"
 p_AuichDmalist_len :: Ptr AuichDmalist -> IO (Ptr Word32)
 p_AuichDmalist_len p = return $ plusPtr p $ offsetOf_AuichDmalist_len
 
+newtype {-# CTYPE "struct auich_cdata" #-} AuichCdata = AuichCdata ()
+foreign import primitive "const.sizeof(struct auich_cdata)"
+  sizeOf_AuichCdata :: Int
+foreign import primitive "const.offsetof(struct auich_cdata, ic_dmalist_pcmo)"
+  offsetOf_AuichCdata_ic_dmalist_pcmo :: Int
+p_AuichCdata_ic_dmalist_pcmo :: Ptr AuichCdata -> Int -> IO (Ptr AuichDmalist)
+p_AuichCdata_ic_dmalist_pcmo p i = return $ plusPtr p $ offsetOf_AuichCdata_ic_dmalist_pcmo + i * sizeOf_AuichDmalist
+foreign import primitive "const.offsetof(struct auich_cdata, ic_dmalist_pcmi)"
+  offsetOf_AuichCdata_ic_dmalist_pcmi :: Int
+p_AuichCdata_ic_dmalist_pcmi :: Ptr AuichCdata -> Int -> IO (Ptr AuichDmalist)
+p_AuichCdata_ic_dmalist_pcmi p i = return $ plusPtr p $ offsetOf_AuichCdata_ic_dmalist_pcmi + i * sizeOf_AuichDmalist
+foreign import primitive "const.offsetof(struct auich_cdata, ic_dmalist_mici)"
+  offsetOf_AuichCdata_ic_dmalist_mici :: Int
+p_AuichCdata_ic_dmalist_mici :: Ptr AuichCdata -> Int -> IO (Ptr AuichDmalist)
+p_AuichCdata_ic_dmalist_mici p i = return $ plusPtr p $ offsetOf_AuichCdata_ic_dmalist_mici + i * sizeOf_AuichDmalist
+f_ICH_PCMO_OFF i = offsetOf_AuichCdata_ic_dmalist_pcmo + i * sizeOf_AuichDmalist
+f_ICH_PCMI_OFF i = offsetOf_AuichCdata_ic_dmalist_pcmi + i * sizeOf_AuichDmalist
+f_ICH_MICI_OFF i = offsetOf_AuichCdata_ic_dmalist_mici + i * sizeOf_AuichDmalist
+
 kernAddr_AuichDma :: Ptr AuichDma -> IO (Ptr ())
 kernAddr_AuichDma p = fmap castPtr $ peek =<< p_AuichDma_addr p
+
+dmaAddr :: Ptr AuichDma -> IO BusAddrT
+dmaAddr p = do
+  dmaMapAddr =<< peek =<< p_AuichDma_map p
+
+dmaMapAddr :: BusDmamapT -> IO BusAddrT
+dmaMapAddr p = do
+  busdmaseg <- p_BusDmamap_dm_segs p 0
+  peek =<< p_BusDmaSegment_ds_addr busdmaseg

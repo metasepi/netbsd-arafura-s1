@@ -158,8 +158,6 @@ CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
 static void	auich_intr_pipe(struct auich_softc *, int, struct auich_ring *);
-static int	auich_trigger_output(void *, void *, void *, int,
-		    void (*)(void *), void *, const audio_params_t *);
 static int	auich_trigger_input(void *, void *, void *, int,
 		    void (*)(void *), void *, const audio_params_t *);
 
@@ -200,6 +198,8 @@ extern paddr_t	auichMappage(void *, void *, off_t, int);
 extern int	auichGetProps(void *);
 extern void	auichGetLocks(void *, kmutex_t **, kmutex_t **);
 extern void	auichTriggerPipe(struct auich_softc *, int, struct auich_ring *);
+extern int	auichTriggerOutput(void *, void *, void *, int,
+		    void (*)(void *), void *, const audio_params_t *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -226,7 +226,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichRoundBuffersize,
 	auichMappage,
 	auichGetProps,
-	auich_trigger_output,
+	auichTriggerOutput,
 	auich_trigger_input,
 	NULL,			/* dev_ioctl */
 	auichGetLocks,
@@ -943,42 +943,6 @@ auich_intr_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
 
 	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_LVI,
 	    (qptr - 1) & ICH_LVI_MASK);
-}
-
-static int
-auich_trigger_output(void *v, void *start, void *end, int blksize,
-    void (*intr)(void *), void *arg, const audio_params_t *param)
-{
-	struct auich_softc *sc;
-	struct auich_dma *p;
-	size_t size;
-
-	DPRINTF(ICH_DEBUG_DMA,
-	    ("auich_trigger_output(%p, %p, %d, %p, %p, %p)\n",
-	    start, end, blksize, intr, arg, param));
-	sc = v;
-
-	for (p = sc->sc_dmas; p && KERNADDR(p) != start; p = p->next)
-		continue;
-	if (!p) {
-		printf("auich_trigger_output: bad addr %p\n", start);
-		return EINVAL;
-	}
-
-	size = (size_t)((char *)end - (char *)start);
-
-	sc->pcmo.intr = intr;
-	sc->pcmo.arg = arg;
-	sc->pcmo.start = DMAADDR(p);
-	sc->pcmo.p = sc->pcmo.start;
-	sc->pcmo.end = sc->pcmo.start + size;
-	sc->pcmo.blksize = blksize;
-
-	bus_space_write_4(sc->iot, sc->aud_ioh, ICH_PCMO + ICH_BDBAR,
-	    sc->sc_cddma + ICH_PCMO_OFF(0));
-	auichTriggerPipe(sc, ICH_PCMO, &sc->pcmo);
-
-	return 0;
 }
 
 static int
