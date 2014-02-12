@@ -2,12 +2,14 @@
 module Sys.Bus (busSpaceRead4, busSpaceWrite4, busSpaceRead2, busSpaceWrite2, busSpaceRead1, busSpaceWrite1,
                 busDmamemAlloc, busDmamemFree, busDmamemMap, busDmamemUnmap, busDmamapCreate, busDmamapDestroy, busDmamapLoad, busDmamapUnload,
                 BusSpaceTagT, BusSpaceHandleT, BusSizeT, BusDmaSegmentT, BusDmamapT, BusDmaTagT,
-                sizeOf_BusDmaSegmentT) where
+                sizeOf_BusDmaSegmentT, e_BUS_DMA_WAITOK) where
 import Data.Word
 import Foreign.Ptr
 import Foreign.C.Types
 import Sys.Proc
 import Arch.I386.Include.BusDefs
+
+foreign import primitive "const.BUS_DMA_WAITOK" e_BUS_DMA_WAITOK :: Int
 
 busSpaceRead4 = c_bus_space_read_4
 busSpaceWrite4 = c_bus_space_write_4

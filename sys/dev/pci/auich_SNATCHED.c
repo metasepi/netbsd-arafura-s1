@@ -172,9 +172,6 @@ static void	auich_get_locks(void *, kmutex_t **, kmutex_t **);
 
 static int	auich_alloc_cdata(struct auich_softc *);
 
-static int	auich_allocmem(struct auich_softc *, size_t, size_t,
-		    struct auich_dma *);
-
 static bool	auich_resume(device_t, const pmf_qual_t *);
 static int	auich_sysctl_verify(SYSCTLFN_ARGS);
 static void	auich_finish_attach(device_t);
@@ -200,6 +197,8 @@ extern int	auichGetdev(void *, struct audio_device *);
 extern int	auichSetPort(void *, mixer_ctrl_t *);
 extern int	auichGetPort(void *, mixer_ctrl_t *);
 extern int	auichQueryDevinfo(void *, mixer_devinfo_t *);
+extern int	auichAllocmem(struct auich_softc *, size_t, size_t,
+		    struct auich_dma *);
 extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
 
 static const struct audio_hw_if auich_hw_if = {
@@ -809,7 +808,7 @@ auich_allocm(void *v, int direction, size_t size)
 		return NULL;
 
 	sc = v;
-	error = auich_allocmem(sc, size, 0, p);
+	error = auichAllocmem(sc, size, 0, p);
 	if (error) {
 		kmem_free(p, sizeof(*p));
 		return NULL;
@@ -1131,44 +1130,6 @@ auich_trigger_input(void *v, void *start, void *end, int blksize,
 	auich_trigger_pipe(sc, ICH_PCMI, &sc->pcmi);
 
 	return 0;
-}
-
-static int
-auich_allocmem(struct auich_softc *sc, size_t size, size_t align,
-    struct auich_dma *p)
-{
-	int error;
-
-	p->size = size;
-	error = bus_dmamem_alloc(sc->dmat, p->size, align, 0,
-				 p->segs, sizeof(p->segs)/sizeof(p->segs[0]),
-				 &p->nsegs, BUS_DMA_WAITOK);
-	if (error)
-		return error;
-
-	error = bus_dmamem_map(sc->dmat, p->segs, p->nsegs, p->size,
-			       &p->addr, BUS_DMA_WAITOK|sc->sc_dmamap_flags);
-	if (error)
-		goto free;
-
-	error = bus_dmamap_create(sc->dmat, p->size, 1, p->size,
-				  0, BUS_DMA_WAITOK, &p->map);
-	if (error)
-		goto unmap;
-
-	error = bus_dmamap_load(sc->dmat, p->map, p->addr, p->size, NULL,
-				BUS_DMA_WAITOK);
-	if (error)
-		goto destroy;
-	return 0;
-
- destroy:
-	bus_dmamap_destroy(sc->dmat, p->map);
- unmap:
-	bus_dmamem_unmap(sc->dmat, p->addr, p->size);
- free:
-	bus_dmamem_free(sc->dmat, p->segs, p->nsegs);
-	return error;
 }
 
 static int

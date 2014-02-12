@@ -27,7 +27,8 @@
 struct auich_dma {
 	bus_dmamap_t map;
 	void *addr;
-	bus_dma_segment_t segs[1];
+#define AUICH_NUM_SEGS	1
+	bus_dma_segment_t segs[AUICH_NUM_SEGS];
 	int nsegs;
 	size_t size;
 	struct auich_dma *next;
