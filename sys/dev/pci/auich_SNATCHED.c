@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	*auich_allocm(void *, int, size_t);
 static void	auich_freem(void *, void *, size_t);
 static size_t	auich_round_buffersize(void *, int, size_t);
 static paddr_t	auich_mappage(void *, void *, off_t, int);
@@ -200,6 +199,7 @@ extern int	auichQueryDevinfo(void *, mixer_devinfo_t *);
 extern int	auichAllocmem(struct auich_softc *, size_t, size_t,
 		    struct auich_dma *);
 extern int	auichFreemem(struct auich_softc *, struct auich_dma *);
+extern void	*auichAllocm(void *, int, size_t);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -221,7 +221,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichSetPort,
 	auichGetPort,
 	auichQueryDevinfo,
-	auich_allocm,
+	auichAllocm,
 	auich_freem,
 	auich_round_buffersize,
 	auich_mappage,
@@ -793,33 +793,6 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-static void *
-auich_allocm(void *v, int direction, size_t size)
-{
-	struct auich_softc *sc;
-	struct auich_dma *p;
-	int error;
-
-	if (size > (ICH_DMALIST_MAX * ICH_DMASEG_MAX))
-		return NULL;
-
-	p = kmem_alloc(sizeof(*p), KM_SLEEP);
-	if (p == NULL)
-		return NULL;
-
-	sc = v;
-	error = auichAllocmem(sc, size, 0, p);
-	if (error) {
-		kmem_free(p, sizeof(*p));
-		return NULL;
-	}
-
-	p->next = sc->sc_dmas;
-	sc->sc_dmas = p;
-
-	return KERNADDR(p);
-}
-
 static void
 auich_freem(void *v, void *ptr, size_t size)
 {
@@ -1243,7 +1216,7 @@ auich_calibrate(struct auich_softc *sc)
 
 	/* Setup a buffer */
 	bytes = 64000;
-	temp_buffer = auich_allocm(sc, AUMODE_RECORD, bytes);
+	temp_buffer = auichAllocm(sc, AUMODE_RECORD, bytes);
 
 	for (p = sc->sc_dmas; p && KERNADDR(p) != temp_buffer; p = p->next)
 		continue;

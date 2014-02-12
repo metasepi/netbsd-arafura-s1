@@ -15,6 +15,7 @@ import Sys.Errno
 import Sys.Audioio
 import Sys.Bus
 import Sys.Device
+import Kern.SubrKmem
 import Lib.Libkern.Libkern
 import Dev.Pci.Auichreg
 import Dev.Ic.Ac97reg
@@ -312,6 +313,25 @@ auichFreemem sc p = do
   busDmamemFree dmat segs nsegs
   return 0
 
+foreign export ccall "auichAllocm"
+  auichAllocm :: Ptr AuichSoftc -> Int -> CSize -> IO (Ptr ())
+auichAllocm :: Ptr AuichSoftc -> Int -> CSize -> IO (Ptr ())
+auichAllocm sc direction size =
+  if size > e_ICH_DMALIST_MAX * e_ICH_DMASEG_MAX then return nullPtr
+  else do
+    p <- fmap castPtr $ kmemAlloc (fromIntegral sizeOf_AuichDma) e_KM_SLEEP
+    if p == nullPtr then return nullPtr
+    else do
+      error <- auichAllocmem sc size 0 p
+      if error /= 0 then kmemFree (castPtr p) (fromIntegral sizeOf_AuichDma) >> return nullPtr
+      else do
+        next_p <- p_AuichDma_next p
+        dmas_p <- p_AuichSoftc_sc_dmas sc
+        dmas   <- peek dmas_p
+        poke next_p dmas
+        poke dmas_p p
+        kernAddr_AuichDma p
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
@@ -371,6 +391,8 @@ foreign import primitive "const.offsetof(struct auich_softc, dmat)"
   offsetOf_AuichSoftc_dmat :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_dmamap_flags)"
   offsetOf_AuichSoftc_sc_dmamap_flags :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_dmas)"
+  offsetOf_AuichSoftc_sc_dmas :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -418,6 +440,8 @@ p_AuichSoftc_dmat :: Ptr AuichSoftc -> IO (Ptr BusDmaTagT)
 p_AuichSoftc_dmat p = return $ plusPtr p $ offsetOf_AuichSoftc_dmat
 p_AuichSoftc_sc_dmamap_flags :: Ptr AuichSoftc -> IO (Ptr Int)
 p_AuichSoftc_sc_dmamap_flags p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_dmamap_flags
+p_AuichSoftc_sc_dmas :: Ptr AuichSoftc -> IO (Ptr (Ptr AuichDma))
+p_AuichSoftc_sc_dmas p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_dmas
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"
@@ -452,3 +476,10 @@ foreign import primitive "const.offsetof(struct auich_dma, map)"
   offsetOf_AuichDma_map :: Int
 p_AuichDma_map :: Ptr AuichDma -> IO (Ptr BusDmamapT)
 p_AuichDma_map p = return $ plusPtr p $ offsetOf_AuichDma_map
+foreign import primitive "const.offsetof(struct auich_dma, next)"
+  offsetOf_AuichDma_next :: Int
+p_AuichDma_next :: Ptr AuichDma -> IO (Ptr (Ptr AuichDma))
+p_AuichDma_next p = return $ plusPtr p $ offsetOf_AuichDma_next
+
+kernAddr_AuichDma :: Ptr AuichDma -> IO (Ptr ())
+kernAddr_AuichDma p = fmap castPtr $ peek =<< p_AuichDma_addr p
