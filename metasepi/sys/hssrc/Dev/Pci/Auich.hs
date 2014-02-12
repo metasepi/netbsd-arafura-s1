@@ -393,6 +393,15 @@ auichGetProps sc = do
   return $ if not fixed || codectype == e_AC97_CODEC_TYPE_MODEM then props .|. e_AUDIO_PROP_MMAP
            else props
 
+foreign export ccall "auichGetLocks"
+  auichGetLocks :: Ptr AuichSoftc -> Ptr (Ptr KmutexT) -> Ptr (Ptr KmutexT) -> IO ()
+auichGetLocks :: Ptr AuichSoftc -> Ptr (Ptr KmutexT) -> Ptr (Ptr KmutexT) -> IO ()
+auichGetLocks sc intr thread = do
+  i <- p_AuichSoftc_sc_intr_lock sc
+  t <- p_AuichSoftc_sc_lock sc
+  poke intr i
+  poke thread t
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
@@ -454,6 +463,8 @@ foreign import primitive "const.offsetof(struct auich_softc, sc_dmamap_flags)"
   offsetOf_AuichSoftc_sc_dmamap_flags :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_dmas)"
   offsetOf_AuichSoftc_sc_dmas :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_lock)"
+  offsetOf_AuichSoftc_sc_lock :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -503,6 +514,8 @@ p_AuichSoftc_sc_dmamap_flags :: Ptr AuichSoftc -> IO (Ptr Int)
 p_AuichSoftc_sc_dmamap_flags p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_dmamap_flags
 p_AuichSoftc_sc_dmas :: Ptr AuichSoftc -> IO (Ptr (Ptr AuichDma))
 p_AuichSoftc_sc_dmas p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_dmas
+p_AuichSoftc_sc_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
+p_AuichSoftc_sc_lock p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_lock
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"

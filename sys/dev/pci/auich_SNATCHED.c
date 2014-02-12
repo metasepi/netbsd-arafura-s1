@@ -163,7 +163,6 @@ static int	auich_trigger_output(void *, void *, void *, int,
 		    void (*)(void *), void *, const audio_params_t *);
 static int	auich_trigger_input(void *, void *, void *, int,
 		    void (*)(void *), void *, const audio_params_t *);
-static void	auich_get_locks(void *, kmutex_t **, kmutex_t **);
 
 static int	auich_alloc_cdata(struct auich_softc *);
 
@@ -199,7 +198,8 @@ extern void	*auichAllocm(void *, int, size_t);
 extern void	auichFreem(void *, void *, size_t);
 extern size_t	auichRoundBuffersize(void *, int, size_t);
 extern paddr_t	auichMappage(void *, void *, off_t, int);
-static int	auichGetProps(void *);
+extern int	auichGetProps(void *);
+extern void	auichGetLocks(void *, kmutex_t **, kmutex_t **);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -229,7 +229,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auich_trigger_output,
 	auich_trigger_input,
 	NULL,			/* dev_ioctl */
-	auich_get_locks,
+	auichGetLocks,
 };
 
 #define AUICH_FORMATS_1CH	0
@@ -1242,14 +1242,4 @@ auich_clear_cas(struct auich_softc *sc)
 	    AC97_REG_RESET * (sc->sc_codecnum * ICH_CODEC_OFFSET));
 
 	return;
-}
-
-static void
-auich_get_locks(void *addr, kmutex_t **intr, kmutex_t **thread)
-{
-	struct auich_softc *sc;
-
-	sc = addr;
-	*intr = &sc->sc_intr_lock;
-	*thread = &sc->sc_lock;
 }
