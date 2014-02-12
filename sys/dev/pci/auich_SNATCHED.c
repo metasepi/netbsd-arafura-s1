@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static int	auich_get_props(void *);
 static void	auich_trigger_pipe(struct auich_softc *, int, struct auich_ring *);
 static void	auich_intr_pipe(struct auich_softc *, int, struct auich_ring *);
 static int	auich_trigger_output(void *, void *, void *, int,
@@ -200,6 +199,7 @@ extern void	*auichAllocm(void *, int, size_t);
 extern void	auichFreem(void *, void *, size_t);
 extern size_t	auichRoundBuffersize(void *, int, size_t);
 extern paddr_t	auichMappage(void *, void *, off_t, int);
+static int	auichGetProps(void *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -225,7 +225,7 @@ static const struct audio_hw_if auich_hw_if = {
 	auichFreem,
 	auichRoundBuffersize,
 	auichMappage,
-	auich_get_props,
+	auichGetProps,
 	auich_trigger_output,
 	auich_trigger_input,
 	NULL,			/* dev_ioctl */
@@ -791,25 +791,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-static int
-auich_get_props(void *v)
-{
-	struct auich_softc *sc;
-	int props;
-
-	props = AUDIO_PROP_INDEPENDENT | AUDIO_PROP_FULLDUPLEX;
-	sc = v;
-	/*
-	 * Even if the codec is fixed-rate, set_param() succeeds for any sample
-	 * rate because of aurateconv.  Applications can't know what rate the
-	 * device can process in the case of mmap().
-	 */
-	if (!AC97_IS_FIXED_RATE(sc->codec_if) ||
-	    sc->sc_codectype == AC97_CODEC_TYPE_MODEM)
-		props |= AUDIO_PROP_MMAP;
-	return props;
 }
 
 static int

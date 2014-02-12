@@ -1,11 +1,20 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module Dev.Ic.Ac97var where
-import Foreign.Ptr
+import Data.Bits
 import Foreign.C.Types
+import Foreign.Ptr
+import Foreign.Storable
 import Sys.Audioio
+import Dev.Ic.Ac97reg
 
 foreign import primitive "const.AC97_CODEC_TYPE_AUDIO" e_AC97_CODEC_TYPE_AUDIO :: Int
 foreign import primitive "const.AC97_CODEC_TYPE_MODEM" e_AC97_CODEC_TYPE_MODEM :: Int
+
+f_AC97_IS_FIXED_RATE :: Ptr Ac97CodecIf -> IO Bool
+f_AC97_IS_FIXED_RATE codec = do
+  g <- peek =<< p_Ac97CodecIfVtbl_get_extcaps =<< peek =<< p_Ac97CodecIf_vtbl codec
+  r <- call_Ac97CodecIfVtbl_get_extcaps g codec
+  return $ if r .&. fromIntegral e_AC97_EXT_AUDIO_VRA == 0 then True else False
 
 newtype {-# CTYPE "struct ac97_codec_if" #-} Ac97CodecIf = Ac97CodecIf ()
 foreign import primitive "const.offsetof(struct ac97_codec_if, vtbl)"
@@ -66,3 +75,10 @@ p_Ac97CodecIfVtbl_query_devinfo :: Ptr Ac97CodecIfVtbl -> IO (Ptr (FunPtr ((Ptr 
 p_Ac97CodecIfVtbl_query_devinfo p = return $ plusPtr p $ offsetOf_Ac97CodecIfVtbl_query_devinfo
 foreign import ccall "dynamic" call_Ac97CodecIfVtbl_query_devinfo ::
   FunPtr ((Ptr Ac97CodecIf) -> Ptr MixerDevinfo -> IO Int) -> (Ptr Ac97CodecIf) -> Ptr MixerDevinfo -> IO Int
+
+foreign import primitive "const.offsetof(struct ac97_codec_if_vtbl, get_extcaps)"
+  offsetOf_Ac97CodecIfVtbl_get_extcaps :: Int
+p_Ac97CodecIfVtbl_get_extcaps :: Ptr Ac97CodecIfVtbl ->  IO (Ptr (FunPtr ((Ptr Ac97CodecIf) -> IO Word16)))
+p_Ac97CodecIfVtbl_get_extcaps p = return $ plusPtr p $ offsetOf_Ac97CodecIfVtbl_get_extcaps
+foreign import ccall "dynamic" call_Ac97CodecIfVtbl_get_extcaps ::
+  FunPtr ((Ptr Ac97CodecIf) -> IO Word16) -> (Ptr Ac97CodecIf) -> IO Word16

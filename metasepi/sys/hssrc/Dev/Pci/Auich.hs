@@ -382,6 +382,17 @@ auichMappage sc mem off prot =
         nsegs <- peek =<< p_AuichDma_nsegs p
         busDmamemMmap dmat segs nsegs off prot e_BUS_DMA_WAITOK
 
+foreign export ccall "auichGetProps"
+  auichGetProps :: Ptr AuichSoftc -> IO Int
+auichGetProps :: Ptr AuichSoftc -> IO Int
+auichGetProps sc = do
+  let props = e_AUDIO_PROP_INDEPENDENT .|. e_AUDIO_PROP_FULLDUPLEX
+  codecif <- peek =<< p_AuichSoftc_codec_if sc
+  codectype <- peek =<< p_AuichSoftc_sc_codectype sc
+  fixed <- f_AC97_IS_FIXED_RATE codecif
+  return $ if not fixed || codectype == e_AC97_CODEC_TYPE_MODEM then props .|. e_AUDIO_PROP_MMAP
+           else props
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 
