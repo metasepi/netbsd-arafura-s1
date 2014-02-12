@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	auich_trigger_pipe(struct auich_softc *, int, struct auich_ring *);
 static void	auich_intr_pipe(struct auich_softc *, int, struct auich_ring *);
 static int	auich_trigger_output(void *, void *, void *, int,
 		    void (*)(void *), void *, const audio_params_t *);
@@ -200,6 +199,7 @@ extern size_t	auichRoundBuffersize(void *, int, size_t);
 extern paddr_t	auichMappage(void *, void *, off_t, int);
 extern int	auichGetProps(void *);
 extern void	auichGetLocks(void *, kmutex_t **, kmutex_t **);
+extern void	auichTriggerPipe(struct auich_softc *, int, struct auich_ring *);
 
 static const struct audio_hw_if auich_hw_if = {
 	auichOpen,
@@ -913,31 +913,6 @@ auich_intr(void *v)
 }
 
 static void
-auich_trigger_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
-{
-	int blksize, qptr;
-	struct auich_dmalist *q;
-
-	blksize = ring->blksize;
-
-	for (qptr = 0; qptr < ICH_DMALIST_MAX; qptr++) {
-		q = &ring->dmalist[qptr];
-		q->base = ring->p;
-		q->len = (blksize >> sc->sc_sample_shift) | ICH_DMAF_IOC;
-
-		ring->p += blksize;
-		if (ring->p >= ring->end)
-			ring->p = ring->start;
-	}
-	ring->qptr = 0;
-
-	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_LVI,
-	    (qptr - 1) & ICH_LVI_MASK);
-	bus_space_write_1(sc->iot, sc->aud_ioh, pipe + ICH_CTRL,
-	    ICH_IOCE | ICH_FEIE | ICH_RPBM);
-}
-
-static void
 auich_intr_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
 {
 	int blksize, qptr, nqptr;
@@ -1001,7 +976,7 @@ auich_trigger_output(void *v, void *start, void *end, int blksize,
 
 	bus_space_write_4(sc->iot, sc->aud_ioh, ICH_PCMO + ICH_BDBAR,
 	    sc->sc_cddma + ICH_PCMO_OFF(0));
-	auich_trigger_pipe(sc, ICH_PCMO, &sc->pcmo);
+	auichTriggerPipe(sc, ICH_PCMO, &sc->pcmo);
 
 	return 0;
 }
@@ -1037,7 +1012,7 @@ auich_trigger_input(void *v, void *start, void *end, int blksize,
 
 	bus_space_write_4(sc->iot, sc->aud_ioh, ICH_PCMI + ICH_BDBAR,
 	    sc->sc_cddma + ICH_PCMI_OFF(0));
-	auich_trigger_pipe(sc, ICH_PCMI, &sc->pcmi);
+	auichTriggerPipe(sc, ICH_PCMI, &sc->pcmi);
 
 	return 0;
 }

@@ -15,3 +15,9 @@ foreign import primitive "const.ICH_PCMI" e_ICH_PCMI :: Int
 foreign import primitive "const.ICH_PCMO" e_ICH_PCMO :: Int
 foreign import primitive "const.ICH_DMALIST_MAX" e_ICH_DMALIST_MAX :: CSize
 foreign import primitive "const.ICH_DMASEG_MAX" e_ICH_DMASEG_MAX :: CSize
+foreign import primitive "const.ICH_LVI" e_ICH_LVI :: BusSizeT
+foreign import primitive "const.ICH_LVI_MASK" e_ICH_LVI_MASK :: Word8
+foreign import primitive "const.ICH_IOCE" e_ICH_IOCE :: Word8
+foreign import primitive "const.ICH_FEIE" e_ICH_FEIE :: Word8
+foreign import primitive "const.ICH_RPBM" e_ICH_RPBM :: Word8
+foreign import primitive "const.ICH_DMAF_IOC" e_ICH_DMAF_IOC :: Word32
