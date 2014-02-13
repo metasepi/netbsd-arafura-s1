@@ -507,7 +507,10 @@ foreign export ccall "auichIntr"
   auichIntr :: Ptr AuichSoftc -> IO Int
 auichIntr :: Ptr AuichSoftc -> IO Int
 auichIntr sc = do
-  -- xxxxxxxxxxxxxx Not yet snatch all
+  pw <- deviceHasPower =<< peek =<< p_AuichSoftc_sc_dev sc
+  if pw then auichIntr' sc else return 0
+auichIntr' :: Ptr AuichSoftc -> IO Int
+auichIntr' sc = do
   mutexp <- p_AuichSoftc_sc_intr_lock sc
   mutexSpinEnter mutexp
   codectype <- peek =<< p_AuichSoftc_sc_codectype sc

@@ -152,7 +152,6 @@ static int	auich_match(device_t, cfdata_t, void *);
 static void	auich_attach(device_t, device_t, void *);
 static int	auich_detach(device_t, int);
 static void	auich_childdet(device_t, device_t);
-static int	auich_intr(void *);
 
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
@@ -168,6 +167,7 @@ static void	auich_finish_attach(device_t);
 static void	auich_calibrate(struct auich_softc *);
 static void	auich_clear_cas(struct auich_softc *);
 
+extern int	auichIntr(void *);
 extern void	auichIntrPipe(struct auich_softc *, int, struct auich_ring *);
 
 static int	auich_attach_codec(void *, struct ac97_codec_if *);
@@ -440,7 +440,7 @@ map_done:
 	}
 	intrstr = pci_intr_string(pa->pa_pc, sc->intrh);
 	sc->sc_ih = pci_intr_establish(pa->pa_pc, sc->intrh, IPL_AUDIO,
-	    auich_intr, sc);
+	    auichIntr, sc);
 	if (sc->sc_ih == NULL) {
 		aprint_error_dev(self, "can't establish interrupt");
 		if (intrstr != NULL)
@@ -792,19 +792,6 @@ auich_spdif_event(void *addr, bool flag)
 
 	sc = addr;
 	sc->sc_spdif = flag;
-}
-
-extern int	auichIntr(void *);
-static int
-auich_intr(void *v)
-{
-	struct auich_softc *sc;
-
-	sc = v;
-
-	if (!device_has_power(sc->sc_dev))
-		return (0);
-	return auichIntr(sc); // Haskell code
 }
 
 static int
