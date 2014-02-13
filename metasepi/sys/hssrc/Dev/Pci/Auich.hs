@@ -512,7 +512,26 @@ auichIntr sc gsts ret = do
   iot <- peek =<< p_AuichSoftc_iot sc
   aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
   modem_offset <- peek =<< p_AuichSoftc_sc_modem_offset sc
-  let f3, post :: Int -> IO Int
+  let f2, f3, post :: Int -> IO Int
+      f2 r =
+        if (codectype == e_AC97_CODEC_TYPE_AUDIO && gsts .&. e_ICH_PIINT /= 0) ||
+	   (codectype == e_AC97_CODEC_TYPE_MODEM && gsts .&. e_ICH_MIINT /= 0) then do
+          stsReg <- peek =<< p_AuichSoftc_sc_sts_reg sc
+          sts <- busSpaceRead2 iot aud_ioh $ fromIntegral e_ICH_PCMI + fromIntegral stsReg
+          when (sts .&. e_ICH_FIFOE /= 0) $ do
+            printfS1 "%s: fifo overrun\n" =<< deviceXname =<< peek =<< p_AuichSoftc_sc_dev sc
+          when (sts .&. e_ICH_BCIS /= 0) $ do
+            auichIntrPipe sc e_ICH_PCMI =<< p_AuichSoftc_pcmi sc
+          -- int ack
+          busSpaceWrite2 iot aud_ioh (fromIntegral e_ICH_PCMI + fromIntegral stsReg)
+            (sts .&. (e_ICH_BCIS .|. e_ICH_FIFOE))
+          if codectype == e_AC97_CODEC_TYPE_AUDIO then
+            busSpaceWrite4 iot aud_ioh (e_ICH_GSTS + modem_offset) $ fromIntegral e_ICH_PIINT
+          else
+            busSpaceWrite4 iot aud_ioh (e_ICH_GSTS + modem_offset) $ fromIntegral e_ICH_MIINT
+          return $ r + 1
+        else
+          return r
       f3 r =
         if codectype == e_AC97_CODEC_TYPE_AUDIO && gsts .&. e_ICH_MINT /= 0 then do
           stsReg <- peek =<< p_AuichSoftc_sc_sts_reg sc
@@ -532,7 +551,7 @@ auichIntr sc gsts ret = do
         mutexp <- p_AuichSoftc_sc_intr_lock sc
         mutexSpinExit mutexp
         return r
-  f3 ret >>= post
+  f2 ret >>= f3 >>= post
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)

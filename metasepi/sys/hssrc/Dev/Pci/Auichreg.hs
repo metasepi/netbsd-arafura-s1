@@ -28,3 +28,7 @@ foreign import primitive "const.ICH_MINT" e_ICH_MINT :: Int
 foreign import primitive "const.ICH_FIFOE" e_ICH_FIFOE :: Word16
 foreign import primitive "const.ICH_BCIS" e_ICH_BCIS :: Word16
 foreign import primitive "const.ICH_GSTS" e_ICH_GSTS :: BusSizeT
+foreign import primitive "const.ICH_PIINT" e_ICH_PIINT :: Int
+foreign import primitive "const.ICH_MIINT" e_ICH_MIINT :: Int
+foreign import primitive "const.ICH_POINT" e_ICH_POINT :: Int
+foreign import primitive "const.ICH_MOINT" e_ICH_MOINT :: Int
