@@ -794,7 +794,7 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-extern int	auichIntr(void *, int, int);
+extern int	auichIntr(void *, int);
 static int
 auich_intr(void *v)
 {
@@ -821,35 +821,7 @@ auich_intr(void *v)
 
 	gsts = bus_space_read_4(sc->iot, sc->aud_ioh,
 	    ICH_GSTS + sc->sc_modem_offset);
-	DPRINTF(ICH_DEBUG_INTR, ("auich_intr: gsts=0x%x\n", gsts));
-
-	if ((sc->sc_codectype == AC97_CODEC_TYPE_AUDIO && gsts & ICH_POINT) ||
-	    (sc->sc_codectype == AC97_CODEC_TYPE_MODEM && gsts & ICH_MOINT)) {
-		int sts;
-
-		sts = bus_space_read_2(sc->iot, sc->aud_ioh,
-		    ICH_PCMO + sc->sc_sts_reg);
-		DPRINTF(ICH_DEBUG_INTR,
-		    ("auich_intr: osts=0x%x\n", sts));
-
-		if (sts & ICH_FIFOE)
-			printf("%s: fifo underrun\n", device_xname(sc->sc_dev));
-
-		if (sts & ICH_BCIS)
-			auichIntrPipe(sc, ICH_PCMO, &sc->pcmo);
-
-		/* int ack */
-		bus_space_write_2(sc->iot, sc->aud_ioh, ICH_PCMO +
-		    sc->sc_sts_reg, sts & (ICH_BCIS | ICH_FIFOE));
-		if (sc->sc_codectype == AC97_CODEC_TYPE_AUDIO)
-			bus_space_write_4(sc->iot, sc->aud_ioh,
-			    ICH_GSTS + sc->sc_modem_offset, ICH_POINT);
-		else
-			bus_space_write_4(sc->iot, sc->aud_ioh,
-			    ICH_GSTS + sc->sc_modem_offset, ICH_MOINT);
-		ret++;
-	}
-	return auichIntr(sc, gsts, ret); // Haskell code
+	return auichIntr(sc, gsts); // Haskell code
 }
 
 static int
