@@ -5,7 +5,8 @@
 #
 define	hdaudiobus	{[nid = -1]}
 device	hdaudio: hdaudiobus
-file	dev/pci/hdaudio/hdaudio.c	hdaudio
+#file	dev/pci/hdaudio/hdaudio.c	hdaudio
+file	dev/pci/hdaudio/hdaudio_SNATCHED.c	hdaudio
 file	dev/pci/hdaudio/hdaudio_ids.c	hdaudio
 
 device	hdafg: audiobus, auconv, aurateconv, mulaw
