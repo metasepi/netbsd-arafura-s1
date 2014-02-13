@@ -502,6 +502,16 @@ auichIntrPipe sc pipe ring = do
           (fromIntegral qptr - 1) .&. e_ICH_LVI_MASK
   while =<< peek =<< p_AuichRing_qptr ring
 
+-- !!! INTR !!!
+foreign export ccall "auichIntr"
+  auichIntr :: Ptr AuichSoftc -> Int -> Int -> IO Int
+auichIntr :: Ptr AuichSoftc -> Int -> Int -> IO Int
+auichIntr sc gsts ret = do
+  -- xxxxxxxxxxxxxx Not yet snatch all
+  mutexp <- p_AuichSoftc_sc_intr_lock sc
+  mutexSpinExit mutexp
+  return ret
+
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
 

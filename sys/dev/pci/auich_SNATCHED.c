@@ -794,6 +794,7 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
+extern int	auichIntr(void *, int, int);
 static int
 auich_intr(void *v)
 {
@@ -897,20 +898,7 @@ auich_intr(void *v)
 		    ICH_GSTS + sc->sc_modem_offset, ICH_MINT);
 		ret++;
 	}
-
-#ifdef AUICH_MODEM_DEBUG
-	if (sc->sc_codectype == AC97_CODEC_TYPE_MODEM && gsts & ICH_GSCI) {
-		printf("%s: gsts=0x%x\n", device_xname(sc->sc_dev), gsts);
-		/* int ack */
-		bus_space_write_4(sc->iot, sc->aud_ioh,
-		    ICH_GSTS + sc->sc_modem_offset, ICH_GSCI);
-		ret++;
-	}
-#endif
-
-	mutex_spin_exit(&sc->sc_intr_lock);
-
-	return ret;
+	return auichIntr(sc, gsts, ret); // Haskell code
 }
 
 static int
