@@ -504,14 +504,17 @@ auichIntrPipe sc pipe ring = do
 
 -- !!! INTR !!!
 foreign export ccall "auichIntr"
-  auichIntr :: Ptr AuichSoftc -> Int -> IO Int
-auichIntr :: Ptr AuichSoftc -> Int -> IO Int
-auichIntr sc gsts = do
+  auichIntr :: Ptr AuichSoftc -> IO Int
+auichIntr :: Ptr AuichSoftc -> IO Int
+auichIntr sc = do
   -- xxxxxxxxxxxxxx Not yet snatch all
+  mutexp <- p_AuichSoftc_sc_intr_lock sc
+  mutexSpinEnter mutexp
   codectype <- peek =<< p_AuichSoftc_sc_codectype sc
   iot <- peek =<< p_AuichSoftc_iot sc
   aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
   modem_offset <- peek =<< p_AuichSoftc_sc_modem_offset sc
+  gsts <- fmap fromIntegral $ busSpaceRead4 iot aud_ioh $ e_ICH_GSTS + modem_offset
   let f1, f2, f3, post :: Int -> IO Int
       f1 r =
         if (codectype == e_AC97_CODEC_TYPE_AUDIO && gsts .&. e_ICH_POINT /= 0) ||
@@ -567,7 +570,6 @@ auichIntr sc gsts = do
         else
           return r
       post r = do
-        mutexp <- p_AuichSoftc_sc_intr_lock sc
         mutexSpinExit mutexp
         return r
   f1 0 >>= f2 >>= f3 >>= post

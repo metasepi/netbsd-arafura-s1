@@ -794,34 +794,17 @@ auich_spdif_event(void *addr, bool flag)
 	sc->sc_spdif = flag;
 }
 
-extern int	auichIntr(void *, int);
+extern int	auichIntr(void *);
 static int
 auich_intr(void *v)
 {
 	struct auich_softc *sc;
-	int ret, gsts;
-#ifdef DIAGNOSTIC
-	int csts;
-#endif
 
 	sc = v;
 
 	if (!device_has_power(sc->sc_dev))
 		return (0);
-
-	mutex_spin_enter(&sc->sc_intr_lock);
-
-	ret = 0;
-#ifdef DIAGNOSTIC
-	csts = pci_conf_read(sc->sc_pc, sc->sc_pt, PCI_COMMAND_STATUS_REG);
-	if (csts & PCI_STATUS_MASTER_ABORT) {
-		printf("auich_intr: PCI master abort\n");
-	}
-#endif
-
-	gsts = bus_space_read_4(sc->iot, sc->aud_ioh,
-	    ICH_GSTS + sc->sc_modem_offset);
-	return auichIntr(sc, gsts); // Haskell code
+	return auichIntr(sc); // Haskell code
 }
 
 static int
