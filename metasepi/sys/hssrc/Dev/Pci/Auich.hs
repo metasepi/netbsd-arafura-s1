@@ -508,9 +508,31 @@ foreign export ccall "auichIntr"
 auichIntr :: Ptr AuichSoftc -> Int -> Int -> IO Int
 auichIntr sc gsts ret = do
   -- xxxxxxxxxxxxxx Not yet snatch all
-  mutexp <- p_AuichSoftc_sc_intr_lock sc
-  mutexSpinExit mutexp
-  return ret
+  codectype <- peek =<< p_AuichSoftc_sc_codectype sc
+  iot <- peek =<< p_AuichSoftc_iot sc
+  aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
+  modem_offset <- peek =<< p_AuichSoftc_sc_modem_offset sc
+  let f3, post :: Int -> IO Int
+      f3 r =
+        if codectype == e_AC97_CODEC_TYPE_AUDIO && gsts .&. e_ICH_MINT /= 0 then do
+          stsReg <- peek =<< p_AuichSoftc_sc_sts_reg sc
+          sts <- busSpaceRead2 iot aud_ioh $ e_ICH_MICI + fromIntegral stsReg
+          when (sts .&. e_ICH_FIFOE /= 0) $ do
+            printfS1 "%s: fifo overrun\n" =<< deviceXname =<< peek =<< p_AuichSoftc_sc_dev sc
+          when (sts .&. e_ICH_BCIS /= 0) $ do
+            auichIntrPipe sc (fromIntegral e_ICH_MICI) =<< p_AuichSoftc_mici sc
+          -- int ack
+          busSpaceWrite2 iot aud_ioh (e_ICH_MICI + fromIntegral stsReg)
+            (sts .&. (e_ICH_BCIS .|. e_ICH_FIFOE))
+          busSpaceWrite4 iot aud_ioh (e_ICH_GSTS + modem_offset) $ fromIntegral e_ICH_MINT
+          return $ r + 1
+        else
+          return r
+      post r = do
+        mutexp <- p_AuichSoftc_sc_intr_lock sc
+        mutexSpinExit mutexp
+        return r
+  f3 ret >>= post
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)
@@ -579,6 +601,10 @@ foreign import primitive "const.offsetof(struct auich_softc, sc_sample_shift)"
   offsetOf_AuichSoftc_sc_sample_shift :: Int
 foreign import primitive "const.offsetof(struct auich_softc, sc_cddmamap)"
   offsetOf_AuichSoftc_sc_cddmamap :: Int
+foreign import primitive "const.offsetof(struct auich_softc, sc_sts_reg)"
+  offsetOf_AuichSoftc_sc_sts_reg :: Int
+foreign import primitive "const.offsetof(struct auich_softc, mici)"
+  offsetOf_AuichSoftc_mici :: Int
 
 p_AuichSoftc_sc_intr_lock :: Ptr AuichSoftc -> IO (Ptr KmutexT)
 p_AuichSoftc_sc_intr_lock p = return $ plusPtr p offsetOf_AuichSoftc_sc_intr_lock
@@ -634,6 +660,10 @@ p_AuichSoftc_sc_sample_shift :: Ptr AuichSoftc -> IO (Ptr Int)
 p_AuichSoftc_sc_sample_shift p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_sample_shift
 p_AuichSoftc_sc_cddmamap :: Ptr AuichSoftc -> IO (Ptr BusDmamapT)
 p_AuichSoftc_sc_cddmamap p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_cddmamap
+p_AuichSoftc_sc_sts_reg :: Ptr AuichSoftc -> IO (Ptr Int)
+p_AuichSoftc_sc_sts_reg p = return $ plusPtr p $ offsetOf_AuichSoftc_sc_sts_reg
+p_AuichSoftc_mici :: Ptr AuichSoftc -> IO (Ptr AuichRing)
+p_AuichSoftc_mici p = return $ plusPtr p $ offsetOf_AuichSoftc_mici
 
 newtype {-# CTYPE "struct auich_ring" #-} AuichRing = AuichRing ()
 foreign import primitive "const.sizeof(struct auich_ring)"

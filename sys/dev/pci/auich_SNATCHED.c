@@ -876,28 +876,6 @@ auich_intr(void *v)
 			    ICH_GSTS + sc->sc_modem_offset, ICH_MIINT);
 		ret++;
 	}
-
-	if (sc->sc_codectype == AC97_CODEC_TYPE_AUDIO && gsts & ICH_MINT) {
-		int sts;
-
-		sts = bus_space_read_2(sc->iot, sc->aud_ioh,
-		    ICH_MICI + sc->sc_sts_reg);
-		DPRINTF(ICH_DEBUG_INTR,
-		    ("auich_intr: ists=0x%x\n", sts));
-
-		if (sts & ICH_FIFOE)
-			printf("%s: fifo overrun\n", device_xname(sc->sc_dev));
-
-		if (sts & ICH_BCIS)
-			auichIntrPipe(sc, ICH_MICI, &sc->mici);
-
-		/* int ack */
-		bus_space_write_2(sc->iot, sc->aud_ioh, ICH_MICI +
-		    sc->sc_sts_reg, sts & (ICH_BCIS | ICH_FIFOE));
-		bus_space_write_4(sc->iot, sc->aud_ioh,
-		    ICH_GSTS + sc->sc_modem_offset, ICH_MINT);
-		ret++;
-	}
 	return auichIntr(sc, gsts, ret); // Haskell code
 }
 
