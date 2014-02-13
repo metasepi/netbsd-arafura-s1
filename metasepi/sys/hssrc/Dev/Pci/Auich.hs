@@ -464,20 +464,43 @@ auichTriggerOutput sc start end blksize intr arg param =
       auichTriggerPipe sc e_ICH_PCMO pcmo
       return 0
 
--- INTR
+-- !!! INTR !!!
 foreign export ccall "auichIntrPipe"
-  auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> Int -> IO ()
-auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> Int -> IO ()
-auichIntrPipe sc pipe ring myQptr = do
-  -- xxx Not yet snatch all
-  let post :: Int -> IO ()
+  auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> IO ()
+auichIntrPipe :: Ptr AuichSoftc -> Int -> Ptr AuichRing -> IO ()
+auichIntrPipe sc pipe ring = do
+  blksize <- fmap fromIntegral $ peek =<< p_AuichRing_blksize ring
+  iot <- peek =<< p_AuichSoftc_iot sc
+  aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
+  nqptr <- busSpaceRead1 iot aud_ioh $ fromIntegral pipe + e_ICH_CIV
+  sampleShift <- peek =<< p_AuichSoftc_sc_sample_shift sc
+  ringP_p <- p_AuichRing_p ring
+  ringStart <- peek =<< p_AuichRing_start ring
+  ringEnd <- peek =<< p_AuichRing_end ring
+  ringIntr <- peek =<< p_AuichRing_intr ring
+  let while ::Int -> IO ()
+      while qptr | fromIntegral qptr == nqptr = post qptr
+                 | otherwise = do
+                   dmalist <- peek =<< p_AuichRing_dmalist ring
+                   let q = dmalist `plusPtr` (sizeOf_AuichDmalist * qptr)
+                   qBase_p <- p_AuichDmalist_base q
+                   p <- peek ringP_p
+                   poke qBase_p p
+                   qLen_p <- p_AuichDmalist_len q
+                   poke qLen_p $ shiftR blksize sampleShift .|. e_ICH_DMAF_IOC
+                   let p' = p + blksize
+                   poke ringP_p $ if p' >= ringEnd then ringStart else p'
+                   when (ringIntr /= nullFunPtr) $
+                     p_AuichRing_arg ring >>= peek >>= call_AuichRing_intr ringIntr
+                   while $ (qptr + 1) .&. fromIntegral e_ICH_LVI_MASK
+      post :: Int -> IO ()
       post qptr = do
         (flip poke) qptr =<< p_AuichRing_qptr ring
         iot <- peek =<< p_AuichSoftc_iot sc
         aud_ioh <- peek =<< p_AuichSoftc_aud_ioh sc
         busSpaceWrite1 iot aud_ioh (fromIntegral pipe + e_ICH_LVI) $
           (fromIntegral qptr - 1) .&. e_ICH_LVI_MASK
-  post myQptr
+  while =<< peek =<< p_AuichRing_qptr ring
 
 foreign import ccall "hs_extern.h get_auich_spdif_formats"
   c_get_auich_spdif_formats :: IO (Ptr AudioFormat)

@@ -22,3 +22,4 @@ foreign import primitive "const.ICH_FEIE" e_ICH_FEIE :: Word8
 foreign import primitive "const.ICH_RPBM" e_ICH_RPBM :: Word8
 foreign import primitive "const.ICH_DMAF_IOC" e_ICH_DMAF_IOC :: Word32
 foreign import primitive "const.ICH_BDBAR" e_ICH_BDBAR :: Int
+foreign import primitive "const.ICH_CIV" e_ICH_CIV :: BusSizeT

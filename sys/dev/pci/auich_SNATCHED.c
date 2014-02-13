@@ -157,7 +157,6 @@ static int	auich_intr(void *);
 CFATTACH_DECL2_NEW(auich, sizeof(struct auich_softc),
     auich_match, auich_attach, auich_detach, NULL, NULL, auich_childdet);
 
-static void	auich_intr_pipe(struct auich_softc *, int, struct auich_ring *);
 static int	auich_trigger_input(void *, void *, void *, int,
 		    void (*)(void *), void *, const audio_params_t *);
 
@@ -168,6 +167,8 @@ static int	auich_sysctl_verify(SYSCTLFN_ARGS);
 static void	auich_finish_attach(device_t);
 static void	auich_calibrate(struct auich_softc *);
 static void	auich_clear_cas(struct auich_softc *);
+
+extern void	auichIntrPipe(struct auich_softc *, int, struct auich_ring *);
 
 static int	auich_attach_codec(void *, struct ac97_codec_if *);
 static int	auich_read_codec(void *, uint8_t, uint16_t *);
@@ -834,7 +835,7 @@ auich_intr(void *v)
 			printf("%s: fifo underrun\n", device_xname(sc->sc_dev));
 
 		if (sts & ICH_BCIS)
-			auich_intr_pipe(sc, ICH_PCMO, &sc->pcmo);
+			auichIntrPipe(sc, ICH_PCMO, &sc->pcmo);
 
 		/* int ack */
 		bus_space_write_2(sc->iot, sc->aud_ioh, ICH_PCMO +
@@ -861,7 +862,7 @@ auich_intr(void *v)
 			printf("%s: fifo overrun\n", device_xname(sc->sc_dev));
 
 		if (sts & ICH_BCIS)
-			auich_intr_pipe(sc, ICH_PCMI, &sc->pcmi);
+			auichIntrPipe(sc, ICH_PCMI, &sc->pcmi);
 
 		/* int ack */
 		bus_space_write_2(sc->iot, sc->aud_ioh, ICH_PCMI +
@@ -887,7 +888,7 @@ auich_intr(void *v)
 			printf("%s: fifo overrun\n", device_xname(sc->sc_dev));
 
 		if (sts & ICH_BCIS)
-			auich_intr_pipe(sc, ICH_MICI, &sc->mici);
+			auichIntrPipe(sc, ICH_MICI, &sc->mici);
 
 		/* int ack */
 		bus_space_write_2(sc->iot, sc->aud_ioh, ICH_MICI +
@@ -910,37 +911,6 @@ auich_intr(void *v)
 	mutex_spin_exit(&sc->sc_intr_lock);
 
 	return ret;
-}
-
-extern void	auichIntrPipe(struct auich_softc *, int, struct auich_ring *, int);
-static void
-auich_intr_pipe(struct auich_softc *sc, int pipe, struct auich_ring *ring)
-{
-	int blksize, qptr, nqptr;
-	struct auich_dmalist *q;
-
-	blksize = ring->blksize;
-	qptr = ring->qptr;
-	nqptr = bus_space_read_1(sc->iot, sc->aud_ioh, pipe + ICH_CIV);
-
-	while (qptr != nqptr) {
-		q = &ring->dmalist[qptr];
-		q->base = ring->p;
-		q->len = (blksize >> sc->sc_sample_shift) | ICH_DMAF_IOC;
-
-		DPRINTF(ICH_DEBUG_INTR,
-		    ("auich_intr: %p, %p = %x @ 0x%x\n",
-		    &ring->dmalist[qptr], q, q->len, q->base));
-
-		ring->p += blksize;
-		if (ring->p >= ring->end)
-			ring->p = ring->start;
-
-		qptr = (qptr + 1) & ICH_LVI_MASK;
-		if (ring->intr)
-			ring->intr(ring->arg);
-	}
-	auichIntrPipe(sc, pipe, ring, qptr); // xxx Haskell code
 }
 
 static int
