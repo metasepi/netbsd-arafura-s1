@@ -1,0 +1,42 @@
+# Makefile for metasepi system.
+ARCH       = evbarm
+KERNCONF   = RPI
+CURDIR     = $(shell pwd)
+TOOLDIR    = obj/tooldir.${ARCH}
+RELEASEDIR = obj/releasedir.${ARCH}
+DESTDIR    = obj/destdir.${ARCH}
+NUMCPU     = $(shell cat /proc/cpuinfo | grep -c "^processor")
+BUILDSH    = sh build.sh -U -u -N 0 -j ${NUMCPU} ${MKVARS}
+NBMAKE     = ${CURDIR}/${TOOLDIR}/bin/nbmake-${ARCH} -j ${NUMCPU}
+NBMAKEFS   = ${CURDIR}/${TOOLDIR}/bin/nbmakefs
+OBJCOPY    = ${CURDIR}/${TOOLDIR}/bin/arm--netbsdelf-objcopy
+LOGFILTER  = -e "===>" -e "^nbgmake" -B 5 -e "Error code"
+#LOGFILTER  = ""
+
+HSBUILD = metasepi/sys/hsbuild
+HSSRC   = metasepi/sys/hssrc
+HSCODE  = $(wildcard $(HSSRC)/*.hs $(HSSRC)/*/*.hs $(HSSRC)/*/*/*.hs $(HSSRC)/*/*/*/*.hs)
+
+### Build kernel
+all: obj/build_tools.${ARCH}.stamp ${HSBUILD}/hsmain.c
+	${BUILDSH} -T ${TOOLDIR} -m ${ARCH} kernel=${KERNCONF}
+	cd sys/arch/${ARCH}/compile/obj/${KERNCONF} && ${OBJCOPY} -O srec netbsd netbsd.srec
+	cd sys/arch/${ARCH}/compile/obj/${KERNCONF} && ${OBJCOPY} -I srec -O binary netbsd.srec netbsd.bin
+
+${HSBUILD}/hsmain.c: ${HSCODE}
+	ajhc -fffi -fcustomthread --include=$(HSSRC) --tdir=$(HSBUILD) -C -o $@ $(HSSRC)/Main.hs
+	rm -f $(HSBUILD)/sys/queue.h # Use queue.h at NetBSD side
+
+### Setup NetBSD environment
+obj/build_tools.${ARCH}.stamp:
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} tools | grep ${LOGFILTER}
+	touch obj/build_tools.${ARCH}.stamp
+
+clean:
+	rm -rf sys/arch/${ARCH}/compile/obj/${KERNCONF} ${HSBUILD} *~
+
+distclean: clean
+	rm -f ${DESTDIR} *~
+	env MKCROSSGDB=yes ${BUILDSH} -T ${TOOLDIR} -m ${ARCH} cleandir
+
+.PHONY: clean distclean
