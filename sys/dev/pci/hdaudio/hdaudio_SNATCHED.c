@@ -959,6 +959,7 @@ hdaudio_childdet(struct hdaudio_softc *sc, device_t child)
 	}
 }
 
+extern int	hdaudioIntr(struct hdaudio_softc *, uint32_t);
 int
 hdaudio_intr(struct hdaudio_softc *sc)
 {
@@ -982,21 +983,7 @@ hdaudio_intr(struct hdaudio_softc *sc)
 			hda_write1(sc, HDAUDIO_MMIO_RIRBSTS, rirbsts);
 		hda_write4(sc, HDAUDIO_MMIO_INTSTS, HDAUDIO_INTSTS_CIS);
 	}
-	if (intsts & HDAUDIO_INTSTS_SIS_MASK) {
-		mutex_enter(&sc->sc_stream_mtx);
-		stream_mask = intsts & sc->sc_stream_mask;
-		while (streamid < HDAUDIO_MAX_STREAMS && stream_mask != 0) {
-			st = &sc->sc_stream[streamid++];
-			if ((stream_mask & 1) != 0 && st->st_intr) {
-				st->st_intr(st);
-			}
-			stream_mask >>= 1;
-		}
-		mutex_exit(&sc->sc_stream_mtx);
-		hda_write4(sc, HDAUDIO_MMIO_INTSTS, HDAUDIO_INTSTS_SIS_MASK);
-	}
-
-	return 1;
+	return hdaudioIntr(sc, intsts);
 }
 
 struct hdaudio_stream *
