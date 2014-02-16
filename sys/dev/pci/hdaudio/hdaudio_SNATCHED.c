@@ -264,7 +264,7 @@ hdaudio_rirb_unsol(struct hdaudio_softc *sc, struct rirb_entry *entry)
 	}
 }
 
-static uint32_t
+uint32_t
 hdaudio_rirb_dequeue(struct hdaudio_softc *sc, bool unsol)
 {
 	uint16_t rirbwp;
@@ -957,33 +957,6 @@ hdaudio_childdet(struct hdaudio_softc *sc, device_t child)
 		if (fg->fg_device == child)
 			fg->fg_device = NULL;
 	}
-}
-
-extern int	hdaudioIntr(struct hdaudio_softc *, uint32_t);
-int
-hdaudio_intr(struct hdaudio_softc *sc)
-{
-	struct hdaudio_stream *st;
-	uint32_t intsts, stream_mask;
-	int streamid = 0;
-	uint8_t rirbsts;
-
-	intsts = hda_read4(sc, HDAUDIO_MMIO_INTSTS);
-	if (!(intsts & HDAUDIO_INTSTS_GIS))
-		return 0;
-
-	if (intsts & HDAUDIO_INTSTS_CIS) {
-		rirbsts = hda_read1(sc, HDAUDIO_MMIO_RIRBSTS);
-		if (rirbsts & HDAUDIO_RIRBSTS_RINTFL) {
-			mutex_enter(&sc->sc_corb_mtx);
-			hdaudio_rirb_dequeue(sc, true);
-			mutex_exit(&sc->sc_corb_mtx);
-		}
-		if (rirbsts & (HDAUDIO_RIRBSTS_RIRBOIS|HDAUDIO_RIRBSTS_RINTFL))
-			hda_write1(sc, HDAUDIO_MMIO_RIRBSTS, rirbsts);
-		hda_write4(sc, HDAUDIO_MMIO_INTSTS, HDAUDIO_INTSTS_CIS);
-	}
-	return hdaudioIntr(sc, intsts);
 }
 
 struct hdaudio_stream *

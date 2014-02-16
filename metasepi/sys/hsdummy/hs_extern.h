@@ -11,3 +11,5 @@
 
 int	auich_set_rate(struct auich_softc *, int, u_long);
 int	auich_write_codec(void *, uint8_t, uint16_t);
+
+uint32_t	hdaudio_rirb_dequeue(struct hdaudio_softc *, bool);

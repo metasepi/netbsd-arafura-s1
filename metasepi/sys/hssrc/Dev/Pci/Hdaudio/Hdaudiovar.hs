@@ -6,11 +6,30 @@ import Foreign.Storable
 import Kern.KernMutex
 import Sys.Bus
 
+hdaRead1 :: Ptr HdaudioSoftc -> BusSizeT -> IO Word8
+hdaRead1 sc off = do
+  memt <- peek =<< p_HdaudioSoftc_sc_memt sc
+  memh <- peek =<< p_HdaudioSoftc_sc_memh sc
+  busSpaceRead1 memt memh off
+
+hdaWrite1 :: Ptr HdaudioSoftc -> BusSizeT -> Word8 -> IO ()
+hdaWrite1 sc off val = do
+  memt <- peek =<< p_HdaudioSoftc_sc_memt sc
+  memh <- peek =<< p_HdaudioSoftc_sc_memh sc
+  busSpaceWrite1 memt memh off val
+
+hdaRead4 :: Ptr HdaudioSoftc -> BusSizeT -> IO Word32
+hdaRead4 sc off = do
+  memt <- peek =<< p_HdaudioSoftc_sc_memt sc
+  memh <- peek =<< p_HdaudioSoftc_sc_memh sc
+  busSpaceRead4 memt memh off
+
 hdaWrite4 :: Ptr HdaudioSoftc -> BusSizeT -> Word32 -> IO ()
 hdaWrite4 sc off val = do
   memt <- peek =<< p_HdaudioSoftc_sc_memt sc
   memh <- peek =<< p_HdaudioSoftc_sc_memh sc
   busSpaceWrite4 memt memh off val
+
 
 foreign import primitive "const.HDAUDIO_MAX_STREAMS" e_HDAUDIO_MAX_STREAMS :: Int
 
@@ -40,6 +59,10 @@ foreign import primitive "const.offsetof(struct hdaudio_softc, sc_stream)"
   offsetOf_HdaudioSoftc_sc_stream :: Int
 p_HdaudioSoftc_sc_stream :: Ptr HdaudioSoftc -> Int -> IO (Ptr HdaudioStream)
 p_HdaudioSoftc_sc_stream p i = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_stream + i * sizeOf_HdaudioStream
+foreign import primitive "const.offsetof(struct hdaudio_softc, sc_corb_mtx)"
+  offsetOf_HdaudioSoftc_sc_corb_mtx :: Int
+p_HdaudioSoftc_sc_corb_mtx :: Ptr HdaudioSoftc -> IO (Ptr KmutexT)
+p_HdaudioSoftc_sc_corb_mtx p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_corb_mtx
 
 newtype {-# CTYPE "struct hdaudio_stream" #-} HdaudioStream = HdaudioStream ()
 foreign import primitive "const.sizeof(struct hdaudio_stream)"

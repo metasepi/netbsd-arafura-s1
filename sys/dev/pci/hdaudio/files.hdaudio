@@ -16,4 +16,4 @@ file	dev/pci/hdaudio/hdafg_dd.c	hdafg
 
 #  hdaudio@pci
 attach	hdaudio at pci with hdaudio_pci
-file	dev/pci/hdaudio/hdaudio_pci.c	hdaudio_pci
+file	dev/pci/hdaudio/hdaudio_pci_SNATCHED.c	hdaudio_pci
