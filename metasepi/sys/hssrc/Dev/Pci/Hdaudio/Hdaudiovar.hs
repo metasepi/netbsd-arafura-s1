@@ -1,10 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module Dev.Pci.Hdaudio.Hdaudiovar where
 import Data.Word
+import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import Kern.KernMutex
+import Kern.SubrPrf
 import Sys.Bus
+import Sys.Device
+import Arch.I386.Include.Cpu
 
 hdaRead1 :: Ptr HdaudioSoftc -> BusSizeT -> IO Word8
 hdaRead1 sc off = do
@@ -18,6 +22,12 @@ hdaWrite1 sc off val = do
   memh <- peek =<< p_HdaudioSoftc_sc_memh sc
   busSpaceWrite1 memt memh off val
 
+hdaRead2 :: Ptr HdaudioSoftc -> BusSizeT -> IO Word16
+hdaRead2 sc off = do
+  memt <- peek =<< p_HdaudioSoftc_sc_memt sc
+  memh <- peek =<< p_HdaudioSoftc_sc_memh sc
+  busSpaceRead2 memt memh off
+
 hdaRead4 :: Ptr HdaudioSoftc -> BusSizeT -> IO Word32
 hdaRead4 sc off = do
   memt <- peek =<< p_HdaudioSoftc_sc_memt sc
@@ -30,6 +40,16 @@ hdaWrite4 sc off val = do
   memh <- peek =<< p_HdaudioSoftc_sc_memh sc
   busSpaceWrite4 memt memh off val
 
+hdaError0 :: Ptr HdaudioSoftc -> String -> IO ()
+hdaError0 sc s = do
+  d <- peek =<< p_HdaudioSoftc_sc_dev sc
+  aprintErrorDev0 d s
+
+hdaDelay :: CUInt -> IO ()
+hdaDelay = delay
+
+f_DMA_KERNADDR :: Ptr HdaudioDma -> IO (Ptr ())
+f_DMA_KERNADDR dma = peek =<< p_HdaudioDma_dma_addr dma
 
 foreign import primitive "const.HDAUDIO_MAX_STREAMS" e_HDAUDIO_MAX_STREAMS :: Int
 
@@ -63,6 +83,22 @@ foreign import primitive "const.offsetof(struct hdaudio_softc, sc_corb_mtx)"
   offsetOf_HdaudioSoftc_sc_corb_mtx :: Int
 p_HdaudioSoftc_sc_corb_mtx :: Ptr HdaudioSoftc -> IO (Ptr KmutexT)
 p_HdaudioSoftc_sc_corb_mtx p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_corb_mtx
+foreign import primitive "const.offsetof(struct hdaudio_softc, sc_rirbrp)"
+  offsetOf_HdaudioSoftc_sc_rirbrp :: Int
+p_HdaudioSoftc_sc_rirbrp :: Ptr HdaudioSoftc -> IO (Ptr Word16)
+p_HdaudioSoftc_sc_rirbrp p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_rirbrp
+foreign import primitive "const.offsetof(struct hdaudio_softc, sc_dev)"
+  offsetOf_HdaudioSoftc_sc_dev :: Int
+p_HdaudioSoftc_sc_dev :: Ptr HdaudioSoftc -> IO (Ptr DeviceT)
+p_HdaudioSoftc_sc_dev p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_dev
+foreign import primitive "const.offsetof(struct hdaudio_softc, sc_rirb)"
+  offsetOf_HdaudioSoftc_sc_rirb :: Int
+p_HdaudioSoftc_sc_rirb :: Ptr HdaudioSoftc -> IO (Ptr HdaudioDma)
+p_HdaudioSoftc_sc_rirb p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_rirb
+foreign import primitive "const.offsetof(struct hdaudio_softc, sc_dmat)"
+  offsetOf_HdaudioSoftc_sc_dmat :: Int
+p_HdaudioSoftc_sc_dmat :: Ptr HdaudioSoftc -> IO (Ptr BusDmaTagT)
+p_HdaudioSoftc_sc_dmat p = return $ plusPtr p $ offsetOf_HdaudioSoftc_sc_dmat
 
 newtype {-# CTYPE "struct hdaudio_stream" #-} HdaudioStream = HdaudioStream ()
 foreign import primitive "const.sizeof(struct hdaudio_stream)"
@@ -73,3 +109,19 @@ p_HdaudioStream_st_intr :: Ptr HdaudioStream -> IO (Ptr (FunPtr ((Ptr HdaudioStr
 p_HdaudioStream_st_intr p = return $ plusPtr p $ offsetOf_HdaudioStream_st_intr
 foreign import ccall "dynamic" call_HdaudioStream_st_intr ::
   FunPtr ((Ptr HdaudioStream) -> IO Int) -> (Ptr HdaudioStream) -> IO Int
+
+newtype {-# CTYPE "struct hdaudio_dma" #-} HdaudioDma = HdaudioDma ()
+foreign import primitive "const.sizeof(struct hdaudio_dma)"
+  sizeOf_HdaudioDma :: Int
+foreign import primitive "const.offsetof(struct hdaudio_dma, dma_size)"
+  offsetOf_HdaudioDma_dma_size :: Int
+p_HdaudioDma_dma_size :: Ptr HdaudioDma -> IO (Ptr BusSizeT)
+p_HdaudioDma_dma_size p = return $ plusPtr p $ offsetOf_HdaudioDma_dma_size
+foreign import primitive "const.offsetof(struct hdaudio_dma, dma_map)"
+  offsetOf_HdaudioDma_dma_map :: Int
+p_HdaudioDma_dma_map :: Ptr HdaudioDma -> IO (Ptr BusDmamapT)
+p_HdaudioDma_dma_map p = return $ plusPtr p $ offsetOf_HdaudioDma_dma_map
+foreign import primitive "const.offsetof(struct hdaudio_dma, dma_addr)"
+  offsetOf_HdaudioDma_dma_addr :: Int
+p_HdaudioDma_dma_addr :: Ptr HdaudioDma -> IO (Ptr (Ptr ()))
+p_HdaudioDma_dma_addr p = return $ plusPtr p $ offsetOf_HdaudioDma_dma_addr

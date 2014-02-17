@@ -41,17 +41,11 @@ __KERNEL_RCSID(0, "$NetBSD: hdaudio.c,v 1.18 2011/11/24 03:35:59 mrg Exp $");
 #include <sys/kmem.h>
 #include <sys/module.h>
 
-#include "hdaudiovar.h"
+#include "hdaudiovar_SNATCHED.h"
 #include "hdaudioreg.h"
 #include "hdaudioio.h"
 
 /* #define	HDAUDIO_DEBUG */
-
-#define	HDAUDIO_RESET_TIMEOUT	5000
-#define HDAUDIO_CORB_TIMEOUT	1000
-#define	HDAUDIO_RIRB_TIMEOUT	5000
-
-#define	HDAUDIO_CODEC_DELAY	1000	/* spec calls for 250 */
 
 dev_type_open(hdaudioopen);
 dev_type_close(hdaudioclose);
@@ -239,7 +233,7 @@ hdaudio_corb_enqueue(struct hdaudio_softc *sc, int addr, int nid,
 	hda_write2(sc, HDAUDIO_MMIO_CORBWP, wp);
 }
 
-static void
+void
 hdaudio_rirb_unsol(struct hdaudio_softc *sc, struct rirb_entry *entry)
 {
 	struct hdaudio_codec *co;
@@ -265,55 +259,6 @@ hdaudio_rirb_unsol(struct hdaudio_softc *sc, struct rirb_entry *entry)
 }
 
 uint32_t
-hdaudio_rirb_dequeue(struct hdaudio_softc *sc, bool unsol)
-{
-	uint16_t rirbwp;
-	uint64_t *rirb = DMA_KERNADDR(&sc->sc_rirb);
-	struct rirb_entry entry;
-	int retry;
-
-	for (;;) {
-		retry = HDAUDIO_RIRB_TIMEOUT;
-
-		rirbwp = hda_read2(sc, HDAUDIO_MMIO_RIRBWP);
-		while (--retry > 0 && (rirbwp & 0xff) == sc->sc_rirbrp) {
-			if (unsol) {
-				/* don't wait for more unsol events */
-				hda_trace(sc, "unsol: rirb empty\n");
-				return 0xffffffff;
-			}
-			hda_delay(10);
-			rirbwp = hda_read2(sc, HDAUDIO_MMIO_RIRBWP);
-		}
-		if (retry == 0) {
-			hda_error(sc, "RIRB timeout\n");
-			return 0xffffffff;
-		}
-
-		sc->sc_rirbrp++;
-		if (sc->sc_rirbrp >= (sc->sc_rirb.dma_size / sizeof(*rirb)))
-			sc->sc_rirbrp = 0;
-
-		bus_dmamap_sync(sc->sc_dmat, sc->sc_rirb.dma_map, 0,
-		    sc->sc_rirb.dma_size, BUS_DMASYNC_POSTREAD);
-		entry = *(struct rirb_entry *)&rirb[sc->sc_rirbrp];
-		bus_dmamap_sync(sc->sc_dmat, sc->sc_rirb.dma_map, 0,
-		    sc->sc_rirb.dma_size, BUS_DMASYNC_PREREAD);
-
-		hda_trace(sc, "%s: response %08X %08X\n",
-		    unsol ? "unsol" : "cmd  ",
-		    entry.resp, entry.resp_ex);
-
-		if (RIRB_UNSOL(&entry)) {
-			hdaudio_rirb_unsol(sc, &entry);
-			continue;
-		}
-
-		return entry.resp;
-	}
-}
-
-uint32_t
 hdaudio_command(struct hdaudio_codec *co, int nid, uint32_t control,
     uint32_t param)
 {
@@ -324,7 +269,7 @@ hdaudio_command(struct hdaudio_codec *co, int nid, uint32_t control,
 	hda_trace(sc, "cmd  : request %08X %08X (%02X)\n",
 	    control, param, nid);
 	hdaudio_corb_enqueue(sc, co->co_addr, nid, control, param);
-	result = hdaudio_rirb_dequeue(sc, false);
+	result = hdaudioRirbDequeue(sc, false);
 	mutex_exit(&sc->sc_corb_mtx);
 
 	return result;

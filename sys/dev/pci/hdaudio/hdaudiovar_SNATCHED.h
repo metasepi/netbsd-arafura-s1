@@ -38,6 +38,12 @@
 
 #define	HDAUDIO_MAX_CODECS	15
 
+#define	HDAUDIO_RESET_TIMEOUT	5000
+#define	HDAUDIO_CORB_TIMEOUT	1000
+#define	HDAUDIO_RIRB_TIMEOUT	5000
+
+#define	HDAUDIO_CODEC_DELAY	1000	/* spec calls for 250 */
+
 #define	hda_read1(sc, off)		\
 	bus_space_read_1((sc)->sc_memt, (sc)->sc_memh, (off))
 #define	hda_read2(sc, off)		\
@@ -176,7 +182,6 @@ int	hdaudio_rescan(struct hdaudio_softc *, const char *, const int *);
 void	hdaudio_childdet(struct hdaudio_softc *, device_t);
 
 uint32_t hdaudio_command(struct hdaudio_codec *, int, uint32_t, uint32_t);
-int	hdaudioIntr(struct hdaudio_softc *);
 
 int	hdaudio_dma_alloc(struct hdaudio_softc *, struct hdaudio_dma *, int);
 void	hdaudio_dma_free(struct hdaudio_softc *, struct hdaudio_dma *);

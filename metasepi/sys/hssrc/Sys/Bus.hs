@@ -8,6 +8,8 @@ import Arch.I386.Include.BusDefs
 import Arch.I386.I386.BusDma
 
 foreign import primitive "const.BUS_DMA_WAITOK" e_BUS_DMA_WAITOK :: Int
+foreign import primitive "const.BUS_DMASYNC_POSTREAD" e_BUS_DMASYNC_POSTREAD :: Int
+foreign import primitive "const.BUS_DMASYNC_PREREAD" e_BUS_DMASYNC_PREREAD :: Int
 
 busSpaceRead4 = c_bus_space_read_4
 busSpaceWrite4 = c_bus_space_write_4
@@ -57,3 +59,7 @@ foreign import ccall "hs_extern.h bus_dmamap_load" c_bus_dmamap_load ::
   BusDmaTagT -> BusDmamapT -> Ptr () -> BusSizeT -> Ptr Proc -> Int -> IO Int
 foreign import ccall "hs_extern.h bus_dmamap_unload" c_bus_dmamap_unload ::
   BusDmaTagT -> BusDmamapT -> IO ()
+
+busDmamapSync = c_bus_dmamap_sync
+foreign import ccall "hs_extern.h bus_dmamap_sync" c_bus_dmamap_sync ::
+  BusDmaTagT -> BusDmamapT -> BusAddrT -> BusSizeT -> Int -> IO ()

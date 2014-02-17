@@ -209,6 +209,7 @@ hdaudio_pci_detach(device_t self, int flags)
 	return 0;
 }
 
+extern int	hdaudioIntr(struct hdaudio_softc *);
 static int
 hdaudio_pci_intr(void *opaque)
 {
