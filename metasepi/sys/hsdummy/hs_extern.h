@@ -11,5 +11,3 @@
 
 int	auich_set_rate(struct auich_softc *, int, u_long);
 int	auich_write_codec(void *, uint8_t, uint16_t);
-
-void	hdaudio_rirb_unsol(struct hdaudio_softc *, struct rirb_entry *);

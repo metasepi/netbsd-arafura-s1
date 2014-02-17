@@ -36,5 +36,8 @@ instance Storable RirbEntry where
     return $ RirbEntry { rirbEntry_resp = resp
                        , rirbEntry_resp_ex = resp_ex }
 
+f_RIRB_CODEC_ID :: RirbEntry -> Word8
+f_RIRB_CODEC_ID entry = fromIntegral $ rirbEntry_resp_ex entry .&. 0xf
+
 f_RIRB_UNSOL :: RirbEntry -> Bool
 f_RIRB_UNSOL entry = rirbEntry_resp_ex entry .&. 0x10 /= 0

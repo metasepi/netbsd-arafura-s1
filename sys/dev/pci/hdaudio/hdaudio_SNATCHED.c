@@ -233,31 +233,6 @@ hdaudio_corb_enqueue(struct hdaudio_softc *sc, int addr, int nid,
 	hda_write2(sc, HDAUDIO_MMIO_CORBWP, wp);
 }
 
-void
-hdaudio_rirb_unsol(struct hdaudio_softc *sc, struct rirb_entry *entry)
-{
-	struct hdaudio_codec *co;
-	struct hdaudio_function_group *fg;
-	uint8_t codecid = RIRB_CODEC_ID(entry);
-	unsigned int i;
-
-	if (codecid >= HDAUDIO_MAX_CODECS) {
-		hda_error(sc, "unsol: codec id 0x%02x out of range\n", codecid);
-		return;
-	}
-	co = &sc->sc_codec[codecid];
-	if (sc->sc_codec[codecid].co_valid == false) {
-		hda_error(sc, "unsol: codec id 0x%02x not valid\n", codecid);
-		return;
-	}
-
-	for (i = 0; i < co->co_nfg; i++) {
-		fg = &co->co_fg[i];
-		if (fg->fg_device && fg->fg_unsol)
-			fg->fg_unsol(fg->fg_device, entry->resp);
-	}
-}
-
 uint32_t
 hdaudio_command(struct hdaudio_codec *co, int nid, uint32_t control,
     uint32_t param)

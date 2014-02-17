@@ -3,6 +3,7 @@ module Dev.Pci.Hdaudio.Hdaudio () where
 import Control.Monad
 import Data.Word
 import Data.Bits
+import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc
@@ -86,10 +87,28 @@ hdaudioRirbDequeue' sc unsol = do
   entry <- peekByteOff (castPtr rirb) (sizeOf_RirbEntry * fromIntegral scRirbrp)
   busDmamapSync dmat dmaMap 0 dmaSize e_BUS_DMASYNC_PREREAD
   if f_RIRB_UNSOL entry then do
-    let goUnsol p = poke p entry >> c_hdaudio_rirb_unsol sc p
-    alloca goUnsol
+    hdaudioRirbUnsol sc entry
     hdaudioRirbDequeue sc unsol
   else return $ rirbEntry_resp entry
 
-foreign import ccall "hs_extern.h hdaudio_rirb_unsol"
-  c_hdaudio_rirb_unsol :: Ptr HdaudioSoftc -> Ptr RirbEntry -> IO ()
+hdaudioRirbUnsol :: Ptr HdaudioSoftc -> RirbEntry -> IO ()
+hdaudioRirbUnsol sc entry = do
+  let codecid = f_RIRB_CODEC_ID entry
+  if codecid >= e_HDAUDIO_MAX_CODECS then
+    hdaErrorI1 sc "unsol: codec id 0x%02x out of range\n" (fromIntegral codecid)
+  else do
+    co <- p_HdaudioSoftc_sc_codec sc (fromIntegral codecid)
+    coValid <- peek =<< p_HdaudioCodec_co_valid co
+    if not coValid then
+      hdaErrorI1 sc "unsol: codec id 0x%02x not valid\n" (fromIntegral codecid)
+    else p_HdaudioCodec_co_nfg co >>= peek >>= while co 0
+  where
+    while :: Ptr HdaudioCodec -> CUInt -> CUInt -> IO ()
+    while co i coNfg | i < coNfg = do
+                       fgh <- peek =<< p_HdaudioCodec_co_fg co
+                       let fg = fgh `plusPtr` (sizeOf_HdaudioFunctionGroup * fromIntegral i)
+                       fgDevice <- peek =<< p_HdaudioFunctionGroup_fg_device fg
+                       fgUnsol <- peek =<< p_HdaudioFunctionGroup_fg_unsol fg
+                       when (fgDevice /= nullPtr && fgUnsol /= nullFunPtr) $
+                         void $ call_HdaudioFunctionGroup_fg_unsol fgUnsol fgDevice (fromIntegral $ rirbEntry_resp entry)
+                     | otherwise = return ()
