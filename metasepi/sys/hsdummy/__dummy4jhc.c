@@ -179,8 +179,8 @@ void jhc_profile_show(void);
 void
 jhc_profile_show(void)
 {
-	db_printf("_JHC_JGC_NAIVEGC=%d _JHC_JGC_MEGABLOCK_SHIFT=%d _JHC_JGC_BLOCK_SHIFT=%d\n",
-	    _JHC_JGC_NAIVEGC, _JHC_JGC_MEGABLOCK_SHIFT, _JHC_JGC_BLOCK_SHIFT);
+	db_printf("_JHC_JGC_MEGABLOCK_SHIFT=%d _JHC_JGC_BLOCK_SHIFT=%d\n",
+	    _JHC_JGC_MEGABLOCK_SHIFT, _JHC_JGC_BLOCK_SHIFT);
 	db_printf("gc_alloc_time = {count=%llx t_total=%llx t_max=%llx}\n",
 	    gc_alloc_time.count, gc_alloc_time.t_total, gc_alloc_time.t_max);
 	db_printf("gc_gc_time = {count=%llx t_total=%llx t_max=%llx}\n",
