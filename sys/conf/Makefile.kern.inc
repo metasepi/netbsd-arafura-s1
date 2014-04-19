@@ -161,7 +161,7 @@ NORMAL_S?=	@${_MKSHMSG} "compile  ${.CURDIR:T}/${.TARGET}" && \
 ##
 OPT_HASKELL=	%HASKELL%
 .if !empty(OPT_HASKELL)
-CPPFLAGS+=	-DNDEBUG -D_JHC_GC=_JHC_GC_JGC -D_JHC_CONC=_JHC_CONC_CUSTOM -D_JHC_USE_OWN_STDIO -D_JHC_STANDALONE=0 -D_JHC_PROFILE_GCONLY=1 -D_JHC_JGC_NAIVEGC
+CPPFLAGS+=	-DNDEBUG -D_JHC_GC=_JHC_GC_JGC -D_JHC_CONC=_JHC_CONC_CUSTOM -D_JHC_USE_OWN_STDIO -D_JHC_STANDALONE=0 -D_JHC_JGC_NAIVEGC
 CFLAGS+=	-falign-functions=4 -fno-strict-aliasing # xxx
 INCLUDES+=	-I${S}/../metasepi/sys/hsbuild/cbits -I${S}/../metasepi/sys/hsbuild -I${S}/../metasepi/sys/hsdummy
 .endif
